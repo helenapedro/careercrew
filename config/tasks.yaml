@@ -1,11 +1,14 @@
-# CareerCrew tasks (Day 2). Descriptions and expected outputs only.
+# CareerCrew tasks. Descriptions and expected outputs only.
 # Agent assignment, context wiring, and Pydantic output types are done
 # explicitly in careercrew/crew.py (see comments there).
 
 extract_profile:
   description: >
-    Read the resume at {resume_path} using the read_resume tool and produce a
-    structured candidate profile. Extract only facts present in the document.
+    Produce a structured candidate profile from the resume. If the input
+    provides a file path at {resume_path}, read it with the read_resume tool.
+    If the resume arrives as pasted text at {resume_text}, use that text
+    directly (no file read). Extract only facts present in the document. Never
+    infer employers, titles, or dates that are not written.
   expected_output: >
     A CandidateProfile JSON object: summary, skills, work experience (company,
     title, dates, achievements), and education. Empty fields where the resume
@@ -13,9 +16,10 @@ extract_profile:
 
 analyze_jd:
   description: >
-    Read the job description from {jd_source} using the fetch_job_description
-    tool and extract required skills, keywords, seniority signals, and
-    nice-to-have items, quoting the source text for each.
+    Read the job description at {jd_source} using the fetch_job_description
+    tool (accepts pasted text or an https URL) and extract required skills,
+    keywords, seniority signals, and nice-to-have items, quoting the source text
+    for each.
   expected_output: >
     A JobRequirements JSON object: required_skills, keywords, seniority, and
     nice_to_have lists.
@@ -40,3 +44,16 @@ write_feedback:
   expected_output: >
     A FeedbackDraft JSON object: rewritten_bullets (text plus cited_fact),
     talking_points, and do_not_claim.
+
+assemble_package:
+  description: >
+    Assemble the final application package. For EACH employer screening question
+    listed in {screening_questions}, call the query_answer_bank tool and use only
+    the verified answer it returns (source must be answer_bank). If the answer
+    bank has no verified entry, do NOT guess: add the question to do_not_claim.
+    Then write a short package_summary that stays consistent with the feedback
+    draft. Carry forward the feedback draft's do_not_claim items.
+  expected_output: >
+    An ApplicationPackage JSON object: role_title, company, screening_answers
+    (question, answer, source=answer_bank, verified), package_summary, and
+    do_not_claim.

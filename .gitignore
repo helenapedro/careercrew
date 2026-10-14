@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 uploads/
 .venv/
+*.db
+.pytest_cache/
+.ruff_cache/
