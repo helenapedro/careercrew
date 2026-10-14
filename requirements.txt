@@ -1,0 +1,21 @@
+# CareerCrew dependencies. Install with: pip install -r requirements.txt
+# Needs OPENAI_API_KEY in the environment (see .env.example).
+
+# Agent framework (agents.yaml / tasks.yaml / @CrewBase pattern)
+crewai
+crewai-tools
+
+# MCP server (mcp_server/server.py)
+mcp
+
+# Web UI shell (app.py)
+gradio
+
+# Typed task outputs (careercrew/models.py)
+pydantic>=2
+
+# PDF text extraction (document_tools.read_resume)
+pypdf
+
+# .env loading (main.py, app.py)
+python-dotenv

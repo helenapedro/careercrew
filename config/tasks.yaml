@@ -1,0 +1,42 @@
+# CareerCrew tasks (Day 2). Descriptions and expected outputs only.
+# Agent assignment, context wiring, and Pydantic output types are done
+# explicitly in careercrew/crew.py (see comments there).
+
+extract_profile:
+  description: >
+    Read the resume at {resume_path} using the read_resume tool and produce a
+    structured candidate profile. Extract only facts present in the document.
+  expected_output: >
+    A CandidateProfile JSON object: summary, skills, work experience (company,
+    title, dates, achievements), and education. Empty fields where the resume
+    does not state them.
+
+analyze_jd:
+  description: >
+    Read the job description from {jd_source} using the fetch_job_description
+    tool and extract required skills, keywords, seniority signals, and
+    nice-to-have items, quoting the source text for each.
+  expected_output: >
+    A JobRequirements JSON object: required_skills, keywords, seniority, and
+    nice_to_have lists.
+
+analyze_gaps:
+  description: >
+    Compare the candidate profile against the job requirements. Score overall
+    keyword and skill coverage from 0 to 100. For each requirement, give a
+    verdict: covered, reframeable (real experience can be reframed to cover
+    it), or out_of_scope, with the supporting profile fact for each covered
+    or reframeable item.
+  expected_output: >
+    A GapReport JSON object: coverage_score plus per-requirement verdicts with
+    supporting facts.
+
+write_feedback:
+  description: >
+    Draft 5 to 8 tailored bullet rewrites and 3 interview talking points from
+    the gap report. Every bullet must cite the profile fact it is based on.
+    List out-of-scope requirements under do_not_claim instead of writing
+    bullets for them.
+  expected_output: >
+    A FeedbackDraft JSON object: rewritten_bullets (text plus cited_fact),
+    talking_points, and do_not_claim.

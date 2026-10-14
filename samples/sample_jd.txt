@@ -1,0 +1,16 @@
+Senior Backend Engineer - Acme Cloud
+
+We are hiring a Senior Backend Engineer for our platform team in Seattle.
+
+Required:
+- 5+ years building backend services in Python or Go
+- Deep experience with Kubernetes and microservices architecture
+- Strong SQL and PostgreSQL performance tuning skills
+- Experience with event-driven systems (Kafka preferred)
+- Familiarity with LLM application development and prompt engineering
+
+Nice to have:
+- Experience with CrewAI or LangGraph agent frameworks
+- AWS Solutions Architect certification
+
+Seniority: senior-level, Seattle hybrid.

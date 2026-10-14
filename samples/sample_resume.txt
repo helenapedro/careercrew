@@ -1,0 +1,23 @@
+ALEX RIVERA
+Backend Software Engineer
+alex.rivera@example.com | +1 (555) 010-2030 | Seattle, WA
+
+SUMMARY
+Backend engineer with 4 years of experience building APIs and data pipelines
+in Python and Java.
+
+SKILLS
+Python, Java, Spring Boot, FastAPI, PostgreSQL, Redis, Docker, AWS, Kafka
+
+WORK EXPERIENCE
+Northwind Labs - Backend Engineer - 2022 to present
+- Built REST APIs in FastAPI serving 2M requests per day
+- Cut report generation time from 2 hours to 5 minutes with async workers
+- Led migration of batch jobs to Kafka-based streaming
+
+Contoso Retail - Junior Developer - 2020 to 2022
+- Maintained Spring Boot microservices for inventory
+- Wrote integration tests raising coverage from 40% to 75%
+
+EDUCATION
+B.S. Computer Science, 2020

@@ -1,0 +1,1 @@
+"""CareerCrew MCP server package."""
