@@ -31,6 +31,27 @@ def test_app_builds():
     assert demo is not None
 
 
+def test_custom_theme_and_css_exist():
+    import app
+
+    assert "cc-hero" in app.CUSTOM_CSS
+    assert "cc-stage" in app.CUSTOM_CSS
+    assert app.theme() is not None
+
+
+def test_stage_tracker_reflects_progress():
+    import app
+
+    idle = app._stages_html(-1)
+    assert "READY" in idle
+    running = app._stages_html(3, "Analyzing the job…")
+    assert "RUNNING" in running
+    assert "DONE" in running  # stages 1 and 2 finished
+    assert "Analyzing the job…" in running
+    done = app._stages_html(app._FINAL, "complete")
+    assert "RUNNING" not in done
+
+
 def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
     monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
     from careercrew import config
@@ -41,7 +62,6 @@ def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
 
     outputs = _drain(app.analyze(None, "", "A real job description here.", "", ""))
     error_box = outputs[0]
-    # Gradio update objects expose the value dict.
     assert "resume" in str(error_box).lower()
 
 
@@ -67,8 +87,11 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
             "Are you authorized to work in the US?",
         )
     )
-    package_json = outputs[6]
+    package_json = outputs[7]
     assert "answer_bank" in package_json
+    # The stage tracker ends fully complete and the package view is populated.
+    assert "RUNNING" not in outputs[3]
+    assert "answer_bank" in outputs[6]
 
 
 def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
@@ -99,6 +122,6 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             "What is your notice period?",
         )
     )
-    assert "answer_bank" in outputs[6] or "package" in outputs[1].lower()
+    assert "answer_bank" in outputs[7] or "package" in outputs[1].lower()
     assert "invalid resume path" not in str(outputs[0]).lower()
     assert "Resume rejected" not in outputs[1]

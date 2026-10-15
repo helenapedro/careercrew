@@ -46,6 +46,8 @@ from careercrew.models import (
 logger = logging.getLogger("careercrew.pipeline")
 
 ProgressFn = Callable[[str], None]
+#: Optional per-task callback (receives a crewai ``TaskOutput`` after each task).
+TaskCallback = Callable[[Any], None]
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 
@@ -212,7 +214,12 @@ def _prepare_resume_text(request: AnalysisRequest) -> str:
     raise ValueError("no resume provided")
 
 
-def _run_crew(request: AnalysisRequest, trace: ExecutionTrace, notify: ProgressFn):
+def _run_crew(
+    request: AnalysisRequest,
+    trace: ExecutionTrace,
+    notify: ProgressFn,
+    on_task: TaskCallback | None = None,
+):
     from careercrew.crew import build_crew, crew_inputs
 
     resume_path = request.resume_path if not request.resume_text else None
@@ -223,7 +230,7 @@ def _run_crew(request: AnalysisRequest, trace: ExecutionTrace, notify: ProgressF
         screening_questions="\n".join(request.screening_questions) or "(none provided)",
     )
     started = time.perf_counter()
-    crew = build_crew(verbose=False)
+    crew = build_crew(verbose=False, on_task=on_task)
     result = asyncio.run(asyncio.to_thread(crew.kickoff, inputs=inputs))
     trace.add(
         "crew.kickoff",
@@ -264,9 +271,14 @@ def run_analysis(
     *,
     settings: Settings | None = None,
     progress: ProgressFn | None = None,
+    on_task: TaskCallback | None = None,
     allow_fallback: bool = True,
 ) -> PipelineResult:
-    """Run the full analysis for ``request`` and return a validated package."""
+    """Run the full analysis for ``request`` and return a validated package.
+
+    ``progress`` receives short human-readable status strings; ``on_task`` is an
+    optional per-task callback used by the UI to show which agent is executing.
+    """
     settings = settings or get_settings()
     trace = ExecutionTrace()
     warnings: list[str] = []
@@ -328,7 +340,7 @@ def run_analysis(
     if settings.has_llm:
         notify("Running the five-agent crew (this can take a minute)...")
         try:
-            crew_result = _run_crew(request, trace, notify)
+            crew_result = _run_crew(request, trace, notify, on_task)
             parsed = _parse_crew_outputs(crew_result, request, trace)
             profile = parsed["profile"]
             requirements = parsed["requirements"]

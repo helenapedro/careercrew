@@ -56,8 +56,14 @@ def _guidelines_source() -> StringKnowledgeSource:
     )
 
 
-def build_crew(*, verbose: bool = False) -> Crew:
-    """Assemble the five agents and five tasks as a sequential crew."""
+def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
+    """Assemble the five agents and five tasks as a sequential crew.
+
+    ``on_task`` / ``on_step`` are optional callbacks: ``on_task`` is called with
+    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the five
+    tasks finishes, and ``on_step`` after each agent step. They power the live
+    stage tracker in the UI and are never required.
+    """
     settings = get_settings()
     if settings.openai_api_key:
         os.environ.setdefault("OPENAI_API_KEY", settings.openai_api_key)
@@ -79,6 +85,8 @@ def build_crew(*, verbose: bool = False) -> Crew:
         }
         if with_mcp:
             kwargs["mcps"] = [mcp_server]
+        if on_step is not None:
+            kwargs["step_callback"] = on_step
         return Agent(**kwargs)
 
     profile_extractor = _agent("profile_extractor", with_mcp=True)
@@ -133,6 +141,8 @@ def build_crew(*, verbose: bool = False) -> Crew:
         process=Process.sequential,
         memory=True,  # short-term memory within a session (see ARCHITECTURE.md)
         verbose=verbose,
+        task_callback=on_task,
+        step_callback=on_step,
     )
 
 

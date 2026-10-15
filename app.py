@@ -6,10 +6,12 @@ A single page that drives the whole workflow:
    description (paste text or an https URL).
 2. Optionally paste employer screening questions.
 3. Press **Run analysis** to run the five-agent crew through real MCP tools.
-4. See the agent trace, the coverage/gap report, the feedback draft, and the
-   assembled application package.
-5. **Approve**, **Reject**, or **Request revision** (with feedback).
-6. See the session tracker of packages prepared so far.
+4. Watch the **live stage tracker**: the UI shows exactly which stage of the
+   pipeline is executing, which agent is working, and what it is doing.
+5. Read the coverage/gap report, the cited feedback draft, and the assembled
+   application package.
+6. **Approve**, **Reject**, or **Request revision** (with feedback).
+7. See the session tracker of packages prepared so far.
 
 The UI never fabricates an analysis: with no LLM key it falls back to real MCP
 screening-answer retrieval and says so. A JD URL that cannot be accessed is
@@ -18,9 +20,12 @@ shown as a clean error instead of crashing.
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 import shutil
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, wait as _wait_futures
 
 import gradio as gr
 
@@ -44,32 +49,300 @@ _STORE = SessionStore(_SETTINGS.db_path)
 _REVIEW = PackageReviewService(_STORE)
 
 os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
+_SAMPLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
+
+_IDLE_STATUS = (
+    "Ready when you are. Add a resume and a job description, then press "
+    "**Run analysis** to watch the five agents work stage by stage."
+)
+
+# --------------------------------------------------------------------------- #
+# Pipeline stages (mirror careercrew/pipeline.py) and the CSS design system
+# --------------------------------------------------------------------------- #
+STAGES: list[tuple[int, str, str]] = [
+    (1, "Validate inputs", "Guardrails check type, size, PII, and injection patterns"),
+    (2, "Extract profile", "Profile Extractor reads the resume via MCP read_resume"),
+    (3, "Analyze the job", "JD Analyzer fetches the JD via MCP fetch_job_description"),
+    (4, "Score coverage", "Gap Analyst labels each requirement covered / reframeable / out of scope"),
+    (5, "Draft feedback", "Feedback Writer produces cited bullet rewrites and talking points"),
+    (6, "Assemble package", "Application Packager answers questions via MCP query_answer_bank"),
+    (7, "Validate output", "Output guardrails verify the package, then it awaits your review"),
+]
+_TOTAL_STAGES = len(STAGES)
+_FINAL = _TOTAL_STAGES + 1  # sentinel: marks every stage complete
+
+#: Map CrewAI agent names to the stage they belong to, for live progress.
+_AGENT_STAGE = {
+    "Profile Extractor": 2,
+    "JD Analyzer": 3,
+    "Gap Analyst": 4,
+    "Feedback Writer": 5,
+    "Application Packager": 6,
+}
+_TASK_STAGE = {
+    "extract_profile": 2,
+    "analyze_jd": 3,
+    "analyze_gaps": 4,
+    "write_feedback": 5,
+    "assemble_package": 6,
+}
+_AGENT_LABEL = {
+    2: "Profile Extractor",
+    3: "JD Analyzer",
+    4: "Gap Analyst",
+    5: "Feedback Writer",
+    6: "Application Packager",
+}
+
+CUSTOM_CSS = """
+:root {
+  --cc-bg: #f6f7fb;
+  --cc-surface: #ffffff;
+  --cc-line: #e6e8f0;
+  --cc-ink: #0f172a;
+  --cc-muted: #64748b;
+  --cc-accent: #4f46e5;
+  --cc-accent-2: #7c3aed;
+  --cc-ok: #16a34a;
+  --cc-warn: #d97706;
+  --cc-bad: #dc2626;
+}
+.gradio-container {
+  max-width: 1280px !important;
+  margin: 0 auto !important;
+  background:
+    radial-gradient(1100px 460px at 8% -12%, rgba(79,70,229,.10), transparent 60%),
+    radial-gradient(900px 420px at 100% -6%, rgba(124,58,237,.08), transparent 55%),
+    var(--cc-bg) !important;
+  color: var(--cc-ink) !important;
+}
+.cc-hero {
+  border: 1px solid var(--cc-line);
+  border-radius: 20px;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, rgba(79,70,229,.10), rgba(124,58,237,.05) 55%, rgba(255,255,255,.4));
+  box-shadow: 0 18px 40px -28px rgba(15,23,42,.45);
+  margin-bottom: 6px;
+}
+.cc-hero h1 {
+  margin: 0 0 6px 0;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  font-weight: 750;
+  color: var(--cc-ink);
+}
+.cc-hero .cc-sub { color: #334155; font-size: 15px; margin: 0 0 14px 0; max-width: 90ch; }
+.cc-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px; font-size: 12px;
+  font-weight: 650; letter-spacing: .01em;
+  border: 1px solid transparent;
+}
+.cc-badge.on  { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+.cc-badge.off { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.cc-badge.ghost { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.cc-badge.covered { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.cc-badge.reframeable { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.cc-badge.out { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.cc-badge.src { background: #eef2ff; color: #3730a3; border-color: #dbe1ff; font-family: ui-monospace, monospace; }
+
+.cc-card {
+  border: 1px solid var(--cc-line);
+  border-radius: 16px;
+  background: var(--cc-surface);
+  padding: 18px 20px;
+  box-shadow: 0 12px 30px -26px rgba(15,23,42,.5);
+}
+.cc-card h3 { margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: var(--cc-ink); letter-spacing: -0.01em; }
+.cc-card .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 12px 0; }
+.cc-empty {
+  border: 1px dashed #d7dbe6; border-radius: 14px; padding: 20px;
+  color: var(--cc-muted); background: #fbfcfe; font-size: 13px; line-height: 1.5;
+}
+
+/* ---- live stage tracker ---- */
+.cc-stages { display: flex; flex-direction: column; gap: 8px; }
+.cc-stage {
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px;
+  align-items: center;
+  border: 1px solid var(--cc-line); border-left: 4px solid #dfe3ec;
+  border-radius: 12px; padding: 12px 14px; background: #fff;
+  transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+}
+.cc-stage .cc-dot {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; background: #f1f5f9; color: #94a3b8;
+}
+.cc-stage .cc-ttl { font-weight: 650; font-size: 14px; color: var(--cc-ink); }
+.cc-stage .cc-blurb { font-size: 12.5px; color: var(--cc-muted); margin-top: 1px; }
+.cc-stage .cc-pill {
+  font-size: 10.5px; font-weight: 750; letter-spacing: .06em;
+  padding: 4px 9px; border-radius: 999px; background: #f1f5f9; color: #94a3b8;
+}
+.cc-stage.done { border-left-color: var(--cc-ok); background: #f7fdf9; }
+.cc-stage.done .cc-dot { background: #dcfce7; color: #15803d; }
+.cc-stage.done .cc-pill { background: #dcfce7; color: #15803d; }
+.cc-stage.active {
+  border-left-color: var(--cc-accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12), 0 14px 30px -24px rgba(79,70,229,.8);
+  transform: translateX(1px);
+}
+.cc-stage.active .cc-dot { background: #e0e7ff; color: #4338ca; animation: cc-pulse 1.2s infinite; }
+.cc-stage.active .cc-pill { background: #e0e7ff; color: #3730a3; }
+@keyframes cc-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.cc-live {
+  margin-top: 12px; border-radius: 12px; padding: 11px 13px;
+  background: #0f172a; color: #e2e8f0; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  display: flex; align-items: center; gap: 8px;
+}
+.cc-live .cc-blink { color: #818cf8; animation: cc-pulse 1.1s infinite; }
+
+/* ---- coverage meter + tables ---- */
+.cc-meter { margin: 6px 0 18px 0; }
+.cc-meter .cc-meter-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+.cc-meter .cc-score { font-size: 26px; font-weight: 780; letter-spacing: -0.02em; display: inline-flex; align-items: baseline; gap: 12px; }
+.cc-meter .cc-score small { font-size: 13px; color: var(--cc-muted); font-weight: 600; }
+.cc-meter .cc-meter-label { font-size: 12.5px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.cc-bar { height: 12px; border-radius: 999px; background: #eceefa; overflow: hidden; }
+.cc-bar > span { display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed 60%, #06b6d4); }
+.cc-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+.cc-chip {
+  font-size: 12px; font-weight: 650; padding: 5px 10px; border-radius: 999px;
+  background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+}
+.cc-chip.covered { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.cc-chip.reframeable { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.cc-chip.out { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+
+.cc-section-title {
+  font-size: 13px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--cc-muted); margin: 20px 0 10px 0;
+}
+.cc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cc-table th {
+  text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--cc-muted); padding: 8px 10px; border-bottom: 1px solid var(--cc-line);
+}
+.cc-table td { padding: 10px; border-bottom: 1px solid #f1f3f9; vertical-align: top; color: #1e293b; }
+
+.cc-bullets { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.cc-bullets li { border: 1px solid var(--cc-line); border-radius: 12px; padding: 12px 14px; background: #fcfcff; }
+.cc-bullets li p { margin: 0 0 7px 0; color: #0f172a; font-size: 14px; line-height: 1.5; }
+.cc-cite { font-size: 12px; color: #4f46e5; }
+.cc-cite b { color: #7c3aed; }
+.cc-list { margin: 0; padding-left: 18px; color: #1e293b; font-size: 13.5px; line-height: 1.65; }
+.cc-note {
+  border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412;
+  border-radius: 12px; padding: 11px 13px; font-size: 13px; margin-top: 10px;
+}
+.cc-foot { color: var(--cc-muted); font-size: 12px; margin-top: 8px; }
+button.cc-run {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  border: none !important; color: #fff !important; font-weight: 700 !important;
+  box-shadow: 0 12px 26px -14px rgba(79,70,229,.85) !important;
+}
+"""
 
 
 # --------------------------------------------------------------------------- #
-# Rendering helpers
+# Small rendering helpers
 # --------------------------------------------------------------------------- #
+def _esc(value: object) -> str:
+    return html.escape(str(value if value is not None else ""))
+
+
 def _mode_banner() -> str:
     if _SETTINGS.has_llm:
         return (
-            "<div style='padding:8px 12px;border-radius:8px;background:#e6f4ea;"
-            "border:1px solid #34a853;color:#0b3d13;'>"
-            "<b>AGENTS ENABLED</b> — the five-agent crew runs through real MCP "
-            f"tools ({_SETTINGS.openai_model}).</div>"
+            "<div class='cc-card' style='padding:14px 16px'>"
+            "<span class='cc-badge on'>AGENTS ENABLED</span> "
+            "<span style='color:#334155;font-size:13px'>The five-agent crew runs through real MCP "
+            f"tools on <b>{_esc(_SETTINGS.openai_model)}</b>.</span></div>"
         )
     return (
-        "<div style='padding:8px 12px;border-radius:8px;background:#fef7e0;"
-        "border:1px solid #f9ab00;color:#5f4300;'>"
-        "<b>FALLBACK MODE</b> — no OPENAI_API_KEY is set. Screening answers are "
-        "still retrieved through real MCP calls and shown honestly; add a key for "
-        "the full agent crew.</div>"
+        "<div class='cc-card' style='padding:14px 16px'>"
+        "<span class='cc-badge off'>FALLBACK MODE</span> "
+        "<span style='color:#334155;font-size:13px'>No OPENAI_API_KEY is set. Screening answers are "
+        "still retrieved through real MCP calls and shown honestly; add a key for the full crew."
+        "</span></div>"
+    )
+
+
+def _hero(mode_label: str) -> str:
+    return (
+        "<div class='cc-hero'>"
+        "<h1>CareerCrew</h1>"
+        "<p class='cc-sub'>A multi-agent resume, interview, and job-application coach built on "
+        "CrewAI and the Model Context Protocol. Five agents extract your profile, analyze the "
+        "role, score coverage, draft cited bullets, and assemble an application package whose "
+        "screening answers come only from a verified answer bank.</p>"
+        "<div class='cc-badges'>"
+        "<span class='cc-badge ghost'>CrewAI · sequential</span>"
+        "<span class='cc-badge ghost'>MCP · 3 real tools</span>"
+        "<span class='cc-badge ghost'>Knowledge · resume guidelines</span>"
+        "<span class='cc-badge ghost'>Guardrails · in / out</span>"
+        "<span class='cc-badge ghost'>Human-in-the-loop</span>"
+        f"<span class='cc-badge ghost'>{_esc(mode_label)}</span>"
+        "</div></div>"
+    )
+
+
+def _stages_html(current: int = -1, detail: str = "") -> str:
+    """Render the live stage tracker.
+
+    ``current`` is the stage number that is executing: lower numbers are done,
+    the current one is active, higher numbers are queued. ``current`` greater
+    than the number of stages marks everything complete; ``-1`` means idle.
+    """
+    rows: list[str] = []
+    for number, title, blurb in STAGES:
+        if current < 0:
+            cls, icon, pill = "", "○", "READY"
+        elif number < current:
+            cls, icon, pill = "done", "✓", "DONE"
+        elif number == current:
+            cls, icon, pill = "active", "◐", "RUNNING"
+        else:
+            cls, icon, pill = "", "○", "QUEUED"
+        agent = _AGENT_LABEL.get(number)
+        agent_html = f" · <b>{_esc(agent)}</b>" if agent else ""
+        rows.append(
+            f"<div class='cc-stage {cls}'>"
+            f"<div class='cc-dot'>{icon}</div>"
+            f"<div><div class='cc-ttl'>{number}. {_esc(title)}{agent_html}</div>"
+            f"<div class='cc-blurb'>{_esc(blurb)}</div></div>"
+            f"<div class='cc-pill'>{pill}</div>"
+            "</div>"
+        )
+    live = ""
+    if detail:
+        live = (
+            "<div class='cc-live'><span class='cc-blink'>▸</span>"
+            f"<span>{_esc(detail)}</span></div>"
+        )
+    header = (
+        "<div class='cc-card'><h3>Live pipeline</h3>"
+        f"<p class='cc-hint'>Stage {max(current, 0)} of {_TOTAL_STAGES} · "
+        "the tracker advances as each agent starts and finishes.</p>"
+        "<div class='cc-stages'>"
+    )
+    return header + "".join(rows) + "</div>" + live + "</div>"
+
+
+def _empty_card(title: str, hint: str) -> str:
+    return (
+        f"<div class='cc-card'><h3>{_esc(title)}</h3>"
+        f"<div class='cc-empty'>{_esc(hint)}</div></div>"
     )
 
 
 def _trace_markdown(result) -> str:
     if not result:
         return (
-            "**Workflow stages**\n\n"
+            "**Execution trace**\n\n"
             "1. Input guardrails validate the resume and job description.\n"
             "2. Profile Extractor reads the resume via MCP `read_resume`.\n"
             "3. JD Analyzer reads the job description via MCP `fetch_job_description`.\n"
@@ -78,46 +351,178 @@ def _trace_markdown(result) -> str:
             "6. Application Packager answers screening questions via MCP `query_answer_bank`.\n"
             "7. Output guardrails validate the package, then it awaits your review."
         )
-    lines = []
+    marker = {"ok": "PASS", "warning": "WARN", "error": "FAIL"}
+    lines = ["**Execution trace**", ""]
     for event in result.trace.events:
-        marker = {"ok": "PASS", "warning": "WARN", "error": "FAIL"}[event.status]
-        duration = f" ({event.duration_ms} ms)" if event.duration_ms is not None else ""
-        lines.append(f"- `{marker}` **{event.step}** — {event.detail}{duration}")
+        tag = marker.get(event.status, event.status.upper())
+        duration = f" · {event.duration_ms} ms" if event.duration_ms is not None else ""
+        lines.append(f"- `{tag}` **{event.step}** — {event.detail}{duration}")
     if result.warnings:
         lines.append("\n**Warnings**")
         lines.extend(f"- {warning}" for warning in result.warnings)
     return "\n".join(lines)
 
 
-def _gaps_markdown(result) -> str:
+def _verdict_class(verdict: str) -> str:
+    key = (verdict or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if key.startswith("reframe"):
+        return "reframeable"
+    if key.startswith("out"):
+        return "out"
+    return "covered"
+
+
+def _insight_html(result) -> str:
+    """Coverage meter, profile, requirements, gap verdicts, and the rewrite plan."""
     if not result:
-        return "The coverage report will appear here after analysis."
+        return _empty_card(
+            "Coverage & insights",
+            "Run an analysis to see the keyword coverage meter, per-requirement verdicts, "
+            "the candidate profile, the extracted requirements, and the rewrite plan.",
+        )
+
     gaps = result.gaps
-    lines = [f"**Coverage score:** {gaps.coverage_score}/100", ""]
-    if gaps.verdicts:
-        lines.append("| Requirement | Verdict | Supporting fact |")
-        lines.append("|---|---|---|")
-        for verdict in gaps.verdicts:
-            lines.append(
-                f"| {verdict.requirement} | {verdict.verdict} | {verdict.supporting_fact} |"
+    score = max(0, min(100, int(gaps.coverage_score)))
+    verdicts = gaps.verdicts
+    counts = {"covered": 0, "reframeable": 0, "out": 0}
+    for verdict in verdicts:
+        counts[_verdict_class(verdict.verdict)] += 1
+
+    parts: list[str] = ["<div class='cc-card'>"]
+    parts.append("<h3>Coverage score</h3>")
+    parts.append("<p class='cc-hint'>Share of the role's requirements the resume genuinely covers.</p>")
+    label = "Keyword &amp; skill match" if verdicts else "No verdicts returned"
+    parts.append(
+        "<div class='cc-meter'>"
+        "<div class='cc-meter-top'>"
+        f"<div class='cc-score'>{score}<small>/100</small></div>"
+        f"<div class='cc-meter-label'>{label}</div>"
+        "</div>"
+        f"<div class='cc-bar'><span style='width:{score}%'></span></div>"
+        "<div class='cc-stats'>"
+        f"<span class='cc-chip covered'>✓ covered · {counts['covered']}</span>"
+        f"<span class='cc-chip reframeable'>~ reframeable · {counts['reframeable']}</span>"
+        f"<span class='cc-chip out'>✕ out of scope · {counts['out']}</span>"
+        "</div></div>"
+    )
+
+    profile = result.profile
+    if profile.full_name or profile.skills or profile.experience:
+        parts.append("<div class='cc-section-title'>Candidate profile</div>")
+        if profile.full_name:
+            parts.append(f"<div style='font-weight:700;font-size:15px'>{_esc(profile.full_name)}</div>")
+        if profile.summary:
+            parts.append(
+                f"<p style='color:#475569;font-size:13.5px;margin:6px 0'>{_esc(profile.summary)}</p>"
             )
-    else:
-        lines.append("_No requirement verdicts were produced._")
-    return "\n".join(lines)
+        if profile.skills:
+            chips = "".join(f"<span class='cc-chip'>{_esc(skill)}</span>" for skill in profile.skills)
+            parts.append(f"<div class='cc-stats'>{chips}</div>")
+        for role in profile.experience:
+            line = " · ".join(x for x in [role.title, role.company, role.dates] if x)
+            if line:
+                parts.append(
+                    f"<p style='font-size:13px;color:#334155;margin:8px 0 0 0'>• {_esc(line)}</p>"
+                )
 
+    reqs = result.requirements
+    if reqs.required_skills or reqs.keywords or reqs.seniority:
+        parts.append("<div class='cc-section-title'>Role requirements</div>")
+        if reqs.seniority:
+            parts.append(
+                f"<div class='cc-stats'><span class='cc-chip'>seniority · {_esc(reqs.seniority)}</span></div>"
+            )
+        if reqs.required_skills:
+            chips = "".join(
+                f"<span class='cc-badge src'>{_esc(skill)}</span>" for skill in reqs.required_skills
+            )
+            parts.append(f"<div class='cc-stats'>{chips}</div>")
 
-def _feedback_markdown(result) -> str:
-    if not result:
-        return "The feedback draft will appear here after analysis."
+    if verdicts:
+        parts.append("<div class='cc-section-title'>Requirement verdicts</div>")
+        parts.append(
+            "<table class='cc-table'><thead><tr><th>Requirement</th><th>Verdict</th>"
+            "<th>Supporting fact</th></tr></thead><tbody>"
+        )
+        for verdict in verdicts:
+            cls = _verdict_class(verdict.verdict)
+            parts.append(
+                "<tr>"
+                f"<td>{_esc(verdict.requirement)}</td>"
+                f"<td><span class='cc-badge {cls}'>{_esc(verdict.verdict.upper())}</span></td>"
+                f"<td>{_esc(verdict.supporting_fact) or '—'}</td>"
+                "</tr>"
+            )
+        parts.append("</tbody></table>")
+
     feedback = result.feedback
-    lines = ["**Rewritten bullets**", ""]
-    for bullet in feedback.rewritten_bullets:
-        lines.append(f"- {bullet.text}  \n  _cited:_ {bullet.cited_fact}")
-    lines.append("\n**Interview talking points**")
-    lines.extend(f"- {point}" for point in feedback.talking_points or ["_(none)_"])
+    if feedback.rewritten_bullets:
+        parts.append("<div class='cc-section-title'>Rewrite plan — every bullet is cited</div>")
+        bullets = "".join(
+            "<li>"
+            f"<p>{_esc(bullet.text)}</p>"
+            f"<div class='cc-cite'>cited from: <b>{_esc(bullet.cited_fact) or '—'}</b></div>"
+            "</li>"
+            for bullet in feedback.rewritten_bullets
+        )
+        parts.append(f"<ul class='cc-bullets'>{bullets}</ul>")
+
+    if feedback.talking_points:
+        parts.append("<div class='cc-section-title'>Interview talking points</div>")
+        items = "".join(f"<li>{_esc(point)}</li>" for point in feedback.talking_points)
+        parts.append(f"<ul class='cc-list'>{items}</ul>")
+
     if feedback.do_not_claim:
-        lines.append("\n**Do not claim (out of scope)**")
-        lines.extend(f"- {item}" for item in feedback.do_not_claim)
+        items = "".join(f"<li>{_esc(item)}</li>" for item in feedback.do_not_claim)
+        parts.append(
+            "<div class='cc-section-title'>Do not claim</div>"
+            f"<div class='cc-note'><ul class='cc-list'>{items}</ul></div>"
+        )
+
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _package_markdown(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
+    """The assembled application package (screening answers + items needing input)."""
+    if package is None:
+        return (
+            "### Application package\n\n"
+            "_The assembled package will appear here after analysis. Every screening answer "
+            "is sourced from the verified answer bank (`answer_bank`); anything unverified is "
+            "listed under items needing your input instead of being invented._"
+        )
+    lines = [
+        "### Application package",
+        "",
+        f"`{package.package_id}` · role: **{package.role_title or '—'}** · "
+        f"company: **{package.company or '—'}**",
+        "",
+    ]
+    if package.package_summary:
+        lines += [package.package_summary, ""]
+
+    lines.append(f"#### Screening answers ({len(package.screening_answers)})")
+    if package.screening_answers:
+        for index, answer in enumerate(package.screening_answers, start=1):
+            lines.append(
+                f"**Q{index}. {answer.question}**  \n"
+                f"{answer.answer}  \n"
+                f"`source: {answer.source}` · verified: {'yes' if answer.verified else 'no'}"
+            )
+            lines.append("")
+    else:
+        lines += ["_No screening questions were answered from the verified bank._", ""]
+
+    if package.do_not_claim:
+        lines.append(f"#### Needs your input ({len(package.do_not_claim)})")
+        lines.extend(f"- {item}" for item in package.do_not_claim)
+        lines.append("")
+
+    if warnings:
+        lines.append("#### Notes")
+        lines.extend(f"- {warning}" for warning in warnings)
+
     return "\n".join(lines)
 
 
@@ -137,20 +542,23 @@ def _tracker_rows() -> list[list]:
     return rows
 
 
-def _empty_outputs():
+def _empty_outputs() -> tuple:
+    """The reset state shared by every early return in :func:`analyze`."""
     return (
-        gr.update(value="", visible=False),  # error box
-        "Idle. Provide a resume and a job description, then press **Run analysis**.",
-        _mode_banner(),
-        _trace_markdown(None),
-        _gaps_markdown(None),
-        _feedback_markdown(None),
-        "",  # package json
-        gr.update(interactive=False),  # approve
-        gr.update(interactive=False),  # reject
-        gr.update(interactive=False),  # revise
+        gr.update(value="", visible=False),  # error_box
+        _IDLE_STATUS,  # status
+        _mode_banner(),  # banner
+        _stages_html(-1),  # stages_html
+        _trace_markdown(None),  # trace_md
+        _insight_html(None),  # insight_html
+        _package_markdown(None),  # package_md
+        "",  # package_json
+        gr.update(interactive=False),  # approve_btn
+        gr.update(interactive=False),  # reject_btn
+        gr.update(interactive=False),  # revise_btn
         None,  # state
-        "",  # review feedback
+        "",  # review_feedback
+        _tracker_rows(),  # tracker_table
     )
 
 
@@ -172,9 +580,7 @@ def _resolve_resume(resume_file, resume_text: str) -> tuple[str | None, str | No
             guardrails.check_upload(check_name)
             os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
             base = os.path.abspath(_SETTINGS.upload_dir)
-            destination = os.path.abspath(
-                os.path.join(base, os.path.basename(check_name))
-            )
+            destination = os.path.abspath(os.path.join(base, os.path.basename(check_name)))
             if not destination.startswith(base + os.sep):
                 raise ValueError("invalid resume path")
             shutil.copyfile(check_name, destination)
@@ -184,60 +590,40 @@ def _resolve_resume(resume_file, resume_text: str) -> tuple[str | None, str | No
     return None, None
 
 
-def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
-    (
-        error_box,
-        status,
-        banner,
-        trace_md,
-        gaps_md,
-        feedback_md,
-        package_json,
-        approve,
-        reject,
-        revise,
-        state,
-        feedback,
-    ) = _empty_outputs()
+def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterator[tuple]:
+    """Generator callback: streams live stage progress, then the final results."""
+    outputs = list(_empty_outputs())
+
+    def emit(*pairs) -> tuple:
+        """Build the full output tuple from ``index, value`` pairs."""
+        current = list(outputs)
+        for position in range(0, len(pairs), 2):
+            current[pairs[position]] = pairs[position + 1]
+        return tuple(current)
 
     jd_source = (jd_url or "").strip() or (jd_text or "").strip()
 
+    # --- Stage 1: input guardrails (resume resolution). --------------------- #
     try:
         resume_path, pasted = _resolve_resume(resume_file, resume_text)
     except Exception as exc:  # noqa: BLE001 - surface a clean error
-        yield (
-            gr.update(value=f"Resume error: {exc}", visible=True),
-            "Resume rejected.",
-            _mode_banner(),
-            trace_md,
-            gaps_md,
-            feedback_md,
-            package_json,
-            approve,
-            reject,
-            revise,
-            None,
-            feedback,
+        yield emit(
+            0, gr.update(value=f"**Resume error** — {exc}", visible=True),
+            1, "Resume rejected — see the message above.",
         )
         return
 
     if resume_path is None and pasted is None:
-        yield (
-            gr.update(
-                value="Provide a resume: upload a PDF/DOCX/TXT file or paste the text.",
-                visible=True,
-            ),
-            "Missing resume.",
-            _mode_banner(),
-            trace_md,
-            gaps_md,
-            feedback_md,
-            package_json,
-            approve,
-            reject,
-            revise,
-            None,
-            feedback,
+        yield emit(
+            0, gr.update(value="Provide a resume: upload a PDF/DOCX/TXT file, or paste the text.", visible=True),
+            1, "Missing resume.",
+        )
+        return
+
+    if not jd_source.strip():
+        yield emit(
+            0, gr.update(value="Paste a job description or an https URL.", visible=True),
+            1, "Missing job description.",
         )
         return
 
@@ -250,61 +636,65 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
         screening_questions=questions,
     )
 
-    # Re-validate the JD text path here (URL access is checked inside the pipeline).
-    if not jd_source.strip():
-        yield (
-            gr.update(value="Paste a job description or an https URL.", visible=True),
-            "Missing job description.",
-            _mode_banner(),
-            trace_md,
-            gaps_md,
-            feedback_md,
-            package_json,
-            approve,
-            reject,
-            revise,
-            None,
-            feedback,
-        )
-        return
-
-    # Yield an immediate status so the UI does not look frozen during the
-    # 1–3 minute crew run (Gradio treats this function as a generator).
-    yield (
-        gr.update(value="", visible=False),
-        "Running analysis — the five-agent crew usually takes 1–3 minutes…",
-        _mode_banner(),
-        "Working…\n\n1. Profile Extractor\n2. JD Analyzer\n3. Gap Analyst\n"
-        "4. Feedback Writer\n5. Application Packager",
-        gaps_md,
-        feedback_md,
-        package_json,
-        approve,
-        reject,
-        revise,
-        None,
-        feedback,
+    # Kick off: stage 1 is active.
+    yield emit(
+        0, gr.update(value="", visible=False),
+        1, "Starting — validating inputs…",
+        3, _stages_html(1, "Input guardrails: type, size, PII redaction, injection screen"),
     )
 
-    try:
-        result = run_analysis(request)
-    except Exception as exc:  # noqa: BLE001 - surface a clean error, never crash
-        logger.exception("analysis run failed")
-        yield (
-            gr.update(value=f"Analysis failed: {exc}", visible=True),
-            "Analysis failed.",
-            _mode_banner(),
-            trace_md,
-            gaps_md,
-            feedback_md,
-            package_json,
-            approve,
-            reject,
-            revise,
-            None,
-            feedback,
-        )
-        return
+    stages: dict[str, object] = {"index": 1, "detail": "Input guardrails…"}
+
+    def progress(message: str) -> None:
+        """Bridge the pipeline's progress messages onto the stage tracker."""
+        lowered = message.lower()
+        if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
+            stages["index"], stages["detail"] = 6, message
+        elif "five-agent crew" in lowered:
+            stages["index"], stages["detail"] = 2, "Starting the five-agent crew…"
+        else:
+            stages["detail"] = message
+
+    def on_task(output) -> None:
+        """CrewAI task callback: refine the tracker after each task completes."""
+        name = getattr(output, "name", "") or ""
+        agent = getattr(output, "agent", "") or ""
+        stage = _AGENT_STAGE.get(agent) or _TASK_STAGE.get(name)
+        if stage:
+            label = agent or name
+            stages["index"] = stage + 1
+            stages["detail"] = f"✓ {label} finished — handing off"
+
+    def advance(stage_index: int, label: str) -> tuple:
+        return emit(3, _stages_html(stage_index, label), 1, label)
+
+    # run_analysis blocks, so run it on a worker thread and poll for progress.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(run_analysis, request, progress=progress, on_task=on_task)
+
+        expected = 2
+        last_yielded = 1
+        while not future.done():
+            reported = int(stages["index"])
+            if reported >= expected:
+                expected = reported + 1
+            target = min(expected, _TOTAL_STAGES)
+            if target != last_yielded:
+                last_yielded = target
+                detail = str(stages["detail"] or "Working…")
+                yield advance(target, f"{detail}")
+            _wait_futures([future], timeout=1.0)
+
+        try:
+            result = future.result()
+        except Exception as exc:  # noqa: BLE001 - surface a clean error, never crash
+            logger.exception("analysis run failed")
+            yield emit(
+                0, gr.update(value=f"**Analysis failed** — {exc}", visible=True),
+                1, "Analysis failed — see the message above.",
+                3, _stages_html(-1),
+            )
+            return
 
     _REVIEW.submit_for_review(
         {
@@ -316,24 +706,26 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
         result.trace,
     )
 
+    mode = " · fallback path used" if result.used_fallback else ""
     status = (
-        f"Draft ready for review — package `{result.package.package_id}`, "
+        f"**Draft ready for review** — package `{result.package.package_id}`, "
         f"{len(result.package.screening_answers)} screening answer(s), "
-        f"{len(result.package.do_not_claim)} item(s) needing your input."
+        f"{len(result.package.do_not_claim)} item(s) needing your input{mode}."
     )
-    yield (
-        gr.update(value="", visible=False),
-        status,
-        _mode_banner(),
-        _trace_markdown(result),
-        _gaps_markdown(result),
-        _feedback_markdown(result),
-        result.package.model_dump_json(indent=2),
-        gr.update(interactive=True),
-        gr.update(interactive=True),
-        gr.update(interactive=True),
-        result.package.model_dump(),
-        "",
+    yield emit(
+        0, gr.update(value="", visible=False),
+        1, status,
+        3, _stages_html(_FINAL, "Run complete — the package is awaiting your review."),
+        4, _trace_markdown(result),
+        5, _insight_html(result),
+        6, _package_markdown(result.package, result.warnings),
+        7, result.package.model_dump_json(indent=2),
+        8, gr.update(interactive=True),
+        9, gr.update(interactive=True),
+        10, gr.update(interactive=True),
+        11, result.package.model_dump(),
+        12, "",
+        13, _tracker_rows(),
     )
 
 
@@ -356,7 +748,7 @@ def _current_status(package: ApplicationPackage) -> tuple[ReviewStatus, int]:
 def approve(state, feedback):
     package = _load_package(state)
     if package is None:
-        return gr.update(), "Nothing to approve.", None, _tracker_rows()
+        return gr.update(), "Nothing to approve.", None, gr.update(), _tracker_rows()
     status_now, revisions = _current_status(package)
     try:
         outcome = _REVIEW.apply_decision(
@@ -370,11 +762,12 @@ def approve(state, feedback):
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), f"Cannot approve: {exc}", state, _tracker_rows()
+        return gr.update(), f"Cannot approve: {exc}", state, gr.update(), _tracker_rows()
     return (
         gr.update(interactive=False),
         f"Package `{package.package_id}` is **{outcome.status.value}**. You can now use it.",
         package.model_dump(),
+        _package_markdown(package, []),
         _tracker_rows(),
     )
 
@@ -382,7 +775,7 @@ def approve(state, feedback):
 def reject(state, feedback):
     package = _load_package(state)
     if package is None:
-        return gr.update(), "Nothing to reject.", None, _tracker_rows()
+        return gr.update(), "Nothing to reject.", None, gr.update(), _tracker_rows()
     status_now, revisions = _current_status(package)
     try:
         _REVIEW.apply_decision(
@@ -396,11 +789,12 @@ def reject(state, feedback):
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), f"Cannot reject: {exc}", state, _tracker_rows()
+        return gr.update(), f"Cannot reject: {exc}", state, gr.update(), _tracker_rows()
     return (
         gr.update(interactive=False),
         f"Package `{package.package_id}` is **REJECTED**.",
         package.model_dump(),
+        _package_markdown(package, []),
         _tracker_rows(),
     )
 
@@ -408,9 +802,15 @@ def reject(state, feedback):
 def request_revision(state, feedback):
     package = _load_package(state)
     if package is None:
-        return gr.update(), state, "Nothing to revise.", None, _tracker_rows()
+        return gr.update(), state, "Nothing to revise.", gr.update(), _tracker_rows()
     if not (feedback or "").strip():
-        return gr.update(), state, "Please describe the revision you want.", None, _tracker_rows()
+        return (
+            gr.update(),
+            state,
+            "Please describe the revision you want.",
+            gr.update(),
+            _tracker_rows(),
+        )
     status_now, revisions = _current_status(package)
     try:
         outcome = _REVIEW.apply_decision(
@@ -424,128 +824,202 @@ def request_revision(state, feedback):
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), state, f"Cannot revise: {exc}", None, _tracker_rows()
+        return gr.update(), state, f"Cannot revise: {exc}", gr.update(), _tracker_rows()
 
     return (
         gr.update(interactive=True),
         state,
-        f"Revision {outcome.revision_count} requested. Update the inputs and run again if needed.",
-        None,
+        f"Revision {outcome.revision_count} requested — update the inputs and run again.",
+        _package_markdown(package, []),
         _tracker_rows(),
     )
+
+
+def _read_sample(name: str) -> str:
+    try:
+        with open(os.path.join(_SAMPLES_DIR, name), encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
+_SAMPLE_QUESTIONS = (
+    "Are you authorized to work in the United States?\n"
+    "What is your notice period?\n"
+    "Do you require visa sponsorship?"
+)
 
 
 # --------------------------------------------------------------------------- #
 # Layout
 # --------------------------------------------------------------------------- #
 def build_app() -> gr.Blocks:
-    with gr.Blocks(title="CareerCrew") as demo:
+    mode_label = "agents enabled" if _SETTINGS.has_llm else "fallback mode"
+
+    with gr.Blocks(title="CareerCrew · Multi-Agent Application Coach") as demo:
         state = gr.State(None)
 
-        gr.Markdown(
-            "# CareerCrew\n"
-            "**A Multi-Agent Resume, Interview, and Job-Application Coach Using CrewAI and MCP**\n\n"
-            "Provide a resume and a job description. Five agents extract your profile, "
-            "analyze the role, score coverage, draft cited bullets, and assemble an "
-            "application package whose screening answers come only from a verified answer bank."
-        )
-        banner = gr.HTML(_mode_banner())
+        gr.HTML(_hero(mode_label))
 
         with gr.Row():
-            with gr.Column(scale=1):
-                resume_file = gr.File(label="Resume file (PDF, DOCX, TXT)", file_types=[".pdf", ".docx", ".txt"])
-                resume_text = gr.Textbox(
-                    label="…or paste resume text",
-                    placeholder="Paste the resume text here if you do not have a file.",
-                    lines=8,
-                )
-            with gr.Column(scale=1):
-                jd_text = gr.Textbox(
-                    label="Job description (paste text)",
-                    placeholder="Paste the job description here.",
-                    lines=8,
-                )
-                jd_url = gr.Textbox(
-                    label="…or a job description URL (optional, https only)",
-                    placeholder="https://example.com/job",
-                )
-                screening_text = gr.Textbox(
-                    label="Screening questions (optional, one per line)",
-                    placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
-                    lines=5,
-                )
-                run_btn = gr.Button("Run analysis", variant="primary")
+            with gr.Column(scale=2):
+                with gr.Group():
+                    gr.Markdown("### 1 · Inputs")
+                    with gr.Row():
+                        sample_resume_btn = gr.Button("Load sample resume", size="sm")
+                        sample_jd_btn = gr.Button("Load sample job description", size="sm")
+                    resume_file = gr.File(
+                        label="Resume file — PDF, DOCX, or TXT",
+                        file_types=[".pdf", ".docx", ".txt"],
+                    )
+                    resume_text = gr.Textbox(
+                        label="…or paste the resume text",
+                        placeholder="Paste the resume text here if you do not have a file.",
+                        lines=7,
+                    )
+                    jd_text = gr.Textbox(
+                        label="Job description (paste text)",
+                        placeholder="Paste the job description here.",
+                        lines=7,
+                    )
+                    jd_url = gr.Textbox(
+                        label="…or a job description URL (optional, https only)",
+                        placeholder="https://example.com/job",
+                    )
+                    screening_text = gr.Textbox(
+                        label="Screening questions (optional, one per line)",
+                        placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
+                        lines=4,
+                    )
+                    with gr.Row():
+                        run_btn = gr.Button(
+                            "▶  Run analysis", variant="primary", elem_classes=["cc-run"]
+                        )
+                        clear_btn = gr.Button("Reset", size="sm")
 
-        error_box = gr.Markdown(visible=False)
-        status = gr.Markdown("Idle. Provide a resume and a job description, then press **Run analysis**.")
+            with gr.Column(scale=3):
+                banner = gr.HTML(_mode_banner())
+                stages_html = gr.HTML(_stages_html(-1))
+                status = gr.Markdown(_IDLE_STATUS)
+                error_box = gr.Markdown(visible=False)
+
+        gr.Markdown("---")
 
         with gr.Tabs():
-            with gr.Tab("Agent workflow"):
-                trace_md = gr.Markdown(_trace_markdown(None))
-            with gr.Tab("Coverage & gaps"):
-                gaps_md = gr.Markdown(_gaps_markdown(None))
-            with gr.Tab("Feedback draft"):
-                feedback_md = gr.Markdown(_feedback_markdown(None))
+            with gr.Tab("Coverage & insights"):
+                insight_html = gr.HTML(_insight_html(None))
             with gr.Tab("Application package"):
-                package_json = gr.Code(label="Package JSON", language="json")
-            with gr.Tab("Tracker"):
+                package_md = gr.Markdown(_package_markdown(None))
+            with gr.Tab("Execution trace"):
+                trace_md = gr.Markdown(_trace_markdown(None))
+            with gr.Tab("Package JSON"):
+                package_json = gr.Code(label="ApplicationPackage", language="json")
+            with gr.Tab("Session tracker"):
                 tracker_table = gr.Dataframe(
                     headers=["Package", "Role", "Company", "Status", "Revisions", "Updated"],
                     datatype=["str"] * 6,
                     interactive=False,
-                    label="Packages prepared",
-                    value=[],
+                    label="Packages prepared in this session",
+                    value=_tracker_rows(),
                 )
 
-        gr.Markdown("---\n### Human review")
+        gr.Markdown("---")
+        gr.Markdown("### 2 · Human review")
         feedback = gr.Textbox(
             label="Reviewer feedback (required to request a revision)",
-            placeholder="e.g. Drop the AWS bullet, it is not backed by the resume.",
+            placeholder="e.g. Drop the AWS bullet — it is not backed by the resume.",
+            lines=2,
         )
         with gr.Row():
-            approve_btn = gr.Button("Approve", interactive=False)
-            revise_btn = gr.Button("Request revision", interactive=False)
-            reject_btn = gr.Button("Reject", interactive=False)
+            approve_btn = gr.Button("✓  Approve", variant="primary", interactive=False)
+            revise_btn = gr.Button("↻  Request revision", interactive=False)
+            reject_btn = gr.Button("✕  Reject", variant="stop", interactive=False)
         review_status = gr.Markdown("")
-        refresh_btn = gr.Button("Refresh tracker")
+        refresh_btn = gr.Button("Refresh tracker", size="sm")
+
+        gr.HTML(
+            "<p class='cc-foot'>CareerCrew · CrewAI + MCP · every screening answer is sourced "
+            "from the verified answer bank; unverified questions surface for a human, never invented.</p>"
+        )
+
+        # --- wiring --------------------------------------------------------- #
+        analyze_outputs = [
+            error_box,       # 0
+            status,          # 1
+            banner,          # 2
+            stages_html,     # 3
+            trace_md,        # 4
+            insight_html,    # 5
+            package_md,      # 6
+            package_json,    # 7
+            approve_btn,     # 8
+            reject_btn,      # 9
+            revise_btn,      # 10
+            state,           # 11
+            feedback,        # 12
+            tracker_table,   # 13
+        ]
 
         run_btn.click(
             analyze,
             inputs=[resume_file, resume_text, jd_text, jd_url, screening_text],
-            outputs=[
-                error_box,
-                status,
-                banner,
-                trace_md,
-                gaps_md,
-                feedback_md,
-                package_json,
-                approve_btn,
-                reject_btn,
-                revise_btn,
-                state,
-                feedback,
-            ],
-        ).then(_tracker_rows, outputs=[tracker_table])
+            outputs=analyze_outputs,
+        )
+
+        clear_btn.click(
+            lambda: (
+                gr.update(value=None),
+                gr.update(value=""),
+                gr.update(value=""),
+                gr.update(value=""),
+                gr.update(value=""),
+                *_empty_outputs(),
+            ),
+            outputs=[resume_file, resume_text, jd_text, jd_url, screening_text, *analyze_outputs],
+        )
+
+        sample_resume_btn.click(
+            lambda: (gr.update(value=None), gr.update(value=_read_sample("sample_resume.txt"))),
+            outputs=[resume_file, resume_text],
+        )
+        sample_jd_btn.click(
+            lambda: (
+                gr.update(value=_read_sample("sample_jd.txt")),
+                gr.update(value=""),
+                gr.update(value=_SAMPLE_QUESTIONS),
+            ),
+            outputs=[jd_text, jd_url, screening_text],
+        )
 
         approve_btn.click(
             approve,
             inputs=[state, feedback],
-            outputs=[approve_btn, review_status, state, tracker_table],
+            outputs=[approve_btn, review_status, state, package_md, tracker_table],
         )
         reject_btn.click(
             reject,
             inputs=[state, feedback],
-            outputs=[reject_btn, review_status, state, tracker_table],
+            outputs=[reject_btn, review_status, state, package_md, tracker_table],
         )
         revise_btn.click(
             request_revision,
             inputs=[state, feedback],
-            outputs=[revise_btn, state, review_status, package_json, tracker_table],
+            outputs=[revise_btn, state, review_status, package_md, tracker_table],
         )
         refresh_btn.click(_tracker_rows, outputs=[tracker_table])
 
     return demo
+
+
+def theme() -> gr.themes.Base:
+    """The CareerCrew visual theme (indigo accent, larger radii, Inter font)."""
+    return gr.themes.Soft(
+        primary_hue=gr.themes.colors.indigo,
+        secondary_hue=gr.themes.colors.violet,
+        neutral_hue=gr.themes.colors.slate,
+        radius_size=gr.themes.sizes.radius_lg,
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+    )
 
 
 def main() -> None:
@@ -555,7 +1029,8 @@ def main() -> None:
         server_name="0.0.0.0",
         server_port=_SETTINGS.app_port,
         show_error=True,
-        theme=gr.themes.Soft(),
+        theme=theme(),
+        css=CUSTOM_CSS,
     )
 
 
