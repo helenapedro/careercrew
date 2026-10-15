@@ -217,19 +217,67 @@ footer { display: none !important; }
   border: 1px solid var(--cc-line) !important; border-radius: 12px !important;
 }
 .cc-field textarea::placeholder, .cc-field input::placeholder { color: var(--cc-muted) !important; opacity: .9; }
+/* Single flat action bar — kill Gradio's nested block/column chrome inside it. */
 .cc-cta {
-  border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
-  padding: 14px 16px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 18px !important;
+  background: var(--cc-surface) !important;
+  padding: 16px 18px !important;
+  box-shadow: 0 16px 34px -30px var(--cc-shadow);
+  margin: 4px 0 2px !important;
 }
-.cc-cta-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.cc-cta-copy h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--cc-ink); }
-.cc-cta-copy p { margin: 3px 0 0; font-size: 12.5px; color: var(--cc-muted); }
+.cc-cta > div,
+.cc-cta .block,
+.cc-cta .form,
+.cc-cta .wrap,
+.cc-cta .panel-wrap,
+.cc-cta .svelte-1p9262q,
+.cc-cta .styler {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+.cc-cta .gap { gap: 10px !important; }
+.cc-cta-copy { flex: 1 1 280px; min-width: 220px; }
+.cc-cta-copy h3 { margin: 0; font-size: 16px; font-weight: 740; color: var(--cc-ink); letter-spacing: -0.01em; }
+.cc-cta-copy p { margin: 4px 0 0; font-size: 13px; color: var(--cc-muted); line-height: 1.45; max-width: 52ch; }
+.cc-cta-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  flex: 0 0 auto !important;
+}
 
 button.cc-run {
   background: linear-gradient(135deg, var(--cc-accent), var(--cc-accent-2)) !important;
   border: none !important; color: #fff !important; font-weight: 720 !important;
   box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--cc-accent) 80%, transparent) !important;
-  min-height: 46px; min-width: 180px; border-radius: 12px !important;
+  min-height: 44px !important; min-width: 168px !important;
+  padding: 0 20px !important; border-radius: 12px !important;
+}
+button.cc-clear {
+  background: transparent !important;
+  border: 1px solid var(--cc-line) !important;
+  color: var(--cc-ink-2) !important;
+  font-weight: 650 !important;
+  min-height: 44px !important;
+  min-width: 88px !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+button.cc-clear:hover {
+  background: var(--cc-soft) !important;
+  border-color: color-mix(in srgb, var(--cc-accent) 40%, var(--cc-line)) !important;
+  color: var(--cc-ink) !important;
 }
 
 /* ---- horizontal progress stepper ---- */
@@ -1061,20 +1109,20 @@ def build_app() -> gr.Blocks:
                             show_label=False,
                         )
 
-        with gr.Group(elem_classes=["cc-cta"]):
-            with gr.Row():
-                with gr.Column(scale=3):
-                    gr.HTML(
-                        "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
-                        "<p>We’ll score the match, suggest stronger bullets, and prepare honest "
-                        "screening answers.</p></div>"
-                    )
-                with gr.Column(scale=2):
-                    with gr.Row():
-                        run_btn = gr.Button(
-                            "Analyze match", variant="primary", elem_classes=["cc-run"], scale=3
-                        )
-                        clear_btn = gr.Button("Clear", size="sm", scale=1)
+        with gr.Row(elem_classes=["cc-cta"], equal_height=True):
+            gr.HTML(
+                "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
+                "<p>We’ll score the match, suggest stronger bullets, and prepare honest "
+                "screening answers.</p></div>",
+                elem_classes=["cc-cta-copy-wrap"],
+            )
+            with gr.Row(elem_classes=["cc-cta-actions"]):
+                run_btn = gr.Button(
+                    "Analyze match", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168
+                )
+                clear_btn = gr.Button(
+                    "Clear", elem_classes=["cc-clear"], scale=0, min_width=88
+                )
 
         banner = gr.HTML(_mode_banner())
         stages_html = gr.HTML(_stages_html(-1))
