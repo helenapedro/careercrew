@@ -1,21 +1,16 @@
-"""CareerCrew - Gradio web interface.
+"""CareerCrew - candidate-facing Gradio product UI.
 
-A single page that drives the whole workflow:
+Plain-language workflow for job seekers:
 
-1. Provide a resume (upload a PDF/DOCX/TXT file **or** paste the text) and a job
-   description (paste text or an https URL).
-2. Optionally paste employer screening questions.
-3. Press **Run analysis** to run the five-agent crew through real MCP tools.
-4. Watch the **live stage tracker**: the UI shows exactly which stage of the
-   pipeline is executing, which agent is working, and what it is doing.
-5. Read the coverage/gap report, the cited feedback draft, and the assembled
-   application package.
-6. **Approve**, **Reject**, or **Request revision** (with feedback).
-7. See the session tracker of packages prepared so far.
+1. Add a resume (upload or paste) and a job description (paste or URL).
+2. Optionally add employer screening questions.
+3. Press **Analyze match** and watch live progress.
+4. Review coverage, rewrite suggestions, and an honest application package.
+5. Approve, request changes, or reject — nothing is finalized without you.
 
-The UI never fabricates an analysis: with no LLM key it falls back to real MCP
-screening-answer retrieval and says so. A JD URL that cannot be accessed is
-shown as a clean error instead of crashing.
+Technical details (agents, MCP, JSON, traces) live under **Advanced**.
+Screening answers come only from a verified answer bank; unverified questions
+are surfaced for the candidate instead of being invented.
 """
 
 from __future__ import annotations
@@ -52,21 +47,20 @@ os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
 _SAMPLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
 
 _IDLE_STATUS = (
-    "Ready when you are. Add a resume and a job description, then press "
-    "**Run analysis** to watch the five agents work stage by stage."
+    "Add your resume and the job description, then press **Analyze match**."
 )
 
 # --------------------------------------------------------------------------- #
-# Pipeline stages (mirror careercrew/pipeline.py) and the CSS design system
+# Pipeline stages — candidate-facing labels (backend stages stay the same)
 # --------------------------------------------------------------------------- #
 STAGES: list[tuple[int, str, str]] = [
-    (1, "Validate inputs", "Guardrails check type, size, PII, and injection patterns"),
-    (2, "Extract profile", "Profile Extractor reads the resume via MCP read_resume"),
-    (3, "Analyze the job", "JD Analyzer fetches the JD via MCP fetch_job_description"),
-    (4, "Score coverage", "Gap Analyst labels each requirement covered / reframeable / out of scope"),
-    (5, "Draft feedback", "Feedback Writer produces cited bullet rewrites and talking points"),
-    (6, "Assemble package", "Application Packager answers questions via MCP query_answer_bank"),
-    (7, "Validate output", "Output guardrails verify the package, then it awaits your review"),
+    (1, "Check inputs", "Make sure your resume and job posting look valid"),
+    (2, "Read resume", "Pull out skills, roles, and achievements from your resume"),
+    (3, "Understand role", "Extract what the job actually requires"),
+    (4, "Score match", "Mark each requirement as covered, reframeable, or out of scope"),
+    (5, "Draft rewrites", "Suggest stronger bullets backed by facts from your resume"),
+    (6, "Screening answers", "Fill employer questions only from verified answers"),
+    (7, "Final check", "Verify honesty rules, then hand the draft to you"),
 ]
 _TOTAL_STAGES = len(STAGES)
 _FINAL = _TOTAL_STAGES + 1  # sentinel: marks every stage complete
@@ -86,199 +80,228 @@ _TASK_STAGE = {
     "write_feedback": 5,
     "assemble_package": 6,
 }
-_AGENT_LABEL = {
-    2: "Profile Extractor",
-    3: "JD Analyzer",
-    4: "Gap Analyst",
-    5: "Feedback Writer",
-    6: "Application Packager",
-}
 
 CUSTOM_CSS = """
-/* Design tokens. Light values first; `body.dark` (Gradio sets this class when the
-   viewer's browser is in dark mode) overrides them so the whole UI is adaptive. */
 :root {
-  --cc-bg: #f6f7fb;
+  --cc-bg: #f4f6fb;
   --cc-surface: #ffffff;
-  --cc-surface-2: #fbfcfe;
-  --cc-line: #e6e8f0;
+  --cc-surface-2: #f8fafc;
+  --cc-line: #e5e9f2;
   --cc-ink: #0f172a;
   --cc-ink-2: #334155;
   --cc-muted: #64748b;
   --cc-soft: #f1f5f9;
   --cc-accent: #4f46e5;
-  --cc-accent-2: #7c3aed;
+  --cc-accent-2: #6366f1;
   --cc-ok: #16a34a;
   --cc-warn: #d97706;
   --cc-bad: #dc2626;
-  --cc-shadow: rgba(15, 23, 42, .45);
+  --cc-shadow: rgba(15, 23, 42, .18);
 }
 body.dark {
-  --cc-bg: #0a0f1e;
-  --cc-surface: #172136;
-  --cc-surface-2: #1b2740;
-  --cc-line: #334155;
+  --cc-bg: #0b1220;
+  --cc-surface: #121a2b;
+  --cc-surface-2: #172033;
+  --cc-line: #273449;
   --cc-ink: #f1f5f9;
   --cc-ink-2: #cbd5e1;
   --cc-muted: #94a3b8;
   --cc-soft: #1e293b;
   --cc-accent: #818cf8;
-  --cc-accent-2: #a78bfa;
+  --cc-accent-2: #a5b4fc;
   --cc-ok: #4ade80;
   --cc-warn: #fbbf24;
   --cc-bad: #f87171;
-  --cc-shadow: rgba(0, 0, 0, .6);
+  --cc-shadow: rgba(0, 0, 0, .45);
 }
 
-/* ------------------------------------------------------------------ shell -- */
 .gradio-container {
-  max-width: 1320px !important;
+  max-width: 1180px !important;
   margin: 0 auto !important;
+  padding-top: 18px !important;
   background:
-    radial-gradient(1100px 460px at 8% -12%, color-mix(in srgb, var(--cc-accent) 12%, transparent), transparent 60%),
-    radial-gradient(900px 420px at 100% -6%, color-mix(in srgb, var(--cc-accent-2) 10%, transparent), transparent 55%),
+    radial-gradient(900px 380px at 12% -8%, color-mix(in srgb, var(--cc-accent) 14%, transparent), transparent 58%),
+    radial-gradient(700px 320px at 92% 0%, color-mix(in srgb, #06b6d4 10%, transparent), transparent 52%),
     var(--cc-bg) !important;
   color: var(--cc-ink) !important;
 }
 footer { display: none !important; }
+.contain { gap: 14px !important; }
 
-/* Gradio renders each block's label as a pill; keep it a quiet caption. */
 [data-testid="block-info"] {
-  background: transparent !important;
-  border: none !important;
-  color: var(--cc-muted) !important;
-  font-size: 12.5px !important;
-  font-weight: 650 !important;
-  letter-spacing: .01em !important;
-  padding: 0 !important;
-  margin-bottom: 6px !important;
+  background: transparent !important; border: none !important;
+  color: var(--cc-muted) !important; font-size: 12px !important;
+  font-weight: 600 !important; padding: 0 !important; margin-bottom: 6px !important;
 }
+
+/* ---- brand bar ---- */
+.cc-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 4px 4px 4px;
+}
+.cc-brand { display: flex; align-items: center; gap: 10px; }
+.cc-mark {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--cc-accent), #06b6d4);
+  color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 14px;
+  box-shadow: 0 10px 22px -14px var(--cc-accent);
+}
+.cc-brand-name { font-size: 18px; font-weight: 760; letter-spacing: -0.02em; color: var(--cc-ink); }
+.cc-brand-tag { font-size: 12px; color: var(--cc-muted); margin-top: 1px; }
+.cc-status-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 650;
+  border: 1px solid var(--cc-line); background: var(--cc-surface); color: var(--cc-ink-2);
+}
+.cc-status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cc-ok); }
+.cc-status-chip.warn .dot { background: var(--cc-warn); }
 
 .cc-hero {
-  border: 1px solid var(--cc-line);
-  border-radius: 20px;
-  padding: 24px 26px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--cc-accent) 16%, transparent),
-              color-mix(in srgb, var(--cc-accent-2) 8%, transparent) 60%, transparent), var(--cc-surface);
-  box-shadow: 0 18px 40px -28px var(--cc-shadow);
-  margin-bottom: 10px;
+  border: 1px solid var(--cc-line); border-radius: 22px; padding: 28px 28px 24px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--cc-accent) 12%, transparent), transparent 55%),
+    var(--cc-surface);
+  box-shadow: 0 24px 48px -36px var(--cc-shadow);
 }
-.cc-hero h1 { margin: 0 0 6px 0; font-size: 30px; letter-spacing: -0.02em; font-weight: 750; color: var(--cc-ink); }
-.cc-hero .cc-sub { color: var(--cc-ink-2); font-size: 14.5px; margin: 0 0 14px 0; max-width: 92ch; line-height: 1.6; }
-.cc-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-hero h1 {
+  margin: 0 0 8px 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.12;
+  letter-spacing: -0.03em; font-weight: 780; color: var(--cc-ink); max-width: 18ch;
+}
+.cc-hero .cc-sub {
+  margin: 0 0 16px 0; color: var(--cc-ink-2); font-size: 15.5px; line-height: 1.55; max-width: 54ch;
+}
+.cc-trust { display: flex; flex-wrap: wrap; gap: 8px; }
+.cc-trust span {
+  font-size: 12px; font-weight: 650; color: var(--cc-ink-2);
+  background: var(--cc-soft); border: 1px solid var(--cc-line);
+  padding: 6px 11px; border-radius: 999px;
+}
+
 .cc-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px; border-radius: 999px; font-size: 12px;
-  font-weight: 650; letter-spacing: .01em; border: 1px solid transparent;
+  padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 650;
+  border: 1px solid transparent;
 }
+.cc-badge.on  { background: color-mix(in srgb, var(--cc-ok) 14%, transparent); color: var(--cc-ok); border-color: color-mix(in srgb, var(--cc-ok) 34%, transparent); }
+.cc-badge.off { background: color-mix(in srgb, var(--cc-warn) 14%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 34%, transparent); }
 .cc-badge.ghost { background: var(--cc-soft); color: var(--cc-ink-2); border-color: var(--cc-line); }
-.cc-badge.on  { background: color-mix(in srgb, var(--cc-accent) 16%, transparent); color: var(--cc-accent); border-color: color-mix(in srgb, var(--cc-accent) 38%, transparent); }
-.cc-badge.off { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
 .cc-badge.covered { background: color-mix(in srgb, var(--cc-ok) 16%, transparent); color: var(--cc-ok); border-color: color-mix(in srgb, var(--cc-ok) 38%, transparent); }
 .cc-badge.reframeable { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
 .cc-badge.out { background: color-mix(in srgb, var(--cc-bad) 16%, transparent); color: var(--cc-bad); border-color: color-mix(in srgb, var(--cc-bad) 38%, transparent); }
 .cc-badge.src { background: var(--cc-soft); color: var(--cc-ink-2); border-color: var(--cc-line); font-family: ui-monospace, monospace; }
 
 .cc-card {
-  border: 1px solid var(--cc-line);
-  border-radius: 16px;
-  background: var(--cc-surface);
-  padding: 18px 20px;
-  box-shadow: 0 12px 30px -26px var(--cc-shadow);
+  border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
+  padding: 18px 20px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
 }
-.cc-card h3 { margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: var(--cc-ink); letter-spacing: -0.01em; }
-.cc-card .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 12px 0; }
+.cc-card h3 { margin: 0 0 4px 0; font-size: 16px; font-weight: 720; color: var(--cc-ink); letter-spacing: -0.01em; }
+.cc-card .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 14px 0; line-height: 1.5; }
 .cc-empty {
   border: 1px dashed color-mix(in srgb, var(--cc-line) 90%, transparent);
-  border-radius: 14px; padding: 20px;
-  color: var(--cc-muted); background: var(--cc-surface-2); font-size: 13px; line-height: 1.55;
+  border-radius: 14px; padding: 28px 22px; text-align: center;
+  color: var(--cc-muted); background: var(--cc-surface-2); font-size: 13.5px; line-height: 1.55;
 }
+.cc-empty strong { display: block; color: var(--cc-ink); font-size: 14.5px; margin-bottom: 4px; }
 
-/* --------------------------------------------------- inputs panel polish --- */
+/* ---- input panels ---- */
 .cc-panel {
-  border: 1px solid var(--cc-line) !important;
-  border-radius: 18px !important;
-  background: var(--cc-surface) !important;
-  padding: 6px 10px 12px 10px !important;
-  box-shadow: 0 12px 30px -26px var(--cc-shadow);
+  border: 1px solid var(--cc-line) !important; border-radius: 20px !important;
+  background: var(--cc-surface) !important; padding: 8px 12px 14px !important;
+  box-shadow: 0 16px 34px -30px var(--cc-shadow); min-height: 100%;
 }
-.cc-panel-resume { border-top: 3px solid var(--cc-accent) !important; }
-.cc-panel-jd { border-top: 3px solid #06b6d4 !important; }
-.cc-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px 0; }
-.cc-panel-head h3 {
-  margin: 0; font-size: 16px; font-weight: 720; color: var(--cc-ink);
-  letter-spacing: -0.01em;
-}
-.cc-panel-head .cc-hint { flex-basis: 100%; margin: 0; color: var(--cc-muted); font-size: 13px; }
-.cc-step {
-  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
-  background: color-mix(in srgb, var(--cc-accent) 18%, transparent); color: var(--cc-accent);
-  font-size: 12px; font-weight: 800; flex: none;
-}
-.cc-panel-jd .cc-step { background: color-mix(in srgb, #06b6d4 20%, transparent); color: #0891b2; }
+.cc-panel-head { margin: 6px 2px 12px; }
+.cc-panel-head h3 { margin: 0; font-size: 17px; font-weight: 740; color: var(--cc-ink); letter-spacing: -0.015em; }
+.cc-panel-head .cc-hint { margin: 4px 0 0; color: var(--cc-muted); font-size: 13px; }
 .cc-field textarea, .cc-field input[type="text"], .cc-field input[type="url"] {
-  background: var(--cc-soft) !important;
-  color: var(--cc-ink) !important;
-  border: 1px solid var(--cc-line) !important;
-  border-radius: 12px !important;
+  background: var(--cc-soft) !important; color: var(--cc-ink) !important;
+  border: 1px solid var(--cc-line) !important; border-radius: 12px !important;
 }
-.cc-field textarea::placeholder, .cc-field input::placeholder { color: var(--cc-muted) !important; opacity: .85; }
-.cc-actions { align-items: stretch; }
+.cc-field textarea::placeholder, .cc-field input::placeholder { color: var(--cc-muted) !important; opacity: .9; }
+.cc-cta {
+  border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
+  padding: 14px 16px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
+}
+.cc-cta-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.cc-cta-copy h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--cc-ink); }
+.cc-cta-copy p { margin: 3px 0 0; font-size: 12.5px; color: var(--cc-muted); }
 
-/* ------------------------------------------------------- live stage tracker -- */
+button.cc-run {
+  background: linear-gradient(135deg, var(--cc-accent), var(--cc-accent-2)) !important;
+  border: none !important; color: #fff !important; font-weight: 720 !important;
+  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--cc-accent) 80%, transparent) !important;
+  min-height: 46px; min-width: 180px; border-radius: 12px !important;
+}
+
+/* ---- horizontal progress stepper ---- */
+.cc-progress { margin-top: 4px; }
+.cc-progress-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px;
+}
+.cc-progress-top .cc-progress-label { font-size: 13px; color: var(--cc-muted); }
+.cc-progress-top .cc-progress-count { font-size: 13px; font-weight: 700; color: var(--cc-ink); }
 .cc-stages {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 8px;
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0;
+  position: relative;
+}
+@media (max-width: 980px) {
+  .cc-stages { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+}
+@media (max-width: 640px) {
+  .cc-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }
 .cc-stage {
-  display: flex; flex-direction: column; gap: 6px;
-  border: 1px solid var(--cc-line); border-top: 4px solid var(--cc-line);
-  border-radius: 12px; padding: 14px; background: var(--cc-surface-2);
-  transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  position: relative; padding: 0 8px; text-align: center;
 }
+.cc-stage::before {
+  content: ""; position: absolute; top: 15px; left: 0; right: 0; height: 2px;
+  background: var(--cc-line); z-index: 0;
+}
+.cc-stage:first-child::before { left: 50%; }
+.cc-stage:last-child::before { right: 50%; }
 .cc-stage .cc-dot {
+  position: relative; z-index: 1; margin: 0 auto 8px;
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; background: var(--cc-soft); color: var(--cc-muted);
+  font-size: 12px; font-weight: 750; background: var(--cc-soft); color: var(--cc-muted);
+  border: 2px solid var(--cc-line);
 }
-.cc-stage .cc-ttl { font-weight: 650; font-size: 14px; color: var(--cc-ink); }
-.cc-stage .cc-blurb { font-size: 12px; color: var(--cc-muted); margin-top: 1px; line-height: 1.5; }
+.cc-stage .cc-ttl { font-weight: 680; font-size: 12.5px; color: var(--cc-ink); line-height: 1.25; }
+.cc-stage .cc-blurb { display: none; }
 .cc-stage .cc-pill {
-  align-self: flex-start;
-  font-size: 10.5px; font-weight: 750; letter-spacing: .06em;
-  padding: 4px 9px; border-radius: 999px; background: var(--cc-soft); color: var(--cc-muted);
+  margin-top: 6px; display: inline-block;
+  font-size: 10px; font-weight: 750; letter-spacing: .05em;
+  padding: 3px 8px; border-radius: 999px; background: var(--cc-soft); color: var(--cc-muted);
 }
-.cc-stage.done { border-top-color: var(--cc-ok); background: color-mix(in srgb, var(--cc-ok) 8%, var(--cc-surface)); }
-.cc-stage.done .cc-dot,
-.cc-stage.done .cc-pill { background: color-mix(in srgb, var(--cc-ok) 18%, transparent); color: var(--cc-ok); }
-.cc-stage.active {
-  border-top-color: var(--cc-accent);
-  background: color-mix(in srgb, var(--cc-accent) 7%, var(--cc-surface));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc-accent) 16%, transparent), 0 14px 30px -24px var(--cc-accent);
-  transform: translateY(-2px);
+.cc-stage.done .cc-dot { background: color-mix(in srgb, var(--cc-ok) 18%, transparent); color: var(--cc-ok); border-color: var(--cc-ok); }
+.cc-stage.done .cc-pill { background: color-mix(in srgb, var(--cc-ok) 16%, transparent); color: var(--cc-ok); }
+.cc-stage.done::before { background: color-mix(in srgb, var(--cc-ok) 55%, var(--cc-line)); }
+.cc-stage.active .cc-dot {
+  background: color-mix(in srgb, var(--cc-accent) 18%, transparent); color: var(--cc-accent);
+  border-color: var(--cc-accent); animation: cc-pulse 1.2s infinite;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cc-accent) 16%, transparent);
 }
-.cc-stage.active .cc-dot,
-.cc-stage.active .cc-pill { background: color-mix(in srgb, var(--cc-accent) 20%, transparent); color: var(--cc-accent); }
-.cc-stage.active .cc-dot { animation: cc-pulse 1.2s infinite; }
-@keyframes cc-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.cc-stage.active .cc-pill { background: color-mix(in srgb, var(--cc-accent) 16%, transparent); color: var(--cc-accent); }
+.cc-stage.active .cc-ttl { color: var(--cc-accent); }
+@keyframes cc-pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
 .cc-live {
-  margin-top: 12px; border-radius: 12px; padding: 11px 13px;
+  margin-top: 14px; border-radius: 12px; padding: 11px 13px;
   background: var(--cc-soft); border: 1px solid var(--cc-line);
-  color: var(--cc-ink-2); font-size: 12.5px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--cc-ink-2); font-size: 13px;
   display: flex; align-items: center; gap: 8px;
 }
-.cc-live .cc-blink { color: var(--cc-accent); animation: cc-pulse 1.1s infinite; }
+.cc-live .cc-blink { color: var(--cc-accent); animation: cc-pulse 1.1s infinite; font-weight: 700; }
 
-/* --------------------------------------------------- coverage meter + tables -- */
-.cc-meter { margin: 6px 0 18px 0; }
-.cc-meter .cc-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
-.cc-meter .cc-score { font-size: 26px; font-weight: 780; letter-spacing: -0.02em; color: var(--cc-ink); }
-.cc-meter .cc-score small { font-size: 13px; color: var(--cc-muted); font-weight: 600; }
-.cc-meter .cc-meter-label { font-size: 12px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; text-align: right; }
-.cc-bar { height: 12px; border-radius: 999px; background: var(--cc-soft); overflow: hidden; }
-.cc-bar > span { display: block; height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, var(--cc-accent), var(--cc-accent-2) 60%, #06b6d4); }
-.cc-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+/* ---- results ---- */
+.cc-meter { margin: 4px 0 18px; }
+.cc-meter .cc-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.cc-meter .cc-score { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; color: var(--cc-ink); }
+.cc-meter .cc-score small { font-size: 14px; color: var(--cc-muted); font-weight: 600; }
+.cc-meter .cc-meter-label { font-size: 12px; color: var(--cc-muted); font-weight: 650; text-align: right; }
+.cc-bar { height: 10px; border-radius: 999px; background: var(--cc-soft); overflow: hidden; }
+.cc-bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--cc-accent), #06b6d4);
+}
+.cc-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .cc-chip {
   font-size: 12px; font-weight: 650; padding: 5px 10px; border-radius: 999px;
   background: var(--cc-soft); color: var(--cc-ink-2); border: 1px solid var(--cc-line);
@@ -286,22 +309,19 @@ footer { display: none !important; }
 .cc-chip.covered { background: color-mix(in srgb, var(--cc-ok) 16%, transparent); color: var(--cc-ok); border-color: color-mix(in srgb, var(--cc-ok) 38%, transparent); }
 .cc-chip.reframeable { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
 .cc-chip.out { background: color-mix(in srgb, var(--cc-bad) 16%, transparent); color: var(--cc-bad); border-color: color-mix(in srgb, var(--cc-bad) 38%, transparent); }
-
 .cc-section-title {
   font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--cc-muted); margin: 20px 0 10px 0;
+  color: var(--cc-muted); margin: 22px 0 10px;
 }
 .cc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .cc-table th {
   text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--cc-muted); padding: 8px 10px; border-bottom: 1px solid var(--cc-line);
 }
-.cc-table td { padding: 10px; border-bottom: 1px solid var(--cc-line); vertical-align: top; color: var(--cc-ink-2); }
-.cc-table tbody tr:hover td { background: color-mix(in srgb, var(--cc-accent) 6%, transparent); }
-
+.cc-table td { padding: 11px 10px; border-bottom: 1px solid var(--cc-line); vertical-align: top; color: var(--cc-ink-2); }
 .cc-bullets { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.cc-bullets li { border: 1px solid var(--cc-line); border-radius: 12px; padding: 12px 14px; background: var(--cc-surface-2); }
-.cc-bullets li p { margin: 0 0 7px 0; color: var(--cc-ink); font-size: 14px; line-height: 1.55; }
+.cc-bullets li { border: 1px solid var(--cc-line); border-radius: 14px; padding: 13px 14px; background: var(--cc-surface-2); }
+.cc-bullets li p { margin: 0 0 7px; color: var(--cc-ink); font-size: 14px; line-height: 1.55; }
 .cc-cite { font-size: 12px; color: var(--cc-muted); }
 .cc-cite b { color: var(--cc-accent); }
 .cc-list { margin: 0; padding-left: 18px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.65; }
@@ -311,14 +331,17 @@ footer { display: none !important; }
   border-radius: 12px; padding: 11px 13px; font-size: 13px; margin-top: 10px;
 }
 .cc-note .cc-list { color: var(--cc-ink-2); }
-.cc-foot { color: var(--cc-muted); font-size: 12px; margin-top: 8px; text-align: center; }
-
-button.cc-run {
-  background: linear-gradient(135deg, var(--cc-accent), var(--cc-accent-2)) !important;
-  border: none !important; color: #fff !important; font-weight: 700 !important;
-  box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--cc-accent) 85%, transparent) !important;
-  min-height: 44px;
+.cc-qa { display: flex; flex-direction: column; gap: 10px; }
+.cc-qa-item {
+  border: 1px solid var(--cc-line); border-radius: 14px; padding: 14px 15px; background: var(--cc-surface-2);
 }
+.cc-qa-item .cc-q { margin: 0 0 6px; font-weight: 680; color: var(--cc-ink); font-size: 13.5px; }
+.cc-qa-item .cc-a { margin: 0 0 8px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.55; }
+.cc-review {
+  border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
+  padding: 16px 18px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
+}
+.cc-foot { color: var(--cc-muted); font-size: 12px; margin: 8px 0 18px; text-align: center; }
 """
 
 
@@ -332,41 +355,47 @@ def _esc(value: object) -> str:
 def _mode_banner() -> str:
     if _SETTINGS.has_llm:
         return (
-            "<div class='cc-card' style='padding:14px 16px'>"
-            "<span class='cc-badge on'>AGENTS ENABLED</span> "
-            "<span class='cc-hint' style='margin:0'>The five-agent crew runs through real MCP "
-            f"tools on <b>{_esc(_SETTINGS.openai_model)}</b>.</span></div>"
+            "<div class='cc-status-chip'><span class='dot'></span>"
+            "Full analysis ready — your match, rewrites, and package will be prepared</div>"
         )
     return (
-        "<div class='cc-card' style='padding:14px 16px'>"
-        "<span class='cc-badge off'>FALLBACK MODE</span> "
-        "<span class='cc-hint' style='margin:0'>No OPENAI_API_KEY is set. Screening answers are "
-        "still retrieved through real MCP calls and shown honestly; add a key for the full crew."
-        "</span></div>"
+        "<div class='cc-status-chip warn'><span class='dot'></span>"
+        "Limited mode — screening answers still work; add an API key for the full match report</div>"
     )
 
 
-def _hero(mode_label: str) -> str:
+def _topbar() -> str:
+    chip = (
+        "<div class='cc-status-chip'><span class='dot'></span>Ready</div>"
+        if _SETTINGS.has_llm
+        else "<div class='cc-status-chip warn'><span class='dot'></span>Limited mode</div>"
+    )
+    return (
+        "<div class='cc-topbar'>"
+        "<div class='cc-brand'>"
+        "<div class='cc-mark'>C</div>"
+        "<div><div class='cc-brand-name'>CareerCrew</div>"
+        "<div class='cc-brand-tag'>Resume &amp; application coach</div></div>"
+        f"</div>{chip}</div>"
+    )
+
+
+def _hero() -> str:
     return (
         "<div class='cc-hero'>"
-        "<h1>CareerCrew</h1>"
-        "<p class='cc-sub'>A multi-agent resume, interview, and job-application coach built on "
-        "CrewAI and the Model Context Protocol. Five agents extract your profile, analyze the "
-        "role, score coverage, draft cited bullets, and assemble an application package whose "
-        "screening answers come only from a verified answer bank.</p>"
-        "<div class='cc-badges'>"
-        "<span class='cc-badge ghost'>CrewAI · sequential</span>"
-        "<span class='cc-badge ghost'>MCP · 3 real tools</span>"
-        "<span class='cc-badge ghost'>Knowledge · resume guidelines</span>"
-        "<span class='cc-badge ghost'>Guardrails · in / out</span>"
-        "<span class='cc-badge ghost'>Human-in-the-loop</span>"
-        f"<span class='cc-badge ghost'>{_esc(mode_label)}</span>"
+        "<h1>Match your resume to the role</h1>"
+        "<p class='cc-sub'>See what you already cover, what you can reframe, and what to leave out. "
+        "Get stronger resume bullets and honest screening answers — all grounded in your real experience.</p>"
+        "<div class='cc-trust'>"
+        "<span>Cited from your resume</span>"
+        "<span>No invented answers</span>"
+        "<span>You approve before finalize</span>"
         "</div></div>"
     )
 
 
 def _stages_html(current: int = -1, detail: str = "") -> str:
-    """Render the live stage tracker.
+    """Render the live progress stepper.
 
     ``current`` is the stage number that is executing: lower numbers are done,
     the current one is active, higher numbers are queued. ``current`` greater
@@ -375,34 +404,37 @@ def _stages_html(current: int = -1, detail: str = "") -> str:
     rows: list[str] = []
     for number, title, blurb in STAGES:
         if current < 0:
-            cls, icon, pill = "", "○", "READY"
+            cls, icon, pill = "", str(number), "READY"
         elif number < current:
             cls, icon, pill = "done", "✓", "DONE"
         elif number == current:
-            cls, icon, pill = "active", "◐", "RUNNING"
+            cls, icon, pill = "active", str(number), "RUNNING"
         else:
-            cls, icon, pill = "", "○", "QUEUED"
-        agent = _AGENT_LABEL.get(number)
-        agent_html = f" · <b>{_esc(agent)}</b>" if agent else ""
+            cls, icon, pill = "", str(number), "QUEUED"
         rows.append(
-            f"<div class='cc-stage {cls}'>"
+            f"<div class='cc-stage {cls}' title='{_esc(blurb)}'>"
             f"<div class='cc-dot'>{icon}</div>"
-            f"<div><div class='cc-ttl'>{number}. {_esc(title)}{agent_html}</div>"
-            f"<div class='cc-blurb'>{_esc(blurb)}</div></div>"
+            f"<div class='cc-ttl'>{_esc(title)}</div>"
+            f"<div class='cc-blurb'>{_esc(blurb)}</div>"
             f"<div class='cc-pill'>{pill}</div>"
             "</div>"
         )
     live = ""
     if detail:
         live = (
-            "<div class='cc-live'><span class='cc-blink'>▸</span>"
+            "<div class='cc-live'><span class='cc-blink'>●</span>"
             f"<span>{_esc(detail)}</span></div>"
         )
+    shown = 0 if current < 0 else min(current, _TOTAL_STAGES)
+    if current >= _FINAL:
+        shown = _TOTAL_STAGES
     header = (
-        "<div class='cc-card'><h3>Live pipeline</h3>"
-        f"<p class='cc-hint'>Stage {max(current, 0)} of {_TOTAL_STAGES} · "
-        "the tracker advances as each agent starts and finishes.</p>"
-        "<div class='cc-stages'>"
+        "<div class='cc-card cc-progress'>"
+        "<div class='cc-progress-top'>"
+        "<div><h3 style='margin:0'>Progress</h3>"
+        "<div class='cc-progress-label'>We’ll walk through each step as your match is prepared.</div></div>"
+        f"<div class='cc-progress-count'>{shown} / {_TOTAL_STAGES}</div>"
+        "</div><div class='cc-stages'>"
     )
     return header + "".join(rows) + "</div>" + live + "</div>"
 
@@ -410,21 +442,16 @@ def _stages_html(current: int = -1, detail: str = "") -> str:
 def _empty_card(title: str, hint: str) -> str:
     return (
         f"<div class='cc-card'><h3>{_esc(title)}</h3>"
-        f"<div class='cc-empty'>{_esc(hint)}</div></div>"
+        f"<div class='cc-empty'><strong>Nothing here yet</strong>{_esc(hint)}</div></div>"
     )
 
 
 def _trace_markdown(result) -> str:
     if not result:
         return (
-            "**Execution trace**\n\n"
-            "1. Input guardrails validate the resume and job description.\n"
-            "2. Profile Extractor reads the resume via MCP `read_resume`.\n"
-            "3. JD Analyzer reads the job description via MCP `fetch_job_description`.\n"
-            "4. Gap Analyst scores coverage and labels each requirement.\n"
-            "5. Feedback Writer drafts cited bullets and talking points.\n"
-            "6. Application Packager answers screening questions via MCP `query_answer_bank`.\n"
-            "7. Output guardrails validate the package, then it awaits your review."
+            "**Advanced — what ran behind the scenes**\n\n"
+            "After you analyze a match, this tab shows the detailed step log "
+            "(useful for debugging or class demos)."
         )
     marker = {"ok": "PASS", "warning": "WARN", "error": "FAIL"}
     lines = ["**Execution trace**", ""]
@@ -451,9 +478,9 @@ def _insight_html(result) -> str:
     """Coverage meter, profile, requirements, gap verdicts, and the rewrite plan."""
     if not result:
         return _empty_card(
-            "Coverage & insights",
-            "Run an analysis to see the keyword coverage meter, per-requirement verdicts, "
-            "the candidate profile, the extracted requirements, and the rewrite plan.",
+            "Your match report",
+            "Analyze a match to see your coverage score, which requirements you already meet, "
+            "and suggested resume rewrites backed by your experience.",
         )
 
     gaps = result.gaps
@@ -464,9 +491,12 @@ def _insight_html(result) -> str:
         counts[_verdict_class(verdict.verdict)] += 1
 
     parts: list[str] = ["<div class='cc-card'>"]
-    parts.append("<h3>Coverage score</h3>")
-    parts.append("<p class='cc-hint'>Share of the role's requirements the resume genuinely covers.</p>")
-    label = "Keyword &amp; skill match" if verdicts else "No verdicts returned"
+    parts.append("<h3>Your match score</h3>")
+    parts.append(
+        "<p class='cc-hint'>How much of this role’s requirements your resume already supports — "
+        "without inventing experience.</p>"
+    )
+    label = "Based on the job requirements" if verdicts else "Waiting for requirement details"
     parts.append(
         "<div class='cc-meter'>"
         "<div class='cc-meter-top'>"
@@ -483,7 +513,7 @@ def _insight_html(result) -> str:
 
     profile = result.profile
     if profile.full_name or profile.skills or profile.experience:
-        parts.append("<div class='cc-section-title'>Candidate profile</div>")
+        parts.append("<div class='cc-section-title'>From your resume</div>")
         if profile.full_name:
             parts.append(f"<div style='font-weight:700;font-size:15px'>{_esc(profile.full_name)}</div>")
         if profile.summary:
@@ -502,7 +532,7 @@ def _insight_html(result) -> str:
 
     reqs = result.requirements
     if reqs.required_skills or reqs.keywords or reqs.seniority:
-        parts.append("<div class='cc-section-title'>Role requirements</div>")
+        parts.append("<div class='cc-section-title'>What the role asks for</div>")
         if reqs.seniority:
             parts.append(
                 f"<div class='cc-stats'><span class='cc-chip'>seniority · {_esc(reqs.seniority)}</span></div>"
@@ -514,10 +544,10 @@ def _insight_html(result) -> str:
             parts.append(f"<div class='cc-stats'>{chips}</div>")
 
     if verdicts:
-        parts.append("<div class='cc-section-title'>Requirement verdicts</div>")
+        parts.append("<div class='cc-section-title'>Requirement by requirement</div>")
         parts.append(
-            "<table class='cc-table'><thead><tr><th>Requirement</th><th>Verdict</th>"
-            "<th>Supporting fact</th></tr></thead><tbody>"
+            "<table class='cc-table'><thead><tr><th>Requirement</th><th>Status</th>"
+            "<th>Evidence from your resume</th></tr></thead><tbody>"
         )
         for verdict in verdicts:
             cls = _verdict_class(verdict.verdict)
@@ -532,11 +562,11 @@ def _insight_html(result) -> str:
 
     feedback = result.feedback
     if feedback.rewritten_bullets:
-        parts.append("<div class='cc-section-title'>Rewrite plan — every bullet is cited</div>")
+        parts.append("<div class='cc-section-title'>Suggested resume rewrites</div>")
         bullets = "".join(
             "<li>"
             f"<p>{_esc(bullet.text)}</p>"
-            f"<div class='cc-cite'>cited from: <b>{_esc(bullet.cited_fact) or '—'}</b></div>"
+            f"<div class='cc-cite'>Based on: <b>{_esc(bullet.cited_fact) or '—'}</b></div>"
             "</li>"
             for bullet in feedback.rewritten_bullets
         )
@@ -558,46 +588,86 @@ def _insight_html(result) -> str:
     return "".join(parts)
 
 
-def _package_markdown(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
-    """The assembled application package (screening answers + items needing input)."""
+def _package_html(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
+    """Candidate-facing application package (screening answers + items needing input)."""
     if package is None:
-        return (
-            "### Application package\n\n"
-            "_The assembled package will appear here after analysis. Every screening answer "
-            "is sourced from the verified answer bank (`answer_bank`); anything unverified is "
-            "listed under items needing your input instead of being invented._"
+        return _empty_card(
+            "Application package",
+            "After analysis, you’ll see verified screening answers here — and anything that "
+            "still needs your personal input.",
         )
+
+    parts = ["<div class='cc-card'>"]
+    parts.append("<h3>Application package</h3>")
+    role = package.role_title or "Role"
+    company = package.company or "Company"
+    parts.append(
+        f"<p class='cc-hint'><span class='cc-badge ghost'>{_esc(package.package_id)}</span> "
+        f"{_esc(role)} · {_esc(company)}</p>"
+    )
+    if package.package_summary:
+        parts.append(f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.55'>{_esc(package.package_summary)}</p>")
+
+    parts.append(f"<div class='cc-section-title'>Screening answers ({len(package.screening_answers)})</div>")
+    if package.screening_answers:
+        parts.append("<div class='cc-qa'>")
+        for answer in package.screening_answers:
+            parts.append(
+                "<div class='cc-qa-item'>"
+                f"<p class='cc-q'>{_esc(answer.question)}</p>"
+                f"<p class='cc-a'>{_esc(answer.answer)}</p>"
+                "<span class='cc-badge on'>Verified answer</span>"
+                "</div>"
+            )
+        parts.append("</div>")
+    else:
+        parts.append(
+            "<div class='cc-empty'>No screening questions were answered yet. "
+            "Add questions above and analyze again.</div>"
+        )
+
+    if package.do_not_claim:
+        items = "".join(f"<li>{_esc(item)}</li>" for item in package.do_not_claim)
+        parts.append(
+            f"<div class='cc-section-title'>Needs your input ({len(package.do_not_claim)})</div>"
+            "<div class='cc-note'><p style='margin:0 0 6px'>We won’t invent answers for these. "
+            f"Please fill them in yourself.</p><ul class='cc-list'>{items}</ul></div>"
+        )
+
+    if warnings:
+        notes = "".join(f"<li>{_esc(w)}</li>" for w in warnings)
+        parts.append(
+            f"<div class='cc-section-title'>Notes</div><ul class='cc-list'>{notes}</ul>"
+        )
+
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _package_markdown(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
+    """Plain markdown fallback used by review callbacks / tests that inspect text."""
+    if package is None:
+        return "Application package will appear here after analysis. Answers use answer_bank only."
     lines = [
-        "### Application package",
-        "",
-        f"`{package.package_id}` · role: **{package.role_title or '—'}** · "
-        f"company: **{package.company or '—'}**",
+        f"### {package.package_id}",
+        f"**{package.role_title or '—'}** at **{package.company or '—'}**",
         "",
     ]
     if package.package_summary:
         lines += [package.package_summary, ""]
-
     lines.append(f"#### Screening answers ({len(package.screening_answers)})")
-    if package.screening_answers:
-        for index, answer in enumerate(package.screening_answers, start=1):
-            lines.append(
-                f"**Q{index}. {answer.question}**  \n"
-                f"{answer.answer}  \n"
-                f"`source: {answer.source}` · verified: {'yes' if answer.verified else 'no'}"
-            )
-            lines.append("")
-    else:
-        lines += ["_No screening questions were answered from the verified bank._", ""]
-
+    for index, answer in enumerate(package.screening_answers, start=1):
+        lines.append(
+            f"**Q{index}. {answer.question}**  \n{answer.answer}  \n"
+            f"`source: {answer.source}` · verified: {'yes' if answer.verified else 'no'}"
+        )
+        lines.append("")
     if package.do_not_claim:
         lines.append(f"#### Needs your input ({len(package.do_not_claim)})")
         lines.extend(f"- {item}" for item in package.do_not_claim)
-        lines.append("")
-
     if warnings:
         lines.append("#### Notes")
         lines.extend(f"- {warning}" for warning in warnings)
-
     return "\n".join(lines)
 
 
@@ -626,7 +696,7 @@ def _empty_outputs() -> tuple:
         _stages_html(-1),  # stages_html
         _trace_markdown(None),  # trace_md
         _insight_html(None),  # insight_html
-        _package_markdown(None),  # package_md
+        _package_html(None),  # package_md (HTML package view)
         "",  # package_json
         gr.update(interactive=False),  # approve_btn
         gr.update(interactive=False),  # reject_btn
@@ -714,19 +784,19 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
     # Kick off: stage 1 is active.
     yield emit(
         0, gr.update(value="", visible=False),
-        1, "Starting — validating inputs…",
-        3, _stages_html(1, "Input guardrails: type, size, PII redaction, injection screen"),
+        1, "Checking your inputs…",
+        3, _stages_html(1, "Checking that your resume and job description look valid"),
     )
 
-    stages: dict[str, object] = {"index": 1, "detail": "Input guardrails…"}
+    stages: dict[str, object] = {"index": 1, "detail": "Checking your inputs…"}
 
     def progress(message: str) -> None:
         """Bridge the pipeline's progress messages onto the stage tracker."""
         lowered = message.lower()
         if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
-            stages["index"], stages["detail"] = 6, message
+            stages["index"], stages["detail"] = 6, "Preparing screening answers from your verified bank…"
         elif "five-agent crew" in lowered:
-            stages["index"], stages["detail"] = 2, "Starting the five-agent crew…"
+            stages["index"], stages["detail"] = 2, "Reading your resume…"
         else:
             stages["detail"] = message
 
@@ -736,9 +806,9 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
         agent = getattr(output, "agent", "") or ""
         stage = _AGENT_STAGE.get(agent) or _TASK_STAGE.get(name)
         if stage:
-            label = agent or name
+            title = next((t for n, t, _ in STAGES if n == stage), name or agent)
             stages["index"] = stage + 1
-            stages["detail"] = f"✓ {label} finished — handing off"
+            stages["detail"] = f"Finished: {title}"
 
     def advance(stage_index: int, label: str) -> tuple:
         return emit(3, _stages_html(stage_index, label), 1, label)
@@ -781,19 +851,20 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
         result.trace,
     )
 
-    mode = " · fallback path used" if result.used_fallback else ""
+    mode = " (limited mode)" if result.used_fallback else ""
     status = (
-        f"**Draft ready for review** — package `{result.package.package_id}`, "
-        f"{len(result.package.screening_answers)} screening answer(s), "
-        f"{len(result.package.do_not_claim)} item(s) needing your input{mode}."
+        f"**Your draft is ready{mode}.** "
+        f"Package `{result.package.package_id}` · "
+        f"{len(result.package.screening_answers)} verified screening answer(s) · "
+        f"{len(result.package.do_not_claim)} item(s) still need your input."
     )
     yield emit(
         0, gr.update(value="", visible=False),
         1, status,
-        3, _stages_html(_FINAL, "Run complete — the package is awaiting your review."),
+        3, _stages_html(_FINAL, "All set — review your match report below."),
         4, _trace_markdown(result),
         5, _insight_html(result),
-        6, _package_markdown(result.package, result.warnings),
+        6, _package_html(result.package, result.warnings),
         7, result.package.model_dump_json(indent=2),
         8, gr.update(interactive=True),
         9, gr.update(interactive=True),
@@ -840,9 +911,9 @@ def approve(state, feedback):
         return gr.update(), f"Cannot approve: {exc}", state, gr.update(), _tracker_rows()
     return (
         gr.update(interactive=False),
-        f"Package `{package.package_id}` is **{outcome.status.value}**. You can now use it.",
+        f"Approved — package `{package.package_id}` is ready to use.",
         package.model_dump(),
-        _package_markdown(package, []),
+        _package_html(package, []),
         _tracker_rows(),
     )
 
@@ -867,9 +938,9 @@ def reject(state, feedback):
         return gr.update(), f"Cannot reject: {exc}", state, gr.update(), _tracker_rows()
     return (
         gr.update(interactive=False),
-        f"Package `{package.package_id}` is **REJECTED**.",
+        f"Rejected — package `{package.package_id}` will not be used.",
         package.model_dump(),
-        _package_markdown(package, []),
+        _package_html(package, []),
         _tracker_rows(),
     )
 
@@ -904,8 +975,8 @@ def request_revision(state, feedback):
     return (
         gr.update(interactive=True),
         state,
-        f"Revision {outcome.revision_count} requested — update the inputs and run again.",
-        _package_markdown(package, []),
+        f"Revision {outcome.revision_count} requested — update the inputs and analyze again.",
+        _package_html(package, []),
         _tracker_rows(),
     )
 
@@ -929,114 +1000,126 @@ _SAMPLE_QUESTIONS = (
 # Layout
 # --------------------------------------------------------------------------- #
 def build_app() -> gr.Blocks:
-    mode_label = "agents enabled" if _SETTINGS.has_llm else "fallback mode"
-
-    with gr.Blocks(title="CareerCrew · Multi-Agent Application Coach") as demo:
+    with gr.Blocks(title="CareerCrew — Match your resume to the role") as demo:
         state = gr.State(None)
 
-        gr.HTML(_hero(mode_label))
+        gr.HTML(_topbar())
+        gr.HTML(_hero())
 
-        gr.Markdown("### Step 1 — Add your inputs")
-        with gr.Row(equal_height=False):
-            # ---- LEFT: Resume ------------------------------------------------ #
+        with gr.Row(equal_height=True):
             with gr.Column(scale=1):
-                with gr.Group(elem_classes=["cc-panel", "cc-panel-resume"]):
+                with gr.Group(elem_classes=["cc-panel"]):
                     gr.HTML(
-                        "<div class='cc-panel-head'>"
-                        "<span class='cc-step'>1</span><h3>Resume</h3>"
-                        "<p class='cc-hint'>Upload a file or paste the text — either is fine.</p></div>"
+                        "<div class='cc-panel-head'><h3>Your resume</h3>"
+                        "<p class='cc-hint'>Upload a file or paste the text — whichever is easier.</p></div>"
                     )
-                    sample_resume_btn = gr.Button("↧  Load sample resume", size="sm")
-                    resume_file = gr.File(
-                        label="Upload resume (PDF, DOCX, TXT)",
-                        file_types=[".pdf", ".docx", ".txt"],
-                        elem_classes=["cc-field"],
-                    )
-                    resume_text = gr.Textbox(
-                        label="…or paste the resume text",
-                        placeholder="Paste the resume text here if you do not have a file.",
-                        lines=12,
-                        elem_classes=["cc-field"],
-                    )
+                    sample_resume_btn = gr.Button("Try a sample resume", size="sm")
+                    with gr.Tabs():
+                        with gr.Tab("Upload file"):
+                            resume_file = gr.File(
+                                label="PDF, DOCX, or TXT",
+                                file_types=[".pdf", ".docx", ".txt"],
+                                elem_classes=["cc-field"],
+                            )
+                        with gr.Tab("Paste text"):
+                            resume_text = gr.Textbox(
+                                label="Resume text",
+                                placeholder="Paste your resume here…",
+                                lines=14,
+                                elem_classes=["cc-field"],
+                                show_label=False,
+                            )
 
-            # ---- RIGHT: Job description -------------------------------------- #
             with gr.Column(scale=1):
-                with gr.Group(elem_classes=["cc-panel", "cc-panel-jd"]):
+                with gr.Group(elem_classes=["cc-panel"]):
                     gr.HTML(
-                        "<div class='cc-panel-head'>"
-                        "<span class='cc-step'>2</span><h3>Job description</h3>"
-                        "<p class='cc-hint'>Paste the posting — or point to an https URL.</p></div>"
+                        "<div class='cc-panel-head'><h3>The job</h3>"
+                        "<p class='cc-hint'>Paste the posting, or fetch it from a secure https link.</p></div>"
                     )
-                    sample_jd_btn = gr.Button("↧  Load sample job", size="sm")
-                    jd_text = gr.Textbox(
-                        label="Paste the job description",
-                        placeholder="Paste the job description here.",
-                        lines=10,
-                        elem_classes=["cc-field"],
-                    )
-                    jd_url = gr.Textbox(
-                        label="…or a URL (optional, https only)",
-                        placeholder="https://example.com/job",
-                        elem_classes=["cc-field"],
-                    )
-                    screening_text = gr.Textbox(
-                        label="Screening questions (optional, one per line)",
-                        placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
-                        lines=3,
-                        elem_classes=["cc-field"],
-                    )
+                    sample_jd_btn = gr.Button("Try a sample job", size="sm")
+                    with gr.Tabs():
+                        with gr.Tab("Paste posting"):
+                            jd_text = gr.Textbox(
+                                label="Job description",
+                                placeholder="Paste the job description here…",
+                                lines=12,
+                                elem_classes=["cc-field"],
+                                show_label=False,
+                            )
+                        with gr.Tab("From URL"):
+                            jd_url = gr.Textbox(
+                                label="Job posting URL",
+                                placeholder="https://company.com/jobs/…",
+                                elem_classes=["cc-field"],
+                            )
+                    with gr.Accordion("Optional screening questions", open=False):
+                        screening_text = gr.Textbox(
+                            label="One question per line",
+                            placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
+                            lines=3,
+                            elem_classes=["cc-field"],
+                            show_label=False,
+                        )
 
-        with gr.Row(elem_classes=["cc-actions"]):
-            run_btn = gr.Button(
-                "▶  Run analysis", variant="primary", elem_classes=["cc-run"], scale=3
-            )
-            clear_btn = gr.Button("Reset", size="sm", scale=1)
+        with gr.Group(elem_classes=["cc-cta"]):
+            with gr.Row():
+                with gr.Column(scale=3):
+                    gr.HTML(
+                        "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
+                        "<p>We’ll score the match, suggest stronger bullets, and prepare honest "
+                        "screening answers.</p></div>"
+                    )
+                with gr.Column(scale=2):
+                    with gr.Row():
+                        run_btn = gr.Button(
+                            "Analyze match", variant="primary", elem_classes=["cc-run"], scale=3
+                        )
+                        clear_btn = gr.Button("Clear", size="sm", scale=1)
 
-        gr.Markdown("---")
-        gr.Markdown("### Step 2 — Watch the pipeline")
         banner = gr.HTML(_mode_banner())
         stages_html = gr.HTML(_stages_html(-1))
         status = gr.Markdown(_IDLE_STATUS)
         error_box = gr.Markdown(visible=False)
 
-        gr.Markdown("---")
-        gr.Markdown("### Step 3 — Review the results")
-
         with gr.Tabs():
-            with gr.Tab("Coverage & insights"):
+            with gr.Tab("Match report"):
                 insight_html = gr.HTML(_insight_html(None))
             with gr.Tab("Application package"):
-                package_md = gr.Markdown(_package_markdown(None))
-            with gr.Tab("Execution trace"):
-                trace_md = gr.Markdown(_trace_markdown(None))
-            with gr.Tab("Package JSON"):
-                package_json = gr.Code(label="ApplicationPackage", language="json")
-            with gr.Tab("Session tracker"):
+                package_md = gr.HTML(_package_html(None))
+            with gr.Tab("History"):
                 tracker_table = gr.Dataframe(
                     headers=["Package", "Role", "Company", "Status", "Revisions", "Updated"],
                     datatype=["str"] * 6,
                     interactive=False,
-                    label="Packages prepared in this session",
+                    label="Your recent packages",
                     value=_tracker_rows(),
                 )
+            with gr.Tab("Advanced"):
+                with gr.Accordion("Step-by-step log", open=True):
+                    trace_md = gr.Markdown(_trace_markdown(None))
+                with gr.Accordion("Raw package JSON", open=False):
+                    package_json = gr.Code(label="Package JSON", language="json")
 
-        gr.Markdown("---")
-        gr.Markdown("### Human review")
-        feedback = gr.Textbox(
-            label="Reviewer feedback (required to request a revision)",
-            placeholder="e.g. Drop the AWS bullet — it is not backed by the resume.",
-            lines=2,
-        )
-        with gr.Row():
-            approve_btn = gr.Button("✓  Approve", variant="primary", interactive=False)
-            revise_btn = gr.Button("↻  Request revision", interactive=False)
-            reject_btn = gr.Button("✕  Reject", variant="stop", interactive=False)
-        review_status = gr.Markdown("")
-        refresh_btn = gr.Button("Refresh tracker", size="sm")
+        with gr.Group(elem_classes=["cc-review"]):
+            gr.HTML(
+                "<div class='cc-panel-head'><h3>Your decision</h3>"
+                "<p class='cc-hint'>Nothing is finalized until you approve it.</p></div>"
+            )
+            feedback = gr.Textbox(
+                label="Notes for a revision (required if you request changes)",
+                placeholder="e.g. Drop the AWS bullet — it’s not backed by my resume.",
+                lines=2,
+            )
+            with gr.Row():
+                approve_btn = gr.Button("Approve package", variant="primary", interactive=False)
+                revise_btn = gr.Button("Request changes", interactive=False)
+                reject_btn = gr.Button("Reject", variant="stop", interactive=False)
+            review_status = gr.Markdown("")
+            refresh_btn = gr.Button("Refresh history", size="sm")
 
         gr.HTML(
-            "<p class='cc-foot'>CareerCrew · CrewAI + MCP · every screening answer is sourced "
-            "from the verified answer bank; unverified questions surface for a human, never invented.</p>"
+            "<p class='cc-foot'>CareerCrew keeps screening answers honest — verified facts only, "
+            "and anything uncertain is left for you to answer.</p>"
         )
 
         # --- wiring --------------------------------------------------------- #

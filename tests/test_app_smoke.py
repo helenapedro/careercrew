@@ -44,12 +44,22 @@ def test_stage_tracker_reflects_progress():
 
     idle = app._stages_html(-1)
     assert "READY" in idle
-    running = app._stages_html(3, "Analyzing the job…")
+    assert "Read resume" in idle
+    running = app._stages_html(3, "Understanding the role…")
     assert "RUNNING" in running
     assert "DONE" in running  # stages 1 and 2 finished
-    assert "Analyzing the job…" in running
+    assert "Understanding the role…" in running
     done = app._stages_html(app._FINAL, "complete")
     assert "RUNNING" not in done
+
+
+def test_candidate_facing_copy_hides_tech_jargon_in_hero():
+    import app
+
+    hero = app._hero()
+    assert "Match your resume" in hero
+    assert "CrewAI" not in hero
+    assert "MCP" not in hero
 
 
 def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
@@ -91,7 +101,7 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
     assert "answer_bank" in package_json
     # The stage tracker ends fully complete and the package view is populated.
     assert "RUNNING" not in outputs[3]
-    assert "answer_bank" in outputs[6]
+    assert "Verified answer" in outputs[6] or "answer_bank" in outputs[6]
 
 
 def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
