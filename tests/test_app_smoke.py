@@ -73,6 +73,7 @@ def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
     outputs = _drain(app.analyze(None, "", "A real job description here.", "", ""))
     error_box = outputs[0]
     assert "resume" in str(error_box).lower()
+    assert "cc-alert" in str(error_box).lower() or "something went wrong" in str(error_box).lower()
 
 
 def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):

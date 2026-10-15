@@ -104,6 +104,16 @@ def _unwrap_result(value: Any) -> Any:
     return value
 
 
+def _tool_error_text(result: Any) -> str:
+    """Pull a human-readable message out of an MCP error CallToolResult."""
+    parts: list[str] = []
+    for block in getattr(result, "content", None) or []:
+        text = getattr(block, "text", None)
+        if text:
+            parts.append(str(text).strip())
+    return " ".join(parts).strip()
+
+
 class MCPToolClient:
     """A synchronous-friendly wrapper over a stdio MCP session.
 
@@ -148,7 +158,8 @@ class MCPToolClient:
             sess.call_tool(name, arguments), timeout=self._timeout_s
         )
         if getattr(result, "isError", False):
-            raise RuntimeError(f"MCP tool {name} returned an error")
+            detail = _tool_error_text(result) or f"MCP tool {name} returned an error"
+            raise RuntimeError(detail)
         return _decode_tool_result(result)
 
     # -- synchronous operations ------------------------------------------------

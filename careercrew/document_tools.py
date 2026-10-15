@@ -143,6 +143,26 @@ def _strip_html(raw_html: str) -> str:
     return _clean_text(text)
 
 
+#: Job boards that block automated access / require login — tell the user early.
+_BLOCKED_JD_HOSTS = (
+    "linkedin.com",
+    "www.linkedin.com",
+    "indeed.com",
+    "www.indeed.com",
+    "glassdoor.com",
+    "www.glassdoor.com",
+)
+
+
+def _host_of(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+
+        return (urlparse(url).hostname or "").lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _fetch_url(source: str) -> str:
     """Fetch a JD from an https URL, raising JobDescriptionError when the page
     cannot be directly accessed (never returns partial or junk text)."""
@@ -150,6 +170,14 @@ def _fetch_url(source: str) -> str:
         raise JobDescriptionError(
             "Only https:// URLs are supported for job descriptions. "
             "Paste the job description text instead."
+        )
+
+    host = _host_of(source)
+    if any(host == blocked or host.endswith("." + blocked) for blocked in _BLOCKED_JD_HOSTS):
+        raise JobDescriptionError(
+            f"{host} blocks automated access (login wall). "
+            "Open the posting in your browser, copy the job description text, "
+            "and paste it in the Paste posting tab instead."
         )
 
     request = urllib.request.Request(

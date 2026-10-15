@@ -390,6 +390,26 @@ button.cc-clear:hover {
   padding: 16px 18px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
 }
 .cc-foot { color: var(--cc-muted); font-size: 12px; margin: 8px 0 18px; text-align: center; }
+
+/* ---- alerts / status under the CTA (always visible when set) ---- */
+.cc-alert {
+  border-radius: 14px; padding: 12px 14px; margin: 8px 0 4px;
+  font-size: 13.5px; line-height: 1.5; border: 1px solid transparent;
+}
+.cc-alert.error {
+  background: color-mix(in srgb, var(--cc-bad) 12%, transparent);
+  border-color: color-mix(in srgb, var(--cc-bad) 40%, transparent);
+  color: var(--cc-ink);
+}
+.cc-alert.error strong { color: var(--cc-bad); display: block; margin-bottom: 2px; }
+.cc-alert.info {
+  background: color-mix(in srgb, var(--cc-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--cc-accent) 34%, transparent);
+  color: var(--cc-ink-2);
+}
+.cc-status-line {
+  margin: 6px 0 2px; font-size: 13.5px; color: var(--cc-ink-2); min-height: 1.4em;
+}
 """
 
 
@@ -398,6 +418,18 @@ button.cc-clear:hover {
 # --------------------------------------------------------------------------- #
 def _esc(value: object) -> str:
     return html.escape(str(value if value is not None else ""))
+
+
+def _alert_html(message: str = "", *, kind: str = "error") -> str:
+    """Always-mounted alert under the CTA. Empty string clears it."""
+    text = (message or "").strip()
+    if not text:
+        return ""
+    return (
+        f"<div class='cc-alert {kind}' role='alert'>"
+        f"<strong>{'Something went wrong' if kind == 'error' else 'Working'}</strong>"
+        f"{_esc(text)}</div>"
+    )
 
 
 def _mode_banner() -> str:
@@ -738,7 +770,7 @@ def _tracker_rows() -> list[list]:
 def _empty_outputs() -> tuple:
     """The reset state shared by every early return in :func:`analyze`."""
     return (
-        gr.update(value="", visible=False),  # error_box
+        "",  # error_box (HTML alert; empty = hidden)
         _IDLE_STATUS,  # status
         _mode_banner(),  # banner
         _stages_html(-1),  # stages_html
@@ -788,139 +820,151 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
     outputs = list(_empty_outputs())
 
     def emit(*pairs) -> tuple:
-        """Build the full output tuple from ``index, value`` pairs."""
-        current = list(outputs)
+        """Mutate and return the full output tuple from ``index, value`` pairs."""
         for position in range(0, len(pairs), 2):
-            current[pairs[position]] = pairs[position + 1]
-        return tuple(current)
+            outputs[pairs[position]] = pairs[position + 1]
+        return tuple(outputs)
 
-    jd_source = (jd_url or "").strip() or (jd_text or "").strip()
+    def fail(message: str, *, status: str = "Couldn’t finish — see the message above.") -> tuple:
+        return emit(
+            0, _alert_html(message, kind="error"),
+            1, status,
+            3, _stages_html(-1),
+            8, gr.update(interactive=False),
+            9, gr.update(interactive=False),
+            10, gr.update(interactive=False),
+        )
 
-    # --- Stage 1: input guardrails (resume resolution). --------------------- #
     try:
-        resume_path, pasted = _resolve_resume(resume_file, resume_text)
-    except Exception as exc:  # noqa: BLE001 - surface a clean error
+        jd_source = (jd_url or "").strip() or (jd_text or "").strip()
+
+        # Immediate feedback so the click never looks dead.
         yield emit(
-            0, gr.update(value=f"**Resume error** — {exc}", visible=True),
-            1, "Resume rejected — see the message above.",
+            0, "",
+            1, "**Starting…** checking your resume and job description.",
+            3, _stages_html(1, "Checking your inputs…"),
         )
-        return
 
-    if resume_path is None and pasted is None:
-        yield emit(
-            0, gr.update(value="Provide a resume: upload a PDF/DOCX/TXT file, or paste the text.", visible=True),
-            1, "Missing resume.",
-        )
-        return
-
-    if not jd_source.strip():
-        yield emit(
-            0, gr.update(value="Paste a job description or an https URL.", visible=True),
-            1, "Missing job description.",
-        )
-        return
-
-    questions = [line.strip() for line in (screening_text or "").splitlines() if line.strip()]
-    request = AnalysisRequest(
-        package_id=make_package_id(),
-        resume_path=resume_path,
-        resume_text=pasted,
-        jd_source=guardrails.redact_pii(jd_source),
-        screening_questions=questions,
-    )
-
-    # Kick off: stage 1 is active.
-    yield emit(
-        0, gr.update(value="", visible=False),
-        1, "Checking your inputs…",
-        3, _stages_html(1, "Checking that your resume and job description look valid"),
-    )
-
-    stages: dict[str, object] = {"index": 1, "detail": "Checking your inputs…"}
-
-    def progress(message: str) -> None:
-        """Bridge the pipeline's progress messages onto the stage tracker."""
-        lowered = message.lower()
-        if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
-            stages["index"], stages["detail"] = 6, "Preparing screening answers from your verified bank…"
-        elif "five-agent crew" in lowered:
-            stages["index"], stages["detail"] = 2, "Reading your resume…"
-        else:
-            stages["detail"] = message
-
-    def on_task(output) -> None:
-        """CrewAI task callback: refine the tracker after each task completes."""
-        name = getattr(output, "name", "") or ""
-        agent = getattr(output, "agent", "") or ""
-        stage = _AGENT_STAGE.get(agent) or _TASK_STAGE.get(name)
-        if stage:
-            title = next((t for n, t, _ in STAGES if n == stage), name or agent)
-            stages["index"] = stage + 1
-            stages["detail"] = f"Finished: {title}"
-
-    def advance(stage_index: int, label: str) -> tuple:
-        return emit(3, _stages_html(stage_index, label), 1, label)
-
-    # run_analysis blocks, so run it on a worker thread and poll for progress.
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(run_analysis, request, progress=progress, on_task=on_task)
-
-        expected = 2
-        last_yielded = 1
-        while not future.done():
-            reported = int(stages["index"])
-            if reported >= expected:
-                expected = reported + 1
-            target = min(expected, _TOTAL_STAGES)
-            if target != last_yielded:
-                last_yielded = target
-                detail = str(stages["detail"] or "Working…")
-                yield advance(target, f"{detail}")
-            _wait_futures([future], timeout=1.0)
-
+        # --- Stage 1: input guardrails (resume resolution). ----------------- #
         try:
-            result = future.result()
-        except Exception as exc:  # noqa: BLE001 - surface a clean error, never crash
-            logger.exception("analysis run failed")
-            yield emit(
-                0, gr.update(value=f"**Analysis failed** — {exc}", visible=True),
-                1, "Analysis failed — see the message above.",
-                3, _stages_html(-1),
+            resume_path, pasted = _resolve_resume(resume_file, resume_text)
+        except Exception as exc:  # noqa: BLE001 - surface a clean error
+            yield fail(f"Resume error: {exc}", status="Resume rejected.")
+            return
+
+        if resume_path is None and pasted is None:
+            yield fail(
+                "Add a resume first — upload a PDF/DOCX/TXT file, or paste the text "
+                "in the Paste text tab."
             )
             return
 
-    _REVIEW.submit_for_review(
-        {
-            "resume_path": request.resume_path,
-            "jd_source": request.jd_source,
-            "screening_questions": request.screening_questions,
-        },
-        result.package,
-        result.trace,
-    )
+        if not jd_source.strip():
+            yield fail(
+                "Add a job description — paste the posting text, or use an https URL "
+                "that can be read without a login (LinkedIn/Indeed usually need a paste)."
+            )
+            return
 
-    mode = " (limited mode)" if result.used_fallback else ""
-    status = (
-        f"**Your draft is ready{mode}.** "
-        f"Package `{result.package.package_id}` · "
-        f"{len(result.package.screening_answers)} verified screening answer(s) · "
-        f"{len(result.package.do_not_claim)} item(s) still need your input."
-    )
-    yield emit(
-        0, gr.update(value="", visible=False),
-        1, status,
-        3, _stages_html(_FINAL, "All set — review your match report below."),
-        4, _trace_markdown(result),
-        5, _insight_html(result),
-        6, _package_html(result.package, result.warnings),
-        7, result.package.model_dump_json(indent=2),
-        8, gr.update(interactive=True),
-        9, gr.update(interactive=True),
-        10, gr.update(interactive=True),
-        11, result.package.model_dump(),
-        12, "",
-        13, _tracker_rows(),
-    )
+        questions = [line.strip() for line in (screening_text or "").splitlines() if line.strip()]
+        request = AnalysisRequest(
+            package_id=make_package_id(),
+            resume_path=resume_path,
+            resume_text=pasted,
+            jd_source=guardrails.redact_pii(jd_source),
+            screening_questions=questions,
+        )
+
+        yield emit(
+            0, "",
+            1, "Checking your inputs…",
+            3, _stages_html(1, "Checking that your resume and job description look valid"),
+        )
+
+        stages: dict[str, object] = {"index": 1, "detail": "Checking your inputs…"}
+
+        def progress(message: str) -> None:
+            """Bridge the pipeline's progress messages onto the stage tracker."""
+            lowered = message.lower()
+            if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
+                stages["index"], stages["detail"] = 6, "Preparing screening answers from your verified bank…"
+            elif "five-agent crew" in lowered:
+                stages["index"], stages["detail"] = 2, "Reading your resume…"
+            else:
+                stages["detail"] = message
+
+        def on_task(output) -> None:
+            """CrewAI task callback: refine the tracker after each task completes."""
+            name = getattr(output, "name", "") or ""
+            agent = getattr(output, "agent", "") or ""
+            stage = _AGENT_STAGE.get(agent) or _TASK_STAGE.get(name)
+            if stage:
+                title = next((t for n, t, _ in STAGES if n == stage), name or agent)
+                stages["index"] = stage + 1
+                stages["detail"] = f"Finished: {title}"
+
+        def advance(stage_index: int, label: str) -> tuple:
+            return emit(3, _stages_html(stage_index, label), 1, label)
+
+        # run_analysis blocks, so run it on a worker thread and poll for progress.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(run_analysis, request, progress=progress, on_task=on_task)
+
+            expected = 2
+            last_yielded = 1
+            while not future.done():
+                reported = int(stages["index"])
+                if reported >= expected:
+                    expected = reported + 1
+                target = min(expected, _TOTAL_STAGES)
+                if target != last_yielded:
+                    last_yielded = target
+                    detail = str(stages["detail"] or "Working…")
+                    yield advance(target, f"{detail}")
+                _wait_futures([future], timeout=1.0)
+
+            try:
+                result = future.result()
+            except Exception as exc:  # noqa: BLE001 - surface a clean error, never crash
+                logger.exception("analysis run failed")
+                yield fail(str(exc) or "Analysis failed unexpectedly.")
+                return
+
+        _REVIEW.submit_for_review(
+            {
+                "resume_path": request.resume_path,
+                "jd_source": request.jd_source,
+                "screening_questions": request.screening_questions,
+            },
+            result.package,
+            result.trace,
+        )
+
+        mode = " (limited mode)" if result.used_fallback else ""
+        status = (
+            f"**Your draft is ready{mode}.** "
+            f"Package `{result.package.package_id}` · "
+            f"{len(result.package.screening_answers)} verified screening answer(s) · "
+            f"{len(result.package.do_not_claim)} item(s) still need your input."
+        )
+        yield emit(
+            0, "",
+            1, status,
+            3, _stages_html(_FINAL, "All set — review your match report below."),
+            4, _trace_markdown(result),
+            5, _insight_html(result),
+            6, _package_html(result.package, result.warnings),
+            7, result.package.model_dump_json(indent=2),
+            8, gr.update(interactive=True),
+            9, gr.update(interactive=True),
+            10, gr.update(interactive=True),
+            11, result.package.model_dump(),
+            12, "",
+            13, _tracker_rows(),
+        )
+    except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
+        logger.exception("analyze callback crashed")
+        yield fail(f"Unexpected error: {exc}")
 
 
 def _load_package(state) -> ApplicationPackage | None:
@@ -1124,10 +1168,12 @@ def build_app() -> gr.Blocks:
                     "Clear", elem_classes=["cc-clear"], scale=0, min_width=88
                 )
 
+        # Status + errors sit directly under the CTA so failures are never missed.
+        error_box = gr.HTML("", elem_classes=["cc-alert-slot"])
+        status = gr.Markdown(_IDLE_STATUS, elem_classes=["cc-status-line"])
+
         banner = gr.HTML(_mode_banner())
         stages_html = gr.HTML(_stages_html(-1))
-        status = gr.Markdown(_IDLE_STATUS)
-        error_box = gr.Markdown(visible=False)
 
         with gr.Tabs():
             with gr.Tab("Match report"):

@@ -90,6 +90,11 @@ def test_fetch_job_description_rejects_non_https_url():
         fetch_job_description("http://insecure.example.com/job")
 
 
+def test_fetch_job_description_rejects_linkedin_url():
+    with pytest.raises(JobDescriptionError, match="blocks automated access"):
+        fetch_job_description("https://www.linkedin.com/jobs/view/1234567890/")
+
+
 def test_fetch_job_description_unreachable_url(monkeypatch):
     import urllib.error
 

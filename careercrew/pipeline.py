@@ -313,20 +313,23 @@ def run_analysis(
         trace.add("input.resume", "pipeline", f"{type(exc).__name__}: {exc}", status="error")
         raise ValueError(f"Could not read the resume: {exc}") from exc
 
-    # The JD is validated for URL access here so the error surfaces before the crew.
+    # Validate JD URL access here so the error surfaces before the crew.
+    # Call the document tool directly (not through MCP) so the original
+    # JobDescriptionError message is preserved for the UI.
     if request.jd_source.strip().lower().startswith("https://"):
+        from careercrew.document_tools import fetch_job_description as _fetch_jd
+
         try:
-            MCPToolClient(timeout_s=settings.fetch_timeout_s + 10).fetch_job_description(
-                request.jd_source
-            )
-            trace.add("mcp.call.fetch_job_description", "pipeline", "JD URL reachable")
+            _fetch_jd(request.jd_source)
+            trace.add("input.jd", "pipeline", "JD URL reachable")
         except JobDescriptionError as exc:
             trace.add("input.jd", "pipeline", str(exc), status="error")
             raise
         except Exception as exc:  # noqa: BLE001
             trace.add("input.jd", "pipeline", f"{type(exc).__name__}: {exc}", status="error")
             raise JobDescriptionError(
-                "The job description URL could not be accessed. Paste the text instead."
+                "The job description URL could not be accessed. "
+                "Paste the job description text instead."
             ) from exc
 
     # 2/3. Run the crew and parse typed outputs; fall back if needed.
