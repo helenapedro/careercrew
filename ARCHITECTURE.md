@@ -14,6 +14,74 @@ Every claim in the output must trace to a resume fact or a verified answer-bank
 entry; the system says "do not claim" rather than invent facts. **Nothing is
 submitted anywhere** - CareerCrew prepares and practices; the candidate applies.
 
+## Architecture diagram
+
+```mermaid
+flowchart TD
+    U[User: resume, job description, target level, optional screening questions] --> UI[app.py / main.py: Gradio web interface]
+    UI --> IG[Input guardrails: validate_request, check_upload, redact_pii]
+    IG --> PL[pipeline.run_analysis: normalize to text, orchestrate, parse, fall back]
+    PL --> CR[crew.build_crew: sequential CrewAI crew + MCP + knowledge]
+
+    subgraph CREW [Analysis crew - six sequential agents]
+        A1[1. Profile Extractor] --> A2[2. JD Analyzer]
+        A2 --> A3[3. Gap Analyst]
+        A3 --> A4[4. Feedback Writer]
+        A4 --> A5[5. Interview Prep Advisor]
+        A5 --> A6[6. Screening Answer Prep Writer]
+    end
+
+    CR --> CREW
+    A1 <-->|read_resume| MCP[MCP server over stdio: read_resume / read_job_description / query_answer_bank]
+    A2 <-->|read_job_description| MCP
+    A6 <-->|query_answer_bank| MCP
+    MCP -.-> DT[document_tools.py: tools, uploads confinement, answer bank]
+
+    CREW --> OG[Output guardrails: validate_citations, validate_package, validate_prep_plan]
+    OG --> HITL{HITL review: DRAFT to PENDING_REVIEW to APPROVED or REJECTED}
+    HITL -->|Approve| BUNDLE[Prep bundle: bullets, talking points, prep plan, copy-ready answers]
+    HITL -->|Request revision| PL
+    HITL -->|Reject| STOP[Stop without approval]
+
+    BUNDLE --> MI[interview.py + audio.py: voice mock interviewer, live transcript, per-question evaluation]
+    BUNDLE --> C1[coach.py - prep_coach_reply: resume and preparation chat]
+    MI --> C2[coach.py - post_coach_reply: full-memory performance chat]
+
+    IG -.-> SS[(session_store.py: SQLite - bundles, interview sessions and turns, chat messages)]
+    HITL -.-> SS
+    MI -.-> SS
+    C1 -.-> SS
+    C2 -.-> SS
+
+    PL <--> K[knowledge/: resume_guidelines.md, interview_guidelines.md]
+    OG -.-> G[guardrails.py: input, tool, and per-agent output checks]
+    MI -.-> G
+    C1 -.-> G
+    C2 -.-> G
+```
+
+### Legend
+
+| Node | Component | Responsibility |
+|---|---|---|
+| `UI` | `app.py`, `main.py` | Gradio web interface (and CLI) entrypoints. |
+| `IG` | `careercrew/guardrails.py` | Pre-LLM checks: exactly one resume/JD source, upload type and size, injection patterns, PII redaction. |
+| `PL` | `careercrew/pipeline.py` | Normalizes inputs to text, kicks off the crew, parses/validates outputs, and runs deterministic fallbacks. |
+| `CR` | `careercrew/crew.py` | Turns `config/*.yaml` into a running sequential crew with MCP tools and knowledge sources. |
+| `CREW` | `config/agents.yaml`, `config/tasks.yaml` | The six sequential agents and their tasks. |
+| `A1`–`A6` | crew agents | Profile Extractor → JD Analyzer → Gap Analyst → Feedback Writer → Interview Prep Advisor → Screening Answer Prep Writer. |
+| `MCP` | `mcp_server/server.py` | Exposes the shared tool logic over stdio as three MCP tools. |
+| `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading, uploads-folder confinement, and the verified answer bank. |
+| `OG` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, screening answers come from the answer bank, prep-plan focus areas cite real gaps. |
+| `HITL` | `careercrew/review.py` | Human-in-the-loop state machine (`DRAFT → PENDING_REVIEW → APPROVED / REJECTED`, bounded `REVISE`). |
+| `BUNDLE` | `careercrew/models.py` | Approved prep bundle: bullets, talking points, prep plan, and copy-ready answers. Nothing is submitted. |
+| `MI` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
+| `C1` | `careercrew/coach.py` | `prep_coach_reply` - resume improvement and preparation chat. |
+| `C2` | `careercrew/coach.py` | `post_coach_reply` - post-interview performance chat with the full transcript and scores in context. |
+| `SS` | `careercrew/session_store.py` | SQLite persistence: bundles, interview sessions and turns, and both chat channels, so context survives restarts. |
+| `K` | `knowledge/` | `resume_guidelines.md` (writing + honesty) and `interview_guidelines.md` (prep, interviewer, and coaching conduct). |
+| `G` | `careercrew/guardrails.py` | Guardrail checks reused by the interviewer and coaches for answers, transcript turns, evaluations, and coaching replies. |
+
 ## Request lifecycle
 
 1. `app.py` (or `main.py`) validates each upload (type, size), copies the resume
