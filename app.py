@@ -95,154 +95,227 @@ _AGENT_LABEL = {
 }
 
 CUSTOM_CSS = """
+/* Design tokens. Light values first; `body.dark` (Gradio sets this class when the
+   viewer's browser is in dark mode) overrides them so the whole UI is adaptive. */
 :root {
   --cc-bg: #f6f7fb;
   --cc-surface: #ffffff;
+  --cc-surface-2: #fbfcfe;
   --cc-line: #e6e8f0;
   --cc-ink: #0f172a;
+  --cc-ink-2: #334155;
   --cc-muted: #64748b;
+  --cc-soft: #f1f5f9;
   --cc-accent: #4f46e5;
   --cc-accent-2: #7c3aed;
   --cc-ok: #16a34a;
   --cc-warn: #d97706;
   --cc-bad: #dc2626;
+  --cc-shadow: rgba(15, 23, 42, .45);
 }
+body.dark {
+  --cc-bg: #0a0f1e;
+  --cc-surface: #172136;
+  --cc-surface-2: #1b2740;
+  --cc-line: #334155;
+  --cc-ink: #f1f5f9;
+  --cc-ink-2: #cbd5e1;
+  --cc-muted: #94a3b8;
+  --cc-soft: #1e293b;
+  --cc-accent: #818cf8;
+  --cc-accent-2: #a78bfa;
+  --cc-ok: #4ade80;
+  --cc-warn: #fbbf24;
+  --cc-bad: #f87171;
+  --cc-shadow: rgba(0, 0, 0, .6);
+}
+
+/* ------------------------------------------------------------------ shell -- */
 .gradio-container {
-  max-width: 1280px !important;
+  max-width: 1320px !important;
   margin: 0 auto !important;
   background:
-    radial-gradient(1100px 460px at 8% -12%, rgba(79,70,229,.10), transparent 60%),
-    radial-gradient(900px 420px at 100% -6%, rgba(124,58,237,.08), transparent 55%),
+    radial-gradient(1100px 460px at 8% -12%, color-mix(in srgb, var(--cc-accent) 12%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 100% -6%, color-mix(in srgb, var(--cc-accent-2) 10%, transparent), transparent 55%),
     var(--cc-bg) !important;
   color: var(--cc-ink) !important;
 }
+footer { display: none !important; }
+
+/* Gradio renders each block's label as a pill; keep it a quiet caption. */
+[data-testid="block-info"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--cc-muted) !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+  letter-spacing: .01em !important;
+  padding: 0 !important;
+  margin-bottom: 6px !important;
+}
+
 .cc-hero {
   border: 1px solid var(--cc-line);
   border-radius: 20px;
-  padding: 26px 28px;
-  background: linear-gradient(135deg, rgba(79,70,229,.10), rgba(124,58,237,.05) 55%, rgba(255,255,255,.4));
-  box-shadow: 0 18px 40px -28px rgba(15,23,42,.45);
-  margin-bottom: 6px;
+  padding: 24px 26px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cc-accent) 16%, transparent),
+              color-mix(in srgb, var(--cc-accent-2) 8%, transparent) 60%, transparent), var(--cc-surface);
+  box-shadow: 0 18px 40px -28px var(--cc-shadow);
+  margin-bottom: 10px;
 }
-.cc-hero h1 {
-  margin: 0 0 6px 0;
-  font-size: 30px;
-  letter-spacing: -0.02em;
-  font-weight: 750;
-  color: var(--cc-ink);
-}
-.cc-hero .cc-sub { color: #334155; font-size: 15px; margin: 0 0 14px 0; max-width: 90ch; }
+.cc-hero h1 { margin: 0 0 6px 0; font-size: 30px; letter-spacing: -0.02em; font-weight: 750; color: var(--cc-ink); }
+.cc-hero .cc-sub { color: var(--cc-ink-2); font-size: 14.5px; margin: 0 0 14px 0; max-width: 92ch; line-height: 1.6; }
 .cc-badges { display: flex; flex-wrap: wrap; gap: 8px; }
 .cc-badge {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 11px; border-radius: 999px; font-size: 12px;
-  font-weight: 650; letter-spacing: .01em;
-  border: 1px solid transparent;
+  font-weight: 650; letter-spacing: .01em; border: 1px solid transparent;
 }
-.cc-badge.on  { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
-.cc-badge.off { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
-.cc-badge.ghost { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.cc-badge.covered { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.cc-badge.reframeable { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.cc-badge.out { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.cc-badge.src { background: #eef2ff; color: #3730a3; border-color: #dbe1ff; font-family: ui-monospace, monospace; }
+.cc-badge.ghost { background: var(--cc-soft); color: var(--cc-ink-2); border-color: var(--cc-line); }
+.cc-badge.on  { background: color-mix(in srgb, var(--cc-accent) 16%, transparent); color: var(--cc-accent); border-color: color-mix(in srgb, var(--cc-accent) 38%, transparent); }
+.cc-badge.off { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
+.cc-badge.covered { background: color-mix(in srgb, var(--cc-ok) 16%, transparent); color: var(--cc-ok); border-color: color-mix(in srgb, var(--cc-ok) 38%, transparent); }
+.cc-badge.reframeable { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
+.cc-badge.out { background: color-mix(in srgb, var(--cc-bad) 16%, transparent); color: var(--cc-bad); border-color: color-mix(in srgb, var(--cc-bad) 38%, transparent); }
+.cc-badge.src { background: var(--cc-soft); color: var(--cc-ink-2); border-color: var(--cc-line); font-family: ui-monospace, monospace; }
 
 .cc-card {
   border: 1px solid var(--cc-line);
   border-radius: 16px;
   background: var(--cc-surface);
   padding: 18px 20px;
-  box-shadow: 0 12px 30px -26px rgba(15,23,42,.5);
+  box-shadow: 0 12px 30px -26px var(--cc-shadow);
 }
 .cc-card h3 { margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: var(--cc-ink); letter-spacing: -0.01em; }
 .cc-card .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 12px 0; }
 .cc-empty {
-  border: 1px dashed #d7dbe6; border-radius: 14px; padding: 20px;
-  color: var(--cc-muted); background: #fbfcfe; font-size: 13px; line-height: 1.5;
+  border: 1px dashed color-mix(in srgb, var(--cc-line) 90%, transparent);
+  border-radius: 14px; padding: 20px;
+  color: var(--cc-muted); background: var(--cc-surface-2); font-size: 13px; line-height: 1.55;
 }
 
-/* ---- live stage tracker ---- */
+/* --------------------------------------------------- inputs panel polish --- */
+.cc-panel {
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 18px !important;
+  background: var(--cc-surface) !important;
+  padding: 4px 6px 8px 6px !important;
+  box-shadow: 0 12px 30px -26px var(--cc-shadow);
+}
+.cc-panel-head h3 {
+  margin: 4px 0 2px 0; font-size: 16px; font-weight: 720; color: var(--cc-ink);
+  letter-spacing: -0.01em;
+}
+.cc-panel-head .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 10px 0; }
+.cc-subhead {
+  display: flex; align-items: center; gap: 7px; margin: 14px 0 2px 0;
+  font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--cc-muted);
+}
+.cc-subhead .cc-num {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  background: color-mix(in srgb, var(--cc-accent) 18%, transparent); color: var(--cc-accent);
+  font-size: 11px; font-weight: 800;
+}
+.cc-field textarea, .cc-field input[type="text"], .cc-field input[type="url"] {
+  background: var(--cc-soft) !important;
+  color: var(--cc-ink) !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 12px !important;
+}
+.cc-field textarea::placeholder, .cc-field input::placeholder { color: var(--cc-muted) !important; opacity: .85; }
+.cc-actions { align-items: stretch; }
+
+/* ------------------------------------------------------- live stage tracker -- */
 .cc-stages { display: flex; flex-direction: column; gap: 8px; }
 .cc-stage {
   display: grid; grid-template-columns: 34px 1fr auto; gap: 12px;
   align-items: center;
-  border: 1px solid var(--cc-line); border-left: 4px solid #dfe3ec;
-  border-radius: 12px; padding: 12px 14px; background: #fff;
+  border: 1px solid var(--cc-line); border-left: 4px solid var(--cc-line);
+  border-radius: 12px; padding: 12px 14px; background: var(--cc-surface-2);
   transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
 }
 .cc-stage .cc-dot {
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; background: #f1f5f9; color: #94a3b8;
+  font-size: 13px; font-weight: 700; background: var(--cc-soft); color: var(--cc-muted);
 }
 .cc-stage .cc-ttl { font-weight: 650; font-size: 14px; color: var(--cc-ink); }
 .cc-stage .cc-blurb { font-size: 12.5px; color: var(--cc-muted); margin-top: 1px; }
 .cc-stage .cc-pill {
   font-size: 10.5px; font-weight: 750; letter-spacing: .06em;
-  padding: 4px 9px; border-radius: 999px; background: #f1f5f9; color: #94a3b8;
+  padding: 4px 9px; border-radius: 999px; background: var(--cc-soft); color: var(--cc-muted);
 }
-.cc-stage.done { border-left-color: var(--cc-ok); background: #f7fdf9; }
-.cc-stage.done .cc-dot { background: #dcfce7; color: #15803d; }
-.cc-stage.done .cc-pill { background: #dcfce7; color: #15803d; }
+.cc-stage.done { border-left-color: var(--cc-ok); background: color-mix(in srgb, var(--cc-ok) 8%, var(--cc-surface)); }
+.cc-stage.done .cc-dot,
+.cc-stage.done .cc-pill { background: color-mix(in srgb, var(--cc-ok) 18%, transparent); color: var(--cc-ok); }
 .cc-stage.active {
   border-left-color: var(--cc-accent);
-  box-shadow: 0 0 0 3px rgba(79,70,229,.12), 0 14px 30px -24px rgba(79,70,229,.8);
+  background: color-mix(in srgb, var(--cc-accent) 7%, var(--cc-surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc-accent) 16%, transparent), 0 14px 30px -24px var(--cc-accent);
   transform: translateX(1px);
 }
-.cc-stage.active .cc-dot { background: #e0e7ff; color: #4338ca; animation: cc-pulse 1.2s infinite; }
-.cc-stage.active .cc-pill { background: #e0e7ff; color: #3730a3; }
+.cc-stage.active .cc-dot,
+.cc-stage.active .cc-pill { background: color-mix(in srgb, var(--cc-accent) 20%, transparent); color: var(--cc-accent); }
+.cc-stage.active .cc-dot { animation: cc-pulse 1.2s infinite; }
 @keyframes cc-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 .cc-live {
   margin-top: 12px; border-radius: 12px; padding: 11px 13px;
-  background: #0f172a; color: #e2e8f0; font-size: 12.5px;
+  background: var(--cc-soft); border: 1px solid var(--cc-line);
+  color: var(--cc-ink-2); font-size: 12.5px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   display: flex; align-items: center; gap: 8px;
 }
-.cc-live .cc-blink { color: #818cf8; animation: cc-pulse 1.1s infinite; }
+.cc-live .cc-blink { color: var(--cc-accent); animation: cc-pulse 1.1s infinite; }
 
-/* ---- coverage meter + tables ---- */
+/* --------------------------------------------------- coverage meter + tables -- */
 .cc-meter { margin: 6px 0 18px 0; }
-.cc-meter .cc-meter-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
-.cc-meter .cc-score { font-size: 26px; font-weight: 780; letter-spacing: -0.02em; display: inline-flex; align-items: baseline; gap: 12px; }
+.cc-meter .cc-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+.cc-meter .cc-score { font-size: 26px; font-weight: 780; letter-spacing: -0.02em; color: var(--cc-ink); }
 .cc-meter .cc-score small { font-size: 13px; color: var(--cc-muted); font-weight: 600; }
-.cc-meter .cc-meter-label { font-size: 12.5px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
-.cc-bar { height: 12px; border-radius: 999px; background: #eceefa; overflow: hidden; }
+.cc-meter .cc-meter-label { font-size: 12px; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; text-align: right; }
+.cc-bar { height: 12px; border-radius: 999px; background: var(--cc-soft); overflow: hidden; }
 .cc-bar > span { display: block; height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, #4f46e5, #7c3aed 60%, #06b6d4); }
+  background: linear-gradient(90deg, var(--cc-accent), var(--cc-accent-2) 60%, #06b6d4); }
 .cc-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
 .cc-chip {
   font-size: 12px; font-weight: 650; padding: 5px 10px; border-radius: 999px;
-  background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+  background: var(--cc-soft); color: var(--cc-ink-2); border: 1px solid var(--cc-line);
 }
-.cc-chip.covered { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.cc-chip.reframeable { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.cc-chip.out { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.cc-chip.covered { background: color-mix(in srgb, var(--cc-ok) 16%, transparent); color: var(--cc-ok); border-color: color-mix(in srgb, var(--cc-ok) 38%, transparent); }
+.cc-chip.reframeable { background: color-mix(in srgb, var(--cc-warn) 16%, transparent); color: var(--cc-warn); border-color: color-mix(in srgb, var(--cc-warn) 38%, transparent); }
+.cc-chip.out { background: color-mix(in srgb, var(--cc-bad) 16%, transparent); color: var(--cc-bad); border-color: color-mix(in srgb, var(--cc-bad) 38%, transparent); }
 
 .cc-section-title {
-  font-size: 13px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
+  font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
   color: var(--cc-muted); margin: 20px 0 10px 0;
 }
 .cc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .cc-table th {
-  text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em;
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--cc-muted); padding: 8px 10px; border-bottom: 1px solid var(--cc-line);
 }
-.cc-table td { padding: 10px; border-bottom: 1px solid #f1f3f9; vertical-align: top; color: #1e293b; }
+.cc-table td { padding: 10px; border-bottom: 1px solid var(--cc-line); vertical-align: top; color: var(--cc-ink-2); }
+.cc-table tbody tr:hover td { background: color-mix(in srgb, var(--cc-accent) 6%, transparent); }
 
 .cc-bullets { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.cc-bullets li { border: 1px solid var(--cc-line); border-radius: 12px; padding: 12px 14px; background: #fcfcff; }
-.cc-bullets li p { margin: 0 0 7px 0; color: #0f172a; font-size: 14px; line-height: 1.5; }
-.cc-cite { font-size: 12px; color: #4f46e5; }
-.cc-cite b { color: #7c3aed; }
-.cc-list { margin: 0; padding-left: 18px; color: #1e293b; font-size: 13.5px; line-height: 1.65; }
+.cc-bullets li { border: 1px solid var(--cc-line); border-radius: 12px; padding: 12px 14px; background: var(--cc-surface-2); }
+.cc-bullets li p { margin: 0 0 7px 0; color: var(--cc-ink); font-size: 14px; line-height: 1.55; }
+.cc-cite { font-size: 12px; color: var(--cc-muted); }
+.cc-cite b { color: var(--cc-accent); }
+.cc-list { margin: 0; padding-left: 18px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.65; }
 .cc-note {
-  border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412;
+  border: 1px solid color-mix(in srgb, var(--cc-warn) 38%, transparent);
+  background: color-mix(in srgb, var(--cc-warn) 12%, transparent); color: var(--cc-warn);
   border-radius: 12px; padding: 11px 13px; font-size: 13px; margin-top: 10px;
 }
-.cc-foot { color: var(--cc-muted); font-size: 12px; margin-top: 8px; }
+.cc-note .cc-list { color: var(--cc-ink-2); }
+.cc-foot { color: var(--cc-muted); font-size: 12px; margin-top: 8px; text-align: center; }
+
 button.cc-run {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  background: linear-gradient(135deg, var(--cc-accent), var(--cc-accent-2)) !important;
   border: none !important; color: #fff !important; font-weight: 700 !important;
-  box-shadow: 0 12px 26px -14px rgba(79,70,229,.85) !important;
+  box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--cc-accent) 85%, transparent) !important;
+  min-height: 44px;
 }
 """
 
@@ -259,13 +332,13 @@ def _mode_banner() -> str:
         return (
             "<div class='cc-card' style='padding:14px 16px'>"
             "<span class='cc-badge on'>AGENTS ENABLED</span> "
-            "<span style='color:#334155;font-size:13px'>The five-agent crew runs through real MCP "
+            "<span class='cc-hint' style='margin:0'>The five-agent crew runs through real MCP "
             f"tools on <b>{_esc(_SETTINGS.openai_model)}</b>.</span></div>"
         )
     return (
         "<div class='cc-card' style='padding:14px 16px'>"
         "<span class='cc-badge off'>FALLBACK MODE</span> "
-        "<span style='color:#334155;font-size:13px'>No OPENAI_API_KEY is set. Screening answers are "
+        "<span class='cc-hint' style='margin:0'>No OPENAI_API_KEY is set. Screening answers are "
         "still retrieved through real MCP calls and shown honestly; add a key for the full crew."
         "</span></div>"
     )
@@ -413,7 +486,7 @@ def _insight_html(result) -> str:
             parts.append(f"<div style='font-weight:700;font-size:15px'>{_esc(profile.full_name)}</div>")
         if profile.summary:
             parts.append(
-                f"<p style='color:#475569;font-size:13.5px;margin:6px 0'>{_esc(profile.summary)}</p>"
+                f"<p style='color:var(--cc-ink-2);font-size:13.5px;margin:6px 0;line-height:1.55'>{_esc(profile.summary)}</p>"
             )
         if profile.skills:
             chips = "".join(f"<span class='cc-chip'>{_esc(skill)}</span>" for skill in profile.skills)
@@ -422,7 +495,7 @@ def _insight_html(result) -> str:
             line = " · ".join(x for x in [role.title, role.company, role.dates] if x)
             if line:
                 parts.append(
-                    f"<p style='font-size:13px;color:#334155;margin:8px 0 0 0'>• {_esc(line)}</p>"
+                    f"<p style='font-size:13px;color:var(--cc-ink-2);margin:8px 0 0 0'>• {_esc(line)}</p>"
                 )
 
     reqs = result.requirements
@@ -863,39 +936,63 @@ def build_app() -> gr.Blocks:
 
         with gr.Row():
             with gr.Column(scale=2):
-                with gr.Group():
-                    gr.Markdown("### 1 · Inputs")
+                with gr.Group(elem_classes=["cc-panel"]):
+                    gr.HTML(
+                        "<div class='cc-panel-head'><h3>Start here</h3>"
+                        "<p class='cc-hint'>Add a resume and a job description — then run the "
+                        "five agents. Everything else is optional.</p></div>"
+                    )
                     with gr.Row():
-                        sample_resume_btn = gr.Button("Load sample resume", size="sm")
-                        sample_jd_btn = gr.Button("Load sample job description", size="sm")
+                        sample_resume_btn = gr.Button("↧  Load sample resume", size="sm")
+                        sample_jd_btn = gr.Button("↧  Load sample job", size="sm")
+
+                    gr.HTML(
+                        "<div class='cc-subhead'><span class='cc-num'>1</span>"
+                        "Resume — upload a file <em>or</em> paste text</div>"
+                    )
                     resume_file = gr.File(
-                        label="Resume file — PDF, DOCX, or TXT",
+                        label="Resume file (PDF, DOCX, TXT)",
                         file_types=[".pdf", ".docx", ".txt"],
+                        elem_classes=["cc-field"],
                     )
                     resume_text = gr.Textbox(
                         label="…or paste the resume text",
                         placeholder="Paste the resume text here if you do not have a file.",
-                        lines=7,
+                        lines=6,
+                        elem_classes=["cc-field"],
+                    )
+
+                    gr.HTML(
+                        "<div class='cc-subhead'><span class='cc-num'>2</span>"
+                        "Job description — paste text <em>or</em> an https URL</div>"
                     )
                     jd_text = gr.Textbox(
                         label="Job description (paste text)",
                         placeholder="Paste the job description here.",
-                        lines=7,
+                        lines=6,
+                        elem_classes=["cc-field"],
                     )
                     jd_url = gr.Textbox(
                         label="…or a job description URL (optional, https only)",
                         placeholder="https://example.com/job",
+                        elem_classes=["cc-field"],
+                    )
+
+                    gr.HTML(
+                        "<div class='cc-subhead'><span class='cc-num'>3</span>"
+                        "Screening questions (optional)</div>"
                     )
                     screening_text = gr.Textbox(
-                        label="Screening questions (optional, one per line)",
+                        label="One question per line",
                         placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
-                        lines=4,
+                        lines=3,
+                        elem_classes=["cc-field"],
                     )
-                    with gr.Row():
+                    with gr.Row(elem_classes=["cc-actions"]):
                         run_btn = gr.Button(
-                            "▶  Run analysis", variant="primary", elem_classes=["cc-run"]
+                            "▶  Run analysis", variant="primary", elem_classes=["cc-run"], scale=3
                         )
-                        clear_btn = gr.Button("Reset", size="sm")
+                        clear_btn = gr.Button("Reset", size="sm", scale=1)
 
             with gr.Column(scale=3):
                 banner = gr.HTML(_mode_banner())
@@ -924,7 +1021,7 @@ def build_app() -> gr.Blocks:
                 )
 
         gr.Markdown("---")
-        gr.Markdown("### 2 · Human review")
+        gr.Markdown("### Human review")
         feedback = gr.Textbox(
             label="Reviewer feedback (required to request a revision)",
             placeholder="e.g. Drop the AWS bullet — it is not backed by the resume.",
