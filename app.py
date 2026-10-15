@@ -160,13 +160,25 @@ def _empty_outputs():
 def _resolve_resume(resume_file, resume_text: str) -> tuple[str | None, str | None]:
     """Copy an uploaded file into the uploads folder, or use pasted text."""
     if resume_file:
-        check_name = resume_file if isinstance(resume_file, str) else resume_file.name
-        guardrails.check_upload(check_name)
-        destination = os.path.join(_SETTINGS.upload_dir, os.path.basename(check_name))
-        if not destination.startswith(os.path.abspath(_SETTINGS.upload_dir)):
-            raise ValueError("invalid resume path")
-        shutil.copyfile(check_name, destination)
-        return os.path.basename(destination), None
+        # Gradio 6 File may return a path string, a tempfile object, or a 1-item list.
+        if isinstance(resume_file, (list, tuple)):
+            resume_file = resume_file[0] if resume_file else None
+        if resume_file is None:
+            pass
+        else:
+            check_name = resume_file if isinstance(resume_file, str) else getattr(
+                resume_file, "name", str(resume_file)
+            )
+            guardrails.check_upload(check_name)
+            os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
+            base = os.path.abspath(_SETTINGS.upload_dir)
+            destination = os.path.abspath(
+                os.path.join(base, os.path.basename(check_name))
+            )
+            if not destination.startswith(base + os.sep):
+                raise ValueError("invalid resume path")
+            shutil.copyfile(check_name, destination)
+            return os.path.basename(destination), None
     if (resume_text or "").strip():
         return None, guardrails.redact_pii(resume_text)
     return None, None
@@ -193,7 +205,7 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
     try:
         resume_path, pasted = _resolve_resume(resume_file, resume_text)
     except Exception as exc:  # noqa: BLE001 - surface a clean error
-        return (
+        yield (
             gr.update(value=f"Resume error: {exc}", visible=True),
             "Resume rejected.",
             _mode_banner(),
@@ -207,9 +219,10 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
             None,
             feedback,
         )
+        return
 
     if resume_path is None and pasted is None:
-        return (
+        yield (
             gr.update(
                 value="Provide a resume: upload a PDF/DOCX/TXT file or paste the text.",
                 visible=True,
@@ -226,6 +239,7 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
             None,
             feedback,
         )
+        return
 
     questions = [line.strip() for line in (screening_text or "").splitlines() if line.strip()]
     request = AnalysisRequest(
@@ -238,7 +252,7 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
 
     # Re-validate the JD text path here (URL access is checked inside the pipeline).
     if not jd_source.strip():
-        return (
+        yield (
             gr.update(value="Paste a job description or an https URL.", visible=True),
             "Missing job description.",
             _mode_banner(),
@@ -252,12 +266,31 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
             None,
             feedback,
         )
+        return
+
+    # Yield an immediate status so the UI does not look frozen during the
+    # 1–3 minute crew run (Gradio treats this function as a generator).
+    yield (
+        gr.update(value="", visible=False),
+        "Running analysis — the five-agent crew usually takes 1–3 minutes…",
+        _mode_banner(),
+        "Working…\n\n1. Profile Extractor\n2. JD Analyzer\n3. Gap Analyst\n"
+        "4. Feedback Writer\n5. Application Packager",
+        gaps_md,
+        feedback_md,
+        package_json,
+        approve,
+        reject,
+        revise,
+        None,
+        feedback,
+    )
 
     try:
         result = run_analysis(request)
     except Exception as exc:  # noqa: BLE001 - surface a clean error, never crash
         logger.exception("analysis run failed")
-        return (
+        yield (
             gr.update(value=f"Analysis failed: {exc}", visible=True),
             "Analysis failed.",
             _mode_banner(),
@@ -271,6 +304,7 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
             None,
             feedback,
         )
+        return
 
     _REVIEW.submit_for_review(
         {
@@ -287,7 +321,7 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text):
         f"{len(result.package.screening_answers)} screening answer(s), "
         f"{len(result.package.do_not_claim)} item(s) needing your input."
     )
-    return (
+    yield (
         gr.update(value="", visible=False),
         status,
         _mode_banner(),
