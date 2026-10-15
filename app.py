@@ -199,24 +199,23 @@ footer { display: none !important; }
   border: 1px solid var(--cc-line) !important;
   border-radius: 18px !important;
   background: var(--cc-surface) !important;
-  padding: 4px 6px 8px 6px !important;
+  padding: 6px 10px 12px 10px !important;
   box-shadow: 0 12px 30px -26px var(--cc-shadow);
 }
+.cc-panel-resume { border-top: 3px solid var(--cc-accent) !important; }
+.cc-panel-jd { border-top: 3px solid #06b6d4 !important; }
+.cc-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px 0; }
 .cc-panel-head h3 {
-  margin: 4px 0 2px 0; font-size: 16px; font-weight: 720; color: var(--cc-ink);
+  margin: 0; font-size: 16px; font-weight: 720; color: var(--cc-ink);
   letter-spacing: -0.01em;
 }
-.cc-panel-head .cc-hint { color: var(--cc-muted); font-size: 13px; margin: 0 0 10px 0; }
-.cc-subhead {
-  display: flex; align-items: center; gap: 7px; margin: 14px 0 2px 0;
-  font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em;
-  color: var(--cc-muted);
-}
-.cc-subhead .cc-num {
-  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+.cc-panel-head .cc-hint { flex-basis: 100%; margin: 0; color: var(--cc-muted); font-size: 13px; }
+.cc-step {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
   background: color-mix(in srgb, var(--cc-accent) 18%, transparent); color: var(--cc-accent);
-  font-size: 11px; font-weight: 800;
+  font-size: 12px; font-weight: 800; flex: none;
 }
+.cc-panel-jd .cc-step { background: color-mix(in srgb, #06b6d4 20%, transparent); color: #0891b2; }
 .cc-field textarea, .cc-field input[type="text"], .cc-field input[type="url"] {
   background: var(--cc-soft) !important;
   color: var(--cc-ink) !important;
@@ -227,12 +226,14 @@ footer { display: none !important; }
 .cc-actions { align-items: stretch; }
 
 /* ------------------------------------------------------- live stage tracker -- */
-.cc-stages { display: flex; flex-direction: column; gap: 8px; }
+.cc-stages {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
 .cc-stage {
-  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px;
-  align-items: center;
-  border: 1px solid var(--cc-line); border-left: 4px solid var(--cc-line);
-  border-radius: 12px; padding: 12px 14px; background: var(--cc-surface-2);
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--cc-line); border-top: 4px solid var(--cc-line);
+  border-radius: 12px; padding: 14px; background: var(--cc-surface-2);
   transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
 }
 .cc-stage .cc-dot {
@@ -240,19 +241,20 @@ footer { display: none !important; }
   font-size: 13px; font-weight: 700; background: var(--cc-soft); color: var(--cc-muted);
 }
 .cc-stage .cc-ttl { font-weight: 650; font-size: 14px; color: var(--cc-ink); }
-.cc-stage .cc-blurb { font-size: 12.5px; color: var(--cc-muted); margin-top: 1px; }
+.cc-stage .cc-blurb { font-size: 12px; color: var(--cc-muted); margin-top: 1px; line-height: 1.5; }
 .cc-stage .cc-pill {
+  align-self: flex-start;
   font-size: 10.5px; font-weight: 750; letter-spacing: .06em;
   padding: 4px 9px; border-radius: 999px; background: var(--cc-soft); color: var(--cc-muted);
 }
-.cc-stage.done { border-left-color: var(--cc-ok); background: color-mix(in srgb, var(--cc-ok) 8%, var(--cc-surface)); }
+.cc-stage.done { border-top-color: var(--cc-ok); background: color-mix(in srgb, var(--cc-ok) 8%, var(--cc-surface)); }
 .cc-stage.done .cc-dot,
 .cc-stage.done .cc-pill { background: color-mix(in srgb, var(--cc-ok) 18%, transparent); color: var(--cc-ok); }
 .cc-stage.active {
-  border-left-color: var(--cc-accent);
+  border-top-color: var(--cc-accent);
   background: color-mix(in srgb, var(--cc-accent) 7%, var(--cc-surface));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc-accent) 16%, transparent), 0 14px 30px -24px var(--cc-accent);
-  transform: translateX(1px);
+  transform: translateY(-2px);
 }
 .cc-stage.active .cc-dot,
 .cc-stage.active .cc-pill { background: color-mix(in srgb, var(--cc-accent) 20%, transparent); color: var(--cc-accent); }
@@ -934,73 +936,71 @@ def build_app() -> gr.Blocks:
 
         gr.HTML(_hero(mode_label))
 
-        with gr.Row():
-            with gr.Column(scale=2):
-                with gr.Group(elem_classes=["cc-panel"]):
+        gr.Markdown("### Step 1 — Add your inputs")
+        with gr.Row(equal_height=False):
+            # ---- LEFT: Resume ------------------------------------------------ #
+            with gr.Column(scale=1):
+                with gr.Group(elem_classes=["cc-panel", "cc-panel-resume"]):
                     gr.HTML(
-                        "<div class='cc-panel-head'><h3>Start here</h3>"
-                        "<p class='cc-hint'>Add a resume and a job description — then run the "
-                        "five agents. Everything else is optional.</p></div>"
+                        "<div class='cc-panel-head'>"
+                        "<span class='cc-step'>1</span><h3>Resume</h3>"
+                        "<p class='cc-hint'>Upload a file or paste the text — either is fine.</p></div>"
                     )
-                    with gr.Row():
-                        sample_resume_btn = gr.Button("↧  Load sample resume", size="sm")
-                        sample_jd_btn = gr.Button("↧  Load sample job", size="sm")
-
-                    gr.HTML(
-                        "<div class='cc-subhead'><span class='cc-num'>1</span>"
-                        "Resume — upload a file <em>or</em> paste text</div>"
-                    )
+                    sample_resume_btn = gr.Button("↧  Load sample resume", size="sm")
                     resume_file = gr.File(
-                        label="Resume file (PDF, DOCX, TXT)",
+                        label="Upload resume (PDF, DOCX, TXT)",
                         file_types=[".pdf", ".docx", ".txt"],
                         elem_classes=["cc-field"],
                     )
                     resume_text = gr.Textbox(
                         label="…or paste the resume text",
                         placeholder="Paste the resume text here if you do not have a file.",
-                        lines=6,
+                        lines=12,
                         elem_classes=["cc-field"],
                     )
 
+            # ---- RIGHT: Job description -------------------------------------- #
+            with gr.Column(scale=1):
+                with gr.Group(elem_classes=["cc-panel", "cc-panel-jd"]):
                     gr.HTML(
-                        "<div class='cc-subhead'><span class='cc-num'>2</span>"
-                        "Job description — paste text <em>or</em> an https URL</div>"
+                        "<div class='cc-panel-head'>"
+                        "<span class='cc-step'>2</span><h3>Job description</h3>"
+                        "<p class='cc-hint'>Paste the posting — or point to an https URL.</p></div>"
                     )
+                    sample_jd_btn = gr.Button("↧  Load sample job", size="sm")
                     jd_text = gr.Textbox(
-                        label="Job description (paste text)",
+                        label="Paste the job description",
                         placeholder="Paste the job description here.",
-                        lines=6,
+                        lines=10,
                         elem_classes=["cc-field"],
                     )
                     jd_url = gr.Textbox(
-                        label="…or a job description URL (optional, https only)",
+                        label="…or a URL (optional, https only)",
                         placeholder="https://example.com/job",
                         elem_classes=["cc-field"],
                     )
-
-                    gr.HTML(
-                        "<div class='cc-subhead'><span class='cc-num'>3</span>"
-                        "Screening questions (optional)</div>"
-                    )
                     screening_text = gr.Textbox(
-                        label="One question per line",
+                        label="Screening questions (optional, one per line)",
                         placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
                         lines=3,
                         elem_classes=["cc-field"],
                     )
-                    with gr.Row(elem_classes=["cc-actions"]):
-                        run_btn = gr.Button(
-                            "▶  Run analysis", variant="primary", elem_classes=["cc-run"], scale=3
-                        )
-                        clear_btn = gr.Button("Reset", size="sm", scale=1)
 
-            with gr.Column(scale=3):
-                banner = gr.HTML(_mode_banner())
-                stages_html = gr.HTML(_stages_html(-1))
-                status = gr.Markdown(_IDLE_STATUS)
-                error_box = gr.Markdown(visible=False)
+        with gr.Row(elem_classes=["cc-actions"]):
+            run_btn = gr.Button(
+                "▶  Run analysis", variant="primary", elem_classes=["cc-run"], scale=3
+            )
+            clear_btn = gr.Button("Reset", size="sm", scale=1)
 
         gr.Markdown("---")
+        gr.Markdown("### Step 2 — Watch the pipeline")
+        banner = gr.HTML(_mode_banner())
+        stages_html = gr.HTML(_stages_html(-1))
+        status = gr.Markdown(_IDLE_STATUS)
+        error_box = gr.Markdown(visible=False)
+
+        gr.Markdown("---")
+        gr.Markdown("### Step 3 — Review the results")
 
         with gr.Tabs():
             with gr.Tab("Coverage & insights"):
