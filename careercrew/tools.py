@@ -9,8 +9,8 @@ alternative / for tests; the underlying logic is identical either way.
 from crewai.tools import tool
 
 from careercrew.document_tools import (
-    fetch_job_description,
     query_answer_bank,
+    read_job_description,
     read_resume,
 )
 
@@ -22,11 +22,11 @@ def read_resume_tool(path: str) -> str:
     return read_resume(path)
 
 
-@tool("fetch_job_description")
-def fetch_jd_tool(source: str) -> str:
-    """Get a job description. Input is either an https URL (fetched with
-    timeout and size limits) or the pasted JD text itself."""
-    return fetch_job_description(source)
+@tool("read_job_description")
+def read_jd_tool(source: str) -> str:
+    """Get a job description. Input is either the uploaded JD file name
+    (PDF, DOCX, or TXT) or the pasted JD text itself."""
+    return read_job_description(source)
 
 
 @tool("query_answer_bank")

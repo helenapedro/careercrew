@@ -4,9 +4,9 @@ Exposes the shared document-access logic over the Model Context Protocol:
 permission-scoped, auditable tools that any MCP client can call, not just this
 crew. The three tools are:
 
-1. ``read_resume``              - read an uploaded resume file (PDF/DOCX/TXT).
-2. ``fetch_job_description``    - fetch a JD from an https URL or accept text.
-3. ``query_answer_bank``        - return a verified screening fact, or found=false.
+1. ``read_resume``             - read an uploaded resume file (PDF/DOCX/TXT).
+2. ``read_job_description``    - read an uploaded JD file (PDF/DOCX/TXT) or text.
+3. ``query_answer_bank``       - return a verified screening fact, or found=false.
 
 The server is transport-agnostic; the crew launches it over **stdio** via
 ``careercrew.mcp_client``.
@@ -18,8 +18,8 @@ Run standalone to test:
 from mcp.server.fastmcp import FastMCP
 
 from careercrew.document_tools import (
-    fetch_job_description,
     query_answer_bank,
+    read_job_description,
     read_resume,
 )
 
@@ -43,10 +43,10 @@ def read_resume_tool(path: str) -> str:
 
 
 @mcp.tool()
-def fetch_job_description_tool(source: str) -> str:
-    """Get a job description from an https URL (timeout and size limits apply)
-    or from pasted text. Raises a clear error when a URL cannot be accessed."""
-    return fetch_job_description(source)
+def read_job_description_tool(source: str) -> str:
+    """Get a job description from an uploaded file (PDF/DOCX/TXT) in the
+    uploads folder or from pasted text. URLs are rejected with a clear error."""
+    return read_job_description(source)
 
 
 @mcp.tool()

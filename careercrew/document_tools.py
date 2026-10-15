@@ -1,46 +1,32 @@
 """Shared document-access logic (single source of truth).
 
 This module is the one place where input is turned into plain text, whether it
-arrived as an uploaded file, as pasted text, or from a URL:
+arrived as an uploaded file or as pasted text:
 
 - ``read_resume`` reads a PDF / DOCX / TXT file confined to the uploads folder.
 - ``read_resume_text`` normalizes pasted resume text into the same clean form.
-- ``fetch_job_description`` returns pasted JD text, or fetches an https URL and
-  raises a clear error when the page cannot be directly accessed.
+- ``read_job_description`` returns pasted JD text, or reads an uploaded
+  PDF / DOCX / TXT job description from the uploads folder.
 - ``query_answer_bank`` returns verified screening facts (or ``found: false``).
 
 The same logic backs the CrewAI tools, the FastMCP server, and the stdio MCP
 client, so the three paths can never diverge.
 
-Tool guardrails live here, next to the code they protect:
-- read_resume is confined to the uploads folder (no path traversal)
-- fetch_job_description only fetches https URLs, with a timeout and a byte cap,
-  and refuses non-HTML bodies instead of returning junk
+Tool guardrails live here, next to the code they protect: uploaded files are
+confined to the uploads folder (no path traversal) and pasted URLs are rejected
+with a clear message instead of being stored as junk "job description" text.
 """
 
 from __future__ import annotations
 
 import os
 import re
-import urllib.error
-import urllib.request
 
 from careercrew.config import ANSWER_BANK_PATH, get_settings
 
-FETCH_TIMEOUT_S = 20
-MAX_FETCH_BYTES = 500_000
 MAX_RESUME_CHARS = 100_000
 MAX_JOB_DESCRIPTION_CHARS = 100_000
 RESUME_EXTENSIONS = {".pdf", ".docx", ".txt"}
-
-# Content types we can meaningfully turn into JD text.
-_HTML_CONTENT_TYPES = {
-    "text/html",
-    "application/xhtml+xml",
-    "application/xml",
-    "text/xml",
-}
-_TEXT_CONTENT_TYPES = {"text/plain", "text/markdown", "text/x-markdown"}
 
 
 def _upload_dir() -> str:
@@ -48,7 +34,7 @@ def _upload_dir() -> str:
 
 
 class JobDescriptionError(ValueError):
-    """Raised when a JD URL cannot be directly accessed.
+    """Raised when a job description cannot be read.
 
     Carries a human-readable, user-facing message so the UI can show it in the
     error box instead of crashing the run.
@@ -63,21 +49,21 @@ def _clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def _safe_resume_path(path: str) -> str:
-    """Resolve path inside the uploads folder; reject anything else.
+def _safe_upload_path(path: str, kind: str = "file") -> str:
+    """Resolve a path inside the uploads folder; reject anything else.
 
     Any directory component (``../``, ``a/b``, absolute paths) is rejected
     outright: only a bare file name inside the uploads folder is allowed.
     """
     candidate = (path or "").strip()
     if not candidate or candidate != os.path.basename(candidate):
-        raise ValueError("resume path must be a bare file name inside the uploads folder")
+        raise ValueError(f"{kind} path must be a bare file name inside the uploads folder")
     base = os.path.abspath(_upload_dir())
     full = os.path.abspath(os.path.join(base, candidate))
     if not full.startswith(base + os.sep):
-        raise ValueError("resume path escapes the uploads folder")
+        raise ValueError(f"{kind} path escapes the uploads folder")
     if not os.path.isfile(full):
-        raise FileNotFoundError(f"resume not found: {candidate}")
+        raise FileNotFoundError(f"{kind} not found: {candidate}")
     return full
 
 
@@ -118,7 +104,7 @@ def read_resume(path: str) -> str:
 
     The path is confined to the uploads folder; anything else is rejected.
     """
-    return extract_text(_safe_resume_path(path))
+    return extract_text(_safe_upload_path(path, "resume"))
 
 
 def read_resume_text(text: str) -> str:
@@ -130,116 +116,48 @@ def read_resume_text(text: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Job description input: pasted text or an https URL
+# Job description input: pasted text or an uploaded file
 # --------------------------------------------------------------------------- #
 def _looks_like_url(source: str) -> bool:
     return bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", source))
 
 
-def _strip_html(raw_html: str) -> str:
-    text = re.sub(r"<script.*?</script>", " ", raw_html, flags=re.S | re.I)
-    text = re.sub(r"<style.*?</style>", " ", text, flags=re.S | re.I)
-    text = re.sub(r"<[^>]+>", " ", text)
-    return _clean_text(text)
+def read_job_description(source: str) -> str:
+    """Return JD text from an uploaded file (PDF/DOCX/TXT) or pasted text.
 
-
-#: Job boards that block automated access / require login — tell the user early.
-_BLOCKED_JD_HOSTS = (
-    "linkedin.com",
-    "www.linkedin.com",
-    "indeed.com",
-    "www.indeed.com",
-    "glassdoor.com",
-    "www.glassdoor.com",
-)
-
-
-def _host_of(url: str) -> str:
-    try:
-        from urllib.parse import urlparse
-
-        return (urlparse(url).hostname or "").lower()
-    except Exception:  # noqa: BLE001
-        return ""
-
-
-def _fetch_url(source: str) -> str:
-    """Fetch a JD from an https URL, raising JobDescriptionError when the page
-    cannot be directly accessed (never returns partial or junk text)."""
-    if not source.lower().startswith("https://"):
-        raise JobDescriptionError(
-            "Only https:// URLs are supported for job descriptions. "
-            "Paste the job description text instead."
-        )
-
-    host = _host_of(source)
-    if any(host == blocked or host.endswith("." + blocked) for blocked in _BLOCKED_JD_HOSTS):
-        raise JobDescriptionError(
-            f"{host} blocks automated access (login wall). "
-            "Open the posting in your browser, copy the job description text, "
-            "and paste it in the Paste posting tab instead."
-        )
-
-    request = urllib.request.Request(
-        source, headers={"User-Agent": "CareerCrew/0.1 (course project)"}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_S) as response:
-            content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()
-            if content_type and not (
-                content_type in _HTML_CONTENT_TYPES or content_type in _TEXT_CONTENT_TYPES
-            ):
-                raise JobDescriptionError(
-                    f"The URL serves '{content_type}', which cannot be read as a job "
-                    "description (for example a direct PDF or file link). "
-                    "Paste the job description text instead."
-                )
-            raw = response.read(MAX_FETCH_BYTES + 1)
-    except urllib.error.HTTPError as exc:
-        raise JobDescriptionError(
-            f"The job description URL returned HTTP {exc.code}. "
-            "It may require a login or block automated access; paste the text instead."
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise JobDescriptionError(
-            f"The job description URL could not be reached ({exc.reason}). "
-            "Check the address or paste the text instead."
-        ) from exc
-    except TimeoutError as exc:
-        raise JobDescriptionError(
-            "The job description URL timed out. Paste the text instead."
-        ) from exc
-
-    if len(raw) > MAX_FETCH_BYTES:
-        raise JobDescriptionError(
-            "The job description page exceeds the size limit. Paste the text instead."
-        )
-
-    decoded = raw.decode("utf-8", errors="replace")
-    if content_type in _TEXT_CONTENT_TYPES:
-        text = _clean_text(decoded)
-    else:
-        text = _strip_html(decoded)
-    if not text:
-        raise JobDescriptionError(
-            "The job description page had no readable text (it may be a "
-            "JavaScript-only page). Paste the text instead."
-        )
-    return text[:MAX_JOB_DESCRIPTION_CHARS]
-
-
-def fetch_job_description(source: str) -> str:
-    """Return JD text from an https URL or from pasted text.
-
-    A non-URL string is treated as pasted JD text. A URL that cannot be directly
-    accessed raises :class:`JobDescriptionError` with a clear message.
+    A bare file name is read from the uploads folder through the same
+    :func:`extract_text` path used for resumes (so PDF, DOCX, and TXT are all
+    supported). Anything else is treated as pasted JD text. URLs are rejected
+    with a clear message: job boards block automated access, so we ask the user
+    to download the posting and upload the file, or paste the text.
     """
     source = (source or "").strip()
     if not source:
         raise JobDescriptionError("No job description was provided.")
     if _looks_like_url(source):
-        return _fetch_url(source)
+        raise JobDescriptionError(
+            "Job description URLs are not read directly (job boards block "
+            "automated access). Download the posting and upload the file, or paste "
+            "the job description text instead."
+        )
+    if os.path.basename(source) == source and _has_supported_extension(source):
+        try:
+            text = extract_text(_safe_upload_path(source, "job description"))
+        except FileNotFoundError:
+            # Not an uploaded file after all; fall through to treat it as text.
+            return _clean_text(source)[:MAX_JOB_DESCRIPTION_CHARS]
+        if not text:
+            raise JobDescriptionError(
+                "The uploaded job description file had no readable text. "
+                "Paste the job description text instead."
+            )
+        return text[:MAX_JOB_DESCRIPTION_CHARS]
     return _clean_text(source)[:MAX_JOB_DESCRIPTION_CHARS]
+
+
+def _has_supported_extension(name: str) -> bool:
+    lower = (name or "").lower()
+    return any(lower.endswith(ext) for ext in RESUME_EXTENSIONS)
 
 
 # --------------------------------------------------------------------------- #

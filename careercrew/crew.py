@@ -3,12 +3,12 @@
 Roles and task text live in ``config/agents.yaml`` and ``config/tasks.yaml``;
 wiring (agents, MCP servers, knowledge, context, typed outputs) is explicit here
 so there is no magic to debug. Process is sequential: the pipeline is linear
-(extract -> analyze JD -> compare -> write -> package), so no manager agent is
-needed.
+(extract -> analyze JD -> compare -> write -> prep plan -> screening prep), so
+no manager agent is needed.
 
-The three tool-using agents are attached to the **real** CareerCrew MCP server
+The four tool-using agents are attached to the **real** CareerCrew MCP server
 over stdio (``careercrew.mcp_client.crewai_mcp_server``), so ``read_resume``,
-``fetch_job_description``, and ``query_answer_bank`` are genuine MCP calls.
+``read_job_description``, and ``query_answer_bank`` are genuine MCP calls.
 """
 
 from __future__ import annotations
@@ -21,14 +21,19 @@ import yaml
 from crewai import Agent, Crew, Process, Task
 from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 
-from careercrew.config import RESUME_GUIDELINES_PATH, get_settings
+from careercrew.config import (
+    INTERVIEW_GUIDELINES_PATH,
+    RESUME_GUIDELINES_PATH,
+    get_settings,
+)
 from careercrew.mcp_client import crewai_mcp_server
 from careercrew.models import (
-    ApplicationPackage,
     CandidateProfile,
     FeedbackDraft,
     GapReport,
+    InterviewPrepPlan,
     JobRequirements,
+    ScreeningPrep,
 )
 
 logger = logging.getLogger("careercrew.crew")
@@ -43,24 +48,24 @@ def _load_yaml(path: Path) -> dict:
         return yaml.safe_load(handle)
 
 
-def _guidelines_source() -> StringKnowledgeSource:
-    """Load the resume-writing guidelines as real agent knowledge.
+def _guidelines_source(path: Path, name: str) -> StringKnowledgeSource:
+    """Load a guidelines file as real agent knowledge.
 
     We pass the file *content* (not a path) so CrewAI does not depend on its
     working-directory-relative knowledge folder resolution.
     """
-    content = RESUME_GUIDELINES_PATH.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
     return StringKnowledgeSource(
         content=content,
-        metadata={"name": "resume_guidelines", "purpose": "writing and honesty rules"},
+        metadata={"name": name, "purpose": "writing, prep, and honesty rules"},
     )
 
 
 def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
-    """Assemble the five agents and five tasks as a sequential crew.
+    """Assemble the six agents and six tasks as a sequential crew.
 
     ``on_task`` / ``on_step`` are optional callbacks: ``on_task`` is called with
-    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the five
+    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the six
     tasks finishes, and ``on_step`` after each agent step. They power the live
     stage tracker in the UI and are never required.
     """
@@ -74,12 +79,18 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     tasks_cfg = _load_yaml(TASKS_YAML)
 
     mcp_server = crewai_mcp_server()
-    knowledge = _guidelines_source()
+    knowledge = _guidelines_source(RESUME_GUIDELINES_PATH, "resume_guidelines")
+    interview_knowledge = _guidelines_source(
+        INTERVIEW_GUIDELINES_PATH, "interview_guidelines"
+    )
 
-    def _agent(name: str, *, with_mcp: bool) -> Agent:
+    def _agent(name: str, *, with_mcp: bool, extra_knowledge=None) -> Agent:
+        sources = [knowledge]
+        if extra_knowledge is not None:
+            sources.append(extra_knowledge)
         kwargs = {
             "config": agents_cfg[name],
-            "knowledge_sources": [knowledge],
+            "knowledge_sources": sources,
             "verbose": verbose,
             "allow_delegation": False,
         }
@@ -93,7 +104,10 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     jd_analyzer = _agent("jd_analyzer", with_mcp=True)
     gap_analyst = _agent("gap_analyst", with_mcp=False)
     feedback_writer = _agent("feedback_writer", with_mcp=False)
-    application_packager = _agent("application_packager", with_mcp=True)
+    interview_prep_advisor = _agent(
+        "interview_prep_advisor", with_mcp=False, extra_knowledge=interview_knowledge
+    )
+    screening_prep_writer = _agent("screening_prep_writer", with_mcp=True)
 
     extract_profile = Task(
         name="extract_profile",
@@ -121,12 +135,19 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
         context=[analyze_gaps],
         output_pydantic=FeedbackDraft,
     )
-    assemble_package = Task(
-        name="assemble_package",
-        config=tasks_cfg["assemble_package"],
-        agent=application_packager,
+    build_prep_plan = Task(
+        name="build_prep_plan",
+        config=tasks_cfg["build_prep_plan"],
+        agent=interview_prep_advisor,
+        context=[extract_profile, analyze_jd, analyze_gaps],
+        output_pydantic=InterviewPrepPlan,
+    )
+    prepare_screening_answers = Task(
+        name="prepare_screening_answers",
+        config=tasks_cfg["prepare_screening_answers"],
+        agent=screening_prep_writer,
         context=[write_feedback, analyze_jd],
-        output_pydantic=ApplicationPackage,
+        output_pydantic=ScreeningPrep,
     )
 
     return Crew(
@@ -135,9 +156,17 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             jd_analyzer,
             gap_analyst,
             feedback_writer,
-            application_packager,
+            interview_prep_advisor,
+            screening_prep_writer,
         ],
-        tasks=[extract_profile, analyze_jd, analyze_gaps, write_feedback, assemble_package],
+        tasks=[
+            extract_profile,
+            analyze_jd,
+            analyze_gaps,
+            write_feedback,
+            build_prep_plan,
+            prepare_screening_answers,
+        ],
         process=Process.sequential,
         memory=True,  # short-term memory within a session (see ARCHITECTURE.md)
         verbose=verbose,
@@ -150,21 +179,27 @@ def crew_inputs(
     *,
     resume_path: str | None = None,
     resume_text: str | None = None,
-    jd_source: str = "",
+    jd_path: str | None = None,
+    jd_text: str | None = None,
     screening_questions: str = "",
+    seniority: str = "",
 ) -> dict:
     """Build the inputs mapping used by ``Crew.kickoff``.
 
-    Exactly one of ``resume_path`` or ``resume_text`` is expected; the task text
-    tells the agent which to use. ``jd_source`` is pasted text or an https URL.
+    Exactly one of ``resume_path`` / ``resume_text`` and one of ``jd_path`` /
+    ``jd_text`` is expected; the task text tells the agent which to use.
     """
     if not resume_path and not resume_text:
         raise ValueError("provide either a resume file path or pasted resume text")
+    if not jd_path and not jd_text:
+        raise ValueError("provide either a JD file path or pasted JD text")
     return {
         "resume_path": resume_path or "(none; use pasted resume_text)",
         "resume_text": resume_text or "(none; use the read_resume tool)",
-        "jd_source": jd_source,
+        "jd_path": jd_path or "(none; use pasted jd_text)",
+        "jd_text": jd_text or "(none; use the read_job_description tool)",
         "screening_questions": screening_questions or "(none provided)",
+        "seniority": seniority or "2-3 years",
     }
 
 

@@ -2,7 +2,7 @@
 
     python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt
     python main.py --resume-text "..." --jd "We need a Python engineer."
-    python main.py --resume samples/sample_resume.txt --jd-url https://example.com/job
+    python main.py --resume samples/sample_resume.txt --jd-file posting.pdf
 
 Needs OPENAI_API_KEY for the full crew; without it the deterministic MCP
 fallback still runs. See .env.example.
@@ -24,8 +24,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="CareerCrew: multi-agent resume coach")
     parser.add_argument("--resume", help="Path to a resume file (PDF, DOCX, or TXT)")
     parser.add_argument("--resume-text", help="Pasted resume text (alternative to --resume)")
-    parser.add_argument("--jd", help="Path to a JD text file or the pasted JD text")
-    parser.add_argument("--jd-url", help="An https URL to fetch the JD from")
+    parser.add_argument("--jd", help="Job description text (or a .txt file path)")
+    parser.add_argument(
+        "--jd-file",
+        help="Path to a JD file to upload (PDF, DOCX, or TXT)",
+    )
+    parser.add_argument(
+        "--seniority",
+        default="2-3 years",
+        help="Target experience band (2-3 years, 5-10 years, or 10+ years)",
+    )
     parser.add_argument(
         "--screening",
         action="append",
@@ -41,8 +49,8 @@ def main() -> None:
 
     if not args.resume and not args.resume_text:
         raise SystemExit("Provide --resume <file> or --resume-text <text>.")
-    if not args.jd and not args.jd_url:
-        raise SystemExit("Provide --jd <file|text> or --jd-url <https url>.")
+    if not args.jd and not args.jd_file:
+        raise SystemExit("Provide --jd <text|file> or --jd-file <file>.")
 
     upload_dir = os.environ.get("CAREERCREW_UPLOAD_DIR", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
@@ -54,22 +62,34 @@ def main() -> None:
         shutil.copyfile(args.resume, resume_path)
         resume_path = os.path.basename(resume_path)
 
-    jd_source = args.jd_url or args.jd or ""
-    if args.jd and os.path.isfile(args.jd):
-        with open(args.jd, encoding="utf-8") as handle:
-            jd_source = handle.read()
-    jd_source = redact_pii(jd_source)  # input guardrail: PII out before LLM calls
+    jd_path: str | None = None
+    jd_text: str | None = None
+    if args.jd_file:
+        check_upload(args.jd_file)
+        jd_path = os.path.join(upload_dir, os.path.basename(args.jd_file))
+        shutil.copyfile(args.jd_file, jd_path)
+        jd_path = os.path.basename(jd_path)
+    else:
+        jd_text = args.jd or ""
+        if args.jd and os.path.isfile(args.jd):
+            with open(args.jd, encoding="utf-8") as handle:
+                jd_text = handle.read()
+        jd_text = redact_pii(jd_text)  # input guardrail: PII out before LLM calls
 
     request = AnalysisRequest(
         package_id=make_package_id(),
         resume_path=resume_path,
         resume_text=redact_pii(args.resume_text) if args.resume_text else None,
-        jd_source=jd_source,
+        jd_path=jd_path,
+        jd_text=jd_text,
+        seniority=args.seniority,
         screening_questions=args.screening,
     )
 
     result = run_analysis(request)
     print(result.package.model_dump_json(indent=2))
+    print("\nInterview prep plan:")
+    print(result.prep_plan.model_dump_json(indent=2))
     if result.warnings:
         print("\nWarnings:")
         for warning in result.warnings:

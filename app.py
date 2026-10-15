@@ -2,11 +2,13 @@
 
 Plain-language workflow for job seekers:
 
-1. Add a resume (upload or paste) and a job description (paste or URL).
-2. Optionally add employer screening questions.
+1. Add a resume (upload or paste) and a job description (upload or paste).
+2. Pick your target experience band and optionally add screening questions.
 3. Press **Analyze match** and watch live progress.
-4. Review coverage, rewrite suggestions, and an honest application package.
-5. Approve, request changes, or reject — nothing is finalized without you.
+4. Review coverage, rewrite suggestions, an interview prep plan, and copy-ready
+   screening answers (nothing is submitted anywhere).
+5. Practice with the voice mock interviewer, then chat with the prep coach and
+   the post-interview coach.
 
 Technical details (agents, MCP, JSON, traces) live under **Advanced**.
 Screening answers come only from a verified answer bank; unverified questions
@@ -16,21 +18,31 @@ are surfaced for the candidate instead of being invented.
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import shutil
 from collections.abc import Iterator
-from concurrent.futures import ThreadPoolExecutor, wait as _wait_futures
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import wait as _wait_futures
 
 import gradio as gr
 
-from careercrew import guardrails
+from careercrew import audio, coach, guardrails, interview, llm
 from careercrew.config import get_settings
 from careercrew.models import (
-    ApplicationPackage,
+    AnswerEvaluation,
+    CandidateProfile,
+    GapReport,
+    InterviewPrepPlan,
+    InterviewQuestion,
+    InterviewTurnRole,
+    JobRequirements,
+    MockInterviewSession,
     ReviewAction,
     ReviewDecision,
     ReviewStatus,
+    ScreeningPrep,
 )
 from careercrew.pipeline import AnalysisRequest, make_package_id, run_analysis
 from careercrew.review import PackageReviewService, ReviewError
@@ -59,8 +71,8 @@ STAGES: list[tuple[int, str, str]] = [
     (3, "Understand role", "Extract what the job actually requires"),
     (4, "Score match", "Mark each requirement as covered, reframeable, or out of scope"),
     (5, "Draft rewrites", "Suggest stronger bullets backed by facts from your resume"),
-    (6, "Screening answers", "Fill employer questions only from verified answers"),
-    (7, "Final check", "Verify honesty rules, then hand the draft to you"),
+    (6, "Prep plan", "Plan where to spend your interview preparation time"),
+    (7, "Screening + check", "Prepare copy-ready answers and verify honesty rules"),
 ]
 _TOTAL_STAGES = len(STAGES)
 _FINAL = _TOTAL_STAGES + 1  # sentinel: marks every stage complete
@@ -71,14 +83,16 @@ _AGENT_STAGE = {
     "JD Analyzer": 3,
     "Gap Analyst": 4,
     "Feedback Writer": 5,
-    "Application Packager": 6,
+    "Interview Prep Advisor": 6,
+    "Screening Answer Prep Writer": 7,
 }
 _TASK_STAGE = {
     "extract_profile": 2,
     "analyze_jd": 3,
     "analyze_gaps": 4,
     "write_feedback": 5,
-    "assemble_package": 6,
+    "build_prep_plan": 6,
+    "prepare_screening_answers": 7,
 }
 
 CUSTOM_CSS = """
@@ -668,22 +682,28 @@ def _insight_html(result) -> str:
     return "".join(parts)
 
 
-def _package_html(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
-    """Candidate-facing application package (screening answers + items needing input)."""
+def _package_html(package: ScreeningPrep | None, warnings: list[str] | None = None) -> str:
+    """Candidate-facing copy-ready screening answers + items needing input."""
     if package is None:
         return _empty_card(
-            "Application package",
-            "After analysis, you’ll see verified screening answers here — and anything that "
-            "still needs your personal input.",
+            "Copy-ready screening answers",
+            "After analysis, you’ll see verified answers you can paste into your own "
+            "application — and anything that still needs your personal input. "
+            "Nothing is submitted for you.",
         )
 
     parts = ["<div class='cc-card'>"]
-    parts.append("<h3>Application package</h3>")
+    parts.append("<h3>Copy-ready screening answers</h3>")
     role = package.role_title or "Role"
     company = package.company or "Company"
     parts.append(
         f"<p class='cc-hint'><span class='cc-badge ghost'>{_esc(package.package_id)}</span> "
         f"{_esc(role)} · {_esc(company)}</p>"
+    )
+    parts.append(
+        "<div class='cc-alert info'><strong>Nothing is submitted</strong>"
+        "These are answers you can copy into your own application. CareerCrew never "
+        "applies on your behalf.</div>"
     )
     if package.package_summary:
         parts.append(f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.55'>{_esc(package.package_summary)}</p>")
@@ -724,13 +744,83 @@ def _package_html(package: ApplicationPackage | None, warnings: list[str] | None
     return "".join(parts)
 
 
-def _package_markdown(package: ApplicationPackage | None, warnings: list[str] | None = None) -> str:
+def _priority_class(priority: str) -> str:
+    key = (priority or "").strip().lower()
+    if key == "high":
+        return "out"
+    if key == "medium":
+        return "reframeable"
+    return "covered"
+
+
+def _prep_html(plan: InterviewPrepPlan | None) -> str:
+    """Render the seniority-aware interview preparation plan."""
+    if plan is None or (not plan.focus_areas and not plan.seniority.rationale):
+        return _empty_card(
+            "Interview prep plan",
+            "After analysis, you’ll see which parts of the role to spend the most "
+            "preparation time on, based on your gaps and your target experience band.",
+        )
+
+    parts = ["<div class='cc-card'>"]
+    parts.append("<h3>Interview prep plan</h3>")
+    seniority = plan.seniority
+    parts.append(
+        "<div class='cc-stats'>"
+        f"<span class='cc-chip'>target · {_esc(seniority.target_years or seniority.band.label)}</span>"
+        f"<span class='cc-chip'>confidence · {int(seniority.confidence)}%</span>"
+        f"<span class='cc-chip'>detected · {_esc(seniority.detected_years) or '—'}</span>"
+        "</div>"
+    )
+    if seniority.rationale:
+        parts.append(
+            f"<p class='cc-hint' style='margin-top:10px'>{_esc(seniority.rationale)}</p>"
+        )
+
+    if plan.focus_areas:
+        parts.append("<div class='cc-section-title'>Where to spend your time</div>")
+        parts.append("<div class='cc-qa'>")
+        for focus in plan.focus_areas:
+            cls = _priority_class(focus.priority)
+            parts.append(
+                "<div class='cc-qa-item'>"
+                f"<p class='cc-q'>{_esc(focus.area)} "
+                f"<span class='cc-badge {cls}'>{_esc(focus.priority.upper())}</span> "
+                f"<span class='cc-badge src'>{int(focus.suggested_share_pct)}% of prep time</span></p>"
+                f"<p class='cc-a'>{_esc(focus.why)}</p>"
+                f"<div class='cc-cite'>Grounded in: <b>{_esc(focus.evidence) or '—'}</b></div>"
+                "</div>"
+            )
+        parts.append("</div>")
+
+    if plan.question_themes:
+        parts.append("<div class='cc-section-title'>Question themes to practice</div>")
+        items = "".join(f"<li>{_esc(theme)}</li>" for theme in plan.question_themes)
+        parts.append(f"<ul class='cc-list'>{items}</ul>")
+
+    if plan.strengths:
+        parts.append("<div class='cc-section-title'>Your strengths</div>")
+        chips = "".join(f"<span class='cc-chip covered'>{_esc(s)}</span>" for s in plan.strengths)
+        parts.append(f"<div class='cc-stats'>{chips}</div>")
+
+    if plan.risk_areas:
+        parts.append("<div class='cc-section-title'>Highest-risk areas</div>")
+        items = "".join(f"<li>{_esc(r)}</li>" for r in plan.risk_areas)
+        parts.append(f"<div class='cc-note'><ul class='cc-list'>{items}</ul></div>")
+
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def _package_markdown(package: ScreeningPrep | None, warnings: list[str] | None = None) -> str:
     """Plain markdown fallback used by review callbacks / tests that inspect text."""
     if package is None:
-        return "Application package will appear here after analysis. Answers use answer_bank only."
+        return "Screening answers will appear here after analysis. Answers use answer_bank only."
     lines = [
         f"### {package.package_id}",
         f"**{package.role_title or '—'}** at **{package.company or '—'}**",
+        "",
+        "_Copy-ready answers — nothing is submitted for you._",
         "",
     ]
     if package.package_summary:
@@ -776,6 +866,7 @@ def _empty_outputs() -> tuple:
         _stages_html(-1),  # stages_html
         _trace_markdown(None),  # trace_md
         _insight_html(None),  # insight_html
+        _prep_html(None),  # prep_html
         _package_html(None),  # package_md (HTML package view)
         "",  # package_json
         gr.update(interactive=False),  # approve_btn
@@ -784,38 +875,86 @@ def _empty_outputs() -> tuple:
         None,  # state
         "",  # review_feedback
         _tracker_rows(),  # tracker_table
+        None,  # context_state (JSON bundle for interview + coach tabs)
     )
+
+
+def _serialize_result(result) -> str:
+    """Serialize the pieces the interview and coach tabs need, as one JSON blob."""
+    return json.dumps(
+        {
+            "package_id": result.package.package_id,
+            "profile": result.profile.model_dump(),
+            "requirements": result.requirements.model_dump(),
+            "gaps": result.gaps.model_dump(),
+            "prep_plan": result.prep_plan.model_dump(),
+        }
+    )
+
+
+def _load_context(state) -> dict | None:
+    """Parse the serialized analysis context, or None when unset/invalid."""
+    if not state:
+        return None
+    try:
+        data = json.loads(state) if isinstance(state, str) else state
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def _context_models(context: dict) -> dict:
+    """Rebuild typed models from a serialized context bundle."""
+    return {
+        "profile": CandidateProfile.model_validate(context.get("profile") or {}),
+        "requirements": JobRequirements.model_validate(context.get("requirements") or {}),
+        "gaps": GapReport.model_validate(context.get("gaps") or {}),
+        "prep_plan": InterviewPrepPlan.model_validate(context.get("prep_plan") or {}),
+        "package_id": context.get("package_id") or "",
+    }
 
 
 # --------------------------------------------------------------------------- #
 # Callbacks
 # --------------------------------------------------------------------------- #
 def _resolve_resume(resume_file, resume_text: str) -> tuple[str | None, str | None]:
-    """Copy an uploaded file into the uploads folder, or use pasted text."""
-    if resume_file:
+    """Copy an uploaded resume into the uploads folder, or use pasted text."""
+    return _resolve_upload(resume_file, resume_text, "resume")
+
+
+def _resolve_upload(upload, pasted: str, kind: str) -> tuple[str | None, str | None]:
+    """Copy an uploaded file into the uploads folder, or use pasted text.
+
+    Shared by the resume and job-description inputs so both behave identically.
+    """
+    if upload:
         # Gradio 6 File may return a path string, a tempfile object, or a 1-item list.
-        if isinstance(resume_file, (list, tuple)):
-            resume_file = resume_file[0] if resume_file else None
-        if resume_file is None:
+        if isinstance(upload, (list, tuple)):
+            upload = upload[0] if upload else None
+        if upload is None:
             pass
         else:
-            check_name = resume_file if isinstance(resume_file, str) else getattr(
-                resume_file, "name", str(resume_file)
+            check_name = upload if isinstance(upload, str) else getattr(
+                upload, "name", str(upload)
             )
             guardrails.check_upload(check_name)
             os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
             base = os.path.abspath(_SETTINGS.upload_dir)
             destination = os.path.abspath(os.path.join(base, os.path.basename(check_name)))
             if not destination.startswith(base + os.sep):
-                raise ValueError("invalid resume path")
+                raise ValueError(f"invalid {kind} path")
             shutil.copyfile(check_name, destination)
             return os.path.basename(destination), None
-    if (resume_text or "").strip():
-        return None, guardrails.redact_pii(resume_text)
+    if (pasted or "").strip():
+        return None, guardrails.redact_pii(pasted)
     return None, None
 
 
-def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterator[tuple]:
+def analyze(
+    resume_file, resume_text, jd_file, jd_text, screening_text, seniority
+) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
     outputs = list(_empty_outputs())
 
@@ -830,14 +969,12 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
             0, _alert_html(message, kind="error"),
             1, status,
             3, _stages_html(-1),
-            8, gr.update(interactive=False),
             9, gr.update(interactive=False),
             10, gr.update(interactive=False),
+            11, gr.update(interactive=False),
         )
 
     try:
-        jd_source = (jd_url or "").strip() or (jd_text or "").strip()
-
         # Immediate feedback so the click never looks dead.
         yield emit(
             0, "",
@@ -845,24 +982,30 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
             3, _stages_html(1, "Checking your inputs…"),
         )
 
-        # --- Stage 1: input guardrails (resume resolution). ----------------- #
+        # --- Stage 1: input guardrails (resume + JD resolution). ------------ #
         try:
-            resume_path, pasted = _resolve_resume(resume_file, resume_text)
+            resume_path, pasted_resume = _resolve_resume(resume_file, resume_text)
         except Exception as exc:  # noqa: BLE001 - surface a clean error
             yield fail(f"Resume error: {exc}", status="Resume rejected.")
             return
 
-        if resume_path is None and pasted is None:
+        if resume_path is None and pasted_resume is None:
             yield fail(
                 "Add a resume first — upload a PDF/DOCX/TXT file, or paste the text "
                 "in the Paste text tab."
             )
             return
 
-        if not jd_source.strip():
+        try:
+            jd_path, pasted_jd = _resolve_upload(jd_file, jd_text, "job description")
+        except Exception as exc:  # noqa: BLE001 - surface a clean error
+            yield fail(f"Job description error: {exc}", status="Job description rejected.")
+            return
+
+        if jd_path is None and pasted_jd is None:
             yield fail(
-                "Add a job description — paste the posting text, or use an https URL "
-                "that can be read without a login (LinkedIn/Indeed usually need a paste)."
+                "Add a job description — upload a PDF/DOCX/TXT file, or paste the "
+                "posting text in the Paste posting tab."
             )
             return
 
@@ -870,8 +1013,10 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
         request = AnalysisRequest(
             package_id=make_package_id(),
             resume_path=resume_path,
-            resume_text=pasted,
-            jd_source=guardrails.redact_pii(jd_source),
+            resume_text=pasted_resume,
+            jd_path=jd_path,
+            jd_text=pasted_jd,
+            seniority=(seniority or "2-3 years"),
             screening_questions=questions,
         )
 
@@ -887,8 +1032,8 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
             """Bridge the pipeline's progress messages onto the stage tracker."""
             lowered = message.lower()
             if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
-                stages["index"], stages["detail"] = 6, "Preparing screening answers from your verified bank…"
-            elif "five-agent crew" in lowered:
+                stages["index"], stages["detail"] = 7, "Preparing screening answers from your verified bank…"
+            elif "six-agent crew" in lowered:
                 stages["index"], stages["detail"] = 2, "Reading your resume…"
             else:
                 stages["detail"] = message
@@ -933,7 +1078,9 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
         _REVIEW.submit_for_review(
             {
                 "resume_path": request.resume_path,
-                "jd_source": request.jd_source,
+                "jd_path": request.jd_path,
+                "jd_text": request.jd_text,
+                "seniority": request.seniority,
                 "screening_questions": request.screening_questions,
             },
             result.package,
@@ -942,41 +1089,44 @@ def analyze(resume_file, resume_text, jd_text, jd_url, screening_text) -> Iterat
 
         mode = " (limited mode)" if result.used_fallback else ""
         status = (
-            f"**Your draft is ready{mode}.** "
-            f"Package `{result.package.package_id}` · "
-            f"{len(result.package.screening_answers)} verified screening answer(s) · "
+            f"**Your prep bundle is ready{mode}.** "
+            f"`{result.package.package_id}` · "
+            f"{len(result.package.screening_answers)} verified answer(s) · "
+            f"{len(result.prep_plan.focus_areas)} prep focus area(s) · "
             f"{len(result.package.do_not_claim)} item(s) still need your input."
         )
         yield emit(
             0, "",
             1, status,
-            3, _stages_html(_FINAL, "All set — review your match report below."),
+            3, _stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
             4, _trace_markdown(result),
             5, _insight_html(result),
-            6, _package_html(result.package, result.warnings),
-            7, result.package.model_dump_json(indent=2),
-            8, gr.update(interactive=True),
+            6, _prep_html(result.prep_plan),
+            7, _package_html(result.package, result.warnings),
+            8, result.package.model_dump_json(indent=2),
             9, gr.update(interactive=True),
             10, gr.update(interactive=True),
-            11, result.package.model_dump(),
-            12, "",
-            13, _tracker_rows(),
+            11, gr.update(interactive=True),
+            12, result.package.model_dump(),
+            13, "",
+            14, _tracker_rows(),
+            15, _serialize_result(result),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
         yield fail(f"Unexpected error: {exc}")
 
 
-def _load_package(state) -> ApplicationPackage | None:
+def _load_package(state) -> ScreeningPrep | None:
     if not state:
         return None
     try:
-        return ApplicationPackage.model_validate(state)
+        return ScreeningPrep.model_validate(state)
     except Exception:  # noqa: BLE001
         return None
 
 
-def _current_status(package: ApplicationPackage) -> tuple[ReviewStatus, int]:
+def _current_status(package: ScreeningPrep) -> tuple[ReviewStatus, int]:
     stored = _STORE.get_package(package.package_id)
     if stored:
         return ReviewStatus(stored["status"]), int(stored["revision_count"])
@@ -989,7 +1139,7 @@ def approve(state, feedback):
         return gr.update(), "Nothing to approve.", None, gr.update(), _tracker_rows()
     status_now, revisions = _current_status(package)
     try:
-        outcome = _REVIEW.apply_decision(
+        _REVIEW.apply_decision(
             package,
             ReviewDecision(
                 package_id=package.package_id,
@@ -1087,6 +1237,317 @@ _SAMPLE_QUESTIONS = (
     "Do you require visa sponsorship?"
 )
 
+_SENIORITY_CHOICES = ["2-3 years", "5-10 years", "10+ years"]
+
+
+# --------------------------------------------------------------------------- #
+# Interview + coaching callbacks
+# --------------------------------------------------------------------------- #
+def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
+    """Convert the transcript to Gradio chatbot messages (interviewer = assistant)."""
+    messages: list[dict] = []
+    for turn in session.turns:
+        role = "assistant" if turn.role is InterviewTurnRole.INTERVIEWER else "user"
+        messages.append({"role": role, "content": turn.text})
+    return messages
+
+
+def _question_html(question: InterviewQuestion | None, *, done: bool = False) -> str:
+    if done or question is None:
+        return (
+            "<div class='cc-card'><h3>Interview complete</h3>"
+            "<div class='cc-empty'><strong>You finished the mock interview</strong>"
+            "Review your score and the per-question feedback below, then ask the "
+            "post-interview coach anything you like.</div></div>"
+        )
+    return (
+        "<div class='cc-card'><h3>Interviewer</h3>"
+        "<p class='cc-hint'>Question "
+        f"{question.index + 1} of the mock interview</p>"
+        f"<p style='font-size:16px;line-height:1.55;color:var(--cc-ink);margin:6px 0'>{_esc(question.text)}</p>"
+        "<div class='cc-cite'>Looking for: "
+        f"<b>{_esc(question.intent or question.target_competency or 'a grounded, specific answer')}</b></div>"
+        "</div>"
+    )
+
+
+def _evaluation_html(evaluation: AnswerEvaluation | None) -> str:
+    if evaluation is None:
+        return ""
+    strengths = "".join(f"<li>{_esc(s)}</li>" for s in evaluation.strengths)
+    improvements = "".join(f"<li>{_esc(i)}</li>" for i in evaluation.improvements)
+    outline = "".join(f"<li>{_esc(o)}</li>" for o in evaluation.model_answer_outline)
+    return (
+        "<div class='cc-card'><h3>Feedback on your answer</h3>"
+        "<div class='cc-stats'>"
+        f"<span class='cc-chip'>score · {int(evaluation.score)}/100</span>"
+        "</div>"
+        "<div class='cc-section-title'>What the interviewer was looking for</div>"
+        f"<p style='color:var(--cc-ink-2);font-size:13.5px;line-height:1.55'>{_esc(evaluation.what_interviewer_wanted)}</p>"
+        + (f"<div class='cc-section-title'>What worked</div><ul class='cc-list'>{strengths}</ul>" if strengths else "")
+        + (f"<div class='cc-section-title'>What to improve</div><div class='cc-note'><ul class='cc-list'>{improvements}</ul></div>" if improvements else "")
+        + (f"<div class='cc-section-title'>A stronger answer would</div><ul class='cc-list'>{outline}</ul>" if outline else "")
+        + "</div>"
+    )
+
+
+def _overall_html(session: MockInterviewSession) -> str:
+    if not session.completed:
+        return ""
+    return (
+        "<div class='cc-card'><h3>Overall performance</h3>"
+        "<div class='cc-meter'><div class='cc-meter-top'>"
+        f"<div class='cc-score'>{int(session.overall_score)}<small>/100</small></div>"
+        "<div class='cc-meter-label'>Average across your answers</div></div>"
+        f"<div class='cc-bar'><span style='width:{int(session.overall_score)}%'></span></div></div>"
+        f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.6'>{_esc(session.overall_summary)}</p>"
+        "</div>"
+    )
+
+
+def _audio_status() -> str:
+    if audio.audio_available():
+        return ""
+    return (
+        "<div class='cc-alert info'><strong>Text-only practice mode</strong>"
+        "Voice is unavailable (no audio-capable API key), so questions are shown as "
+        "text and you can type your answers. Add an OpenAI key to enable the voice "
+        "interviewer.</div>"
+    )
+
+
+def interview_start(ctx_state, count: int) -> tuple:
+    """Begin a mock interview: generate questions and ask the first one."""
+    context = _load_context(ctx_state)
+    if not context:
+        return (
+            _alert_html("Analyze a match first — the interview uses your resume and the role."),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            None,
+        )
+    models = _context_models(context)
+    questions = interview.generate_questions(
+        models["profile"],
+        models["requirements"],
+        models["gaps"],
+        models["prep_plan"],
+        int(count or _SETTINGS.interview_question_count),
+        llm=llm.callable_or_none(),
+    )
+    if not questions:
+        return (
+            _alert_html("No interview questions could be generated. Try analyzing again."),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            None,
+        )
+
+    session = MockInterviewSession(
+        session_id=interview.make_session_id(),
+        role_title=(models["requirements"].seniority or "the role"),
+        questions=questions,
+    )
+    return _ask_question(session, 0)
+
+
+def _ask_question(session: MockInterviewSession, index: int, *, error: str = "") -> tuple:
+    """Append the interviewer's question turn, synthesize audio, and render."""
+    question = session.questions[index]
+    audio_path = audio.speak(question.text) or ""
+    question.audio_ref = audio_path
+    interview.append_turn(
+        session, InterviewTurnRole.INTERVIEWER, question.text, question_index=index
+    )
+    _STORE.save_interview(session)
+    return (
+        _alert_html(error) if error else _audio_status(),
+        _question_html(question),
+        audio_path or None,
+        _turns_to_messages(session),
+        "",
+        "",
+        session.model_dump_json(),
+    )
+
+
+def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
+    """Evaluate the candidate's answer, then move to the next question."""
+    context = _load_context(ctx_state)
+    session = _load_interview(iv_state)
+    if context is None or session is None:
+        return (
+            _alert_html("Start the interview first."),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            iv_state,
+        )
+
+    index = sum(1 for e in session.evaluations)
+    if index >= len(session.questions):
+        return (
+            "",
+            _question_html(None, done=True),
+            None,
+            _turns_to_messages(session),
+            "",
+            _overall_html(session),
+            session.model_dump_json(),
+        )
+
+    question = session.questions[index]
+
+    # Prefer the transcript of the recorded audio; fall back to typed text.
+    transcript = audio.transcribe(answer_audio) if answer_audio else ""
+    answer = transcript.strip() or (answer_text or "").strip()
+
+    problems = guardrails.validate_interview_answer(answer)
+    if problems:
+        return (
+            _alert_html("Please answer the question: " + "; ".join(problems)),
+            _question_html(question),
+            None,
+            _turns_to_messages(session),
+            _evaluation_html(session.evaluations[-1] if session.evaluations else None),
+            "",
+            session.model_dump_json(),
+        )
+
+    models = _context_models(context)
+    context_bundle = {
+        "role": models["requirements"].model_dump(),
+        "gaps": models["gaps"].model_dump(),
+        "prep_plan": models["prep_plan"].model_dump(),
+    }
+    evaluation = interview.evaluate_answer(
+        question, answer, context_bundle, llm=llm.callable_or_none()
+    )
+    eval_problems = guardrails.validate_evaluation(evaluation)
+    session.evaluations.append(evaluation)
+    interview.append_turn(
+        session,
+        InterviewTurnRole.CANDIDATE,
+        answer,
+        question_index=index,
+        audio_ref=str(answer_audio or ""),
+    )
+
+    next_index = index + 1
+    if next_index < len(session.questions):
+        session.overall_score = round(
+            sum(e.score for e in session.evaluations) / len(session.evaluations)
+        )
+        _STORE.save_interview(session)
+        question_out = _ask_question(session, next_index)
+        # Splice the evaluation feedback into the returned tuple.
+        return (
+            question_out[0],
+            question_out[1],
+            question_out[2],
+            question_out[3],
+            _evaluation_html(evaluation),
+            "",
+            question_out[6],
+        )
+
+    # Final answer: finish the session and score it.
+    score, summary = interview.overall_evaluation(session, llm=llm.callable_or_none())
+    session.overall_score = score
+    session.overall_summary = summary
+    session.completed = True
+    _STORE.save_interview(session)
+    return (
+        _alert_html("; ".join(eval_problems)) if eval_problems else _audio_status(),
+        _question_html(None, done=True),
+        None,
+        _turns_to_messages(session),
+        _evaluation_html(evaluation),
+        _overall_html(session),
+        session.model_dump_json(),
+    )
+
+
+def _load_interview(iv_state) -> MockInterviewSession | None:
+    if not iv_state:
+        return None
+    try:
+        return MockInterviewSession.model_validate_json(iv_state)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _render_prep_chat(history, message: str, ctx_state):
+    """Prep coach: resume improvement + preparation chat."""
+    history = history or []
+    context = _load_context(ctx_state)
+    context_text = coach.build_context() if context else "No analysis yet."
+    if context:
+        models = _context_models(context)
+        context_text = coach.build_context(
+            profile=models["profile"],
+            requirements=models["requirements"],
+            gaps=models["gaps"],
+            prep_plan=models["prep_plan"],
+        )
+    prompt = message.get("text", "") if isinstance(message, dict) else str(message)
+    reply, warnings = coach.prep_coach_reply(
+        prompt, context_text, history, llm=llm.callable_or_none()
+    )
+    if warnings:
+        reply += "\n\n_" + " ".join(warnings) + "_"
+    history = history + [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": reply},
+    ]
+    session_id = _context_models(context)["package_id"] if context else "session"
+    _STORE.add_chat_message(session_id, "prep", "user", prompt)
+    _STORE.add_chat_message(session_id, "prep", "assistant", reply)
+    return history, ""
+
+
+def _render_post_chat(history, message: str, ctx_state, iv_state):
+    """Post-interview coach: everything about JD, resume, and interview results."""
+    history = history or []
+    context = _load_context(ctx_state)
+    session = _load_interview(iv_state) or _STORE.latest_interview()
+    if context:
+        models = _context_models(context)
+        context_text = coach.build_context(
+            profile=models["profile"],
+            requirements=models["requirements"],
+            gaps=models["gaps"],
+            prep_plan=models["prep_plan"],
+            interview=session,
+            include_interview=session is not None,
+        )
+    else:
+        context_text = coach.build_context(interview=session, include_interview=session is not None)
+    prompt = message.get("text", "") if isinstance(message, dict) else str(message)
+    reply, warnings = coach.post_coach_reply(
+        prompt, context_text, history, llm=llm.callable_or_none()
+    )
+    if warnings:
+        reply += "\n\n_" + " ".join(warnings) + "_"
+    history = history + [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": reply},
+    ]
+    session_id = (session.session_id if session else None) or (
+        _context_models(context)["package_id"] if context else "session"
+    )
+    _STORE.add_chat_message(session_id, "post", "user", prompt)
+    _STORE.add_chat_message(session_id, "post", "assistant", reply)
+    return history, ""
+
 
 # --------------------------------------------------------------------------- #
 # Layout
@@ -1126,10 +1587,17 @@ def build_app() -> gr.Blocks:
                 with gr.Group(elem_classes=["cc-panel"]):
                     gr.HTML(
                         "<div class='cc-panel-head'><h3>The job</h3>"
-                        "<p class='cc-hint'>Paste the posting, or fetch it from a secure https link.</p></div>"
+                        "<p class='cc-hint'>Upload the posting file or paste the text. "
+                        "Job-posting URLs are not read directly.</p></div>"
                     )
                     sample_jd_btn = gr.Button("Try a sample job", size="sm")
                     with gr.Tabs():
+                        with gr.Tab("Upload file"):
+                            jd_file = gr.File(
+                                label="PDF, DOCX, or TXT",
+                                file_types=[".pdf", ".docx", ".txt"],
+                                elem_classes=["cc-field"],
+                            )
                         with gr.Tab("Paste posting"):
                             jd_text = gr.Textbox(
                                 label="Job description",
@@ -1138,12 +1606,13 @@ def build_app() -> gr.Blocks:
                                 elem_classes=["cc-field"],
                                 show_label=False,
                             )
-                        with gr.Tab("From URL"):
-                            jd_url = gr.Textbox(
-                                label="Job posting URL",
-                                placeholder="https://company.com/jobs/…",
-                                elem_classes=["cc-field"],
-                            )
+                    with gr.Row():
+                        seniority_dd = gr.Dropdown(
+                            choices=_SENIORITY_CHOICES,
+                            value=_SENIORITY_CHOICES[0],
+                            label="Target experience level",
+                            elem_classes=["cc-field"],
+                        )
                     with gr.Accordion("Optional screening questions", open=False):
                         screening_text = gr.Textbox(
                             label="One question per line",
@@ -1156,8 +1625,8 @@ def build_app() -> gr.Blocks:
         with gr.Row(elem_classes=["cc-cta"], equal_height=True):
             gr.HTML(
                 "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
-                "<p>We’ll score the match, suggest stronger bullets, and prepare honest "
-                "screening answers.</p></div>",
+                "<p>We’ll score the match, plan your interview prep, suggest stronger "
+                "bullets, and prepare honest screening answers.</p></div>",
                 elem_classes=["cc-cta-copy-wrap"],
             )
             with gr.Row(elem_classes=["cc-cta-actions"]):
@@ -1175,29 +1644,101 @@ def build_app() -> gr.Blocks:
         banner = gr.HTML(_mode_banner())
         stages_html = gr.HTML(_stages_html(-1))
 
+        # Context bundle for the interview + coaching tabs.
+        ctx_state = gr.State(None)
+        iv_state = gr.State(None)
+
         with gr.Tabs():
             with gr.Tab("Match report"):
                 insight_html = gr.HTML(_insight_html(None))
-            with gr.Tab("Application package"):
+            with gr.Tab("Interview prep plan"):
+                prep_html = gr.HTML(_prep_html(None))
+            with gr.Tab("Screening answers"):
                 package_md = gr.HTML(_package_html(None))
+            with gr.Tab("Mock interview"):
+                gr.HTML(
+                    "<div class='cc-panel-head'><h3>Voice mock interview</h3>"
+                    "<p class='cc-hint'>The interviewer asks questions from your resume and "
+                    "the role. Answer by voice (or type), and watch the live transcript and "
+                    "per-question feedback. Practice only — nothing is submitted.</p></div>"
+                )
+                with gr.Row():
+                    iv_start_btn = gr.Button("Start interview", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168)
+                    iv_questions = gr.Slider(
+                        minimum=3, maximum=10, value=_SETTINGS.interview_question_count, step=1,
+                        label="Number of questions", scale=1,
+                    )
+                iv_error = gr.HTML("")
+                iv_question_html = gr.HTML(_question_html(None, done=True))
+                iv_audio = gr.Audio(
+                    label="Interviewer (listen)", autoplay=True, interactive=False,
+                    elem_id="cc-iv-audio",
+                )
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=1):
+                        gr.HTML("<div class='cc-section-title'>Your answer</div>")
+                        iv_answer_audio = gr.Audio(
+                            sources=["microphone"], type="filepath", label="Record your answer"
+                        )
+                        iv_answer_text = gr.Textbox(
+                            label="Or type your answer",
+                            placeholder="Type your answer if you prefer not to record…",
+                            lines=4,
+                            elem_classes=["cc-field"],
+                        )
+                        iv_submit_btn = gr.Button("Submit answer", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168)
+                    with gr.Column(scale=1):
+                        gr.HTML("<div class='cc-section-title'>Live transcript</div>")
+                        iv_chatbot = gr.Chatbot(
+                            label="Interview transcript", height=360,
+                            elem_id="cc-iv-transcript",
+                        )
+                iv_feedback_html = gr.HTML("")
+                iv_overall_html = gr.HTML("")
+            with gr.Tab("Prep coach"):
+                gr.HTML(
+                    "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
+                    "<p class='cc-hint'>Ask anything about improving your resume or preparing "
+                    "for this role. The coach uses your resume, the job description, and your "
+                    "gap report.</p></div>"
+                )
+                prep_chat = gr.Chatbot(label="Prep coach", height=380)
+                prep_msg = gr.Textbox(
+                    label="Your question", placeholder="How should I talk about the AWS gap?",
+                    lines=2, elem_classes=["cc-field"],
+                )
+            with gr.Tab("Post-interview coach"):
+                gr.HTML(
+                    "<div class='cc-panel-head'><h3>Post-interview coach</h3>"
+                    "<p class='cc-hint'>After your mock interview, ask anything about your "
+                    "performance. This coach remembers your resume, the job description, the "
+                    "gap report, your prep plan, and your full interview transcript and "
+                    "evaluations.</p></div>"
+                )
+                post_chat = gr.Chatbot(label="Post-interview coach", height=380)
+                post_msg = gr.Textbox(
+                    label="Your question", placeholder="What should I improve before the real interview?",
+                    lines=2, elem_classes=["cc-field"],
+                )
             with gr.Tab("History"):
                 tracker_table = gr.Dataframe(
                     headers=["Package", "Role", "Company", "Status", "Revisions", "Updated"],
                     datatype=["str"] * 6,
                     interactive=False,
-                    label="Your recent packages",
+                    label="Your recent prep bundles",
                     value=_tracker_rows(),
                 )
             with gr.Tab("Advanced"):
                 with gr.Accordion("Step-by-step log", open=True):
                     trace_md = gr.Markdown(_trace_markdown(None))
-                with gr.Accordion("Raw package JSON", open=False):
-                    package_json = gr.Code(label="Package JSON", language="json")
+                with gr.Accordion("Raw screening answers JSON", open=False):
+                    package_json = gr.Code(label="Screening answers JSON", language="json")
 
         with gr.Group(elem_classes=["cc-review"]):
             gr.HTML(
                 "<div class='cc-panel-head'><h3>Your decision</h3>"
-                "<p class='cc-hint'>Nothing is finalized until you approve it.</p></div>"
+                "<p class='cc-hint'>Review the prep bundle. Nothing is finalized or submitted "
+                "until you approve it.</p></div>"
             )
             feedback = gr.Textbox(
                 label="Notes for a revision (required if you request changes)",
@@ -1205,15 +1746,16 @@ def build_app() -> gr.Blocks:
                 lines=2,
             )
             with gr.Row():
-                approve_btn = gr.Button("Approve package", variant="primary", interactive=False)
+                approve_btn = gr.Button("Approve prep bundle", variant="primary", interactive=False)
                 revise_btn = gr.Button("Request changes", interactive=False)
                 reject_btn = gr.Button("Reject", variant="stop", interactive=False)
             review_status = gr.Markdown("")
             refresh_btn = gr.Button("Refresh history", size="sm")
 
         gr.HTML(
-            "<p class='cc-foot'>CareerCrew keeps screening answers honest — verified facts only, "
-            "and anything uncertain is left for you to answer.</p>"
+            "<p class='cc-foot'>CareerCrew keeps everything honest — verified facts only, "
+            "practice interviews that never submit anything, and anything uncertain left "
+            "for you to answer.</p>"
         )
 
         # --- wiring --------------------------------------------------------- #
@@ -1224,19 +1766,21 @@ def build_app() -> gr.Blocks:
             stages_html,     # 3
             trace_md,        # 4
             insight_html,    # 5
-            package_md,      # 6
-            package_json,    # 7
-            approve_btn,     # 8
-            reject_btn,      # 9
-            revise_btn,      # 10
-            state,           # 11
-            feedback,        # 12
-            tracker_table,   # 13
+            prep_html,       # 6
+            package_md,      # 7
+            package_json,    # 8
+            approve_btn,     # 9
+            reject_btn,      # 10
+            revise_btn,      # 11
+            state,           # 12
+            feedback,        # 13
+            tracker_table,   # 14
+            ctx_state,       # 15
         ]
 
         run_btn.click(
             analyze,
-            inputs=[resume_file, resume_text, jd_text, jd_url, screening_text],
+            inputs=[resume_file, resume_text, jd_file, jd_text, screening_text, seniority_dd],
             outputs=analyze_outputs,
         )
 
@@ -1244,12 +1788,16 @@ def build_app() -> gr.Blocks:
             lambda: (
                 gr.update(value=None),
                 gr.update(value=""),
+                gr.update(value=None),
                 gr.update(value=""),
-                gr.update(value=""),
+                gr.update(value=_SENIORITY_CHOICES[0]),
                 gr.update(value=""),
                 *_empty_outputs(),
             ),
-            outputs=[resume_file, resume_text, jd_text, jd_url, screening_text, *analyze_outputs],
+            outputs=[
+                resume_file, resume_text, jd_file, jd_text, seniority_dd, screening_text,
+                *analyze_outputs,
+            ],
         )
 
         sample_resume_btn.click(
@@ -1258,11 +1806,41 @@ def build_app() -> gr.Blocks:
         )
         sample_jd_btn.click(
             lambda: (
+                gr.update(value=None),
                 gr.update(value=_read_sample("sample_jd.txt")),
-                gr.update(value=""),
                 gr.update(value=_SAMPLE_QUESTIONS),
             ),
-            outputs=[jd_text, jd_url, screening_text],
+            outputs=[jd_file, jd_text, screening_text],
+        )
+
+        # --- mock interview wiring ------------------------------------------ #
+        iv_start_btn.click(
+            interview_start,
+            inputs=[ctx_state, iv_questions],
+            outputs=[
+                iv_error, iv_question_html, iv_audio, iv_chatbot,
+                iv_feedback_html, iv_overall_html, iv_state,
+            ],
+        )
+        iv_submit_btn.click(
+            interview_submit,
+            inputs=[ctx_state, iv_state, iv_answer_text, iv_answer_audio],
+            outputs=[
+                iv_error, iv_question_html, iv_audio, iv_chatbot,
+                iv_feedback_html, iv_overall_html, iv_state,
+            ],
+        )
+
+        # --- coaching chat wiring ------------------------------------------- #
+        prep_msg.submit(
+            _render_prep_chat,
+            inputs=[prep_chat, prep_msg, ctx_state],
+            outputs=[prep_chat, prep_msg],
+        )
+        post_msg.submit(
+            _render_post_chat,
+            inputs=[post_chat, post_msg, ctx_state, iv_state],
+            outputs=[post_chat, post_msg],
         )
 
         approve_btn.click(

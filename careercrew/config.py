@@ -19,6 +19,8 @@ load_dotenv(override=False)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge"
 RESUME_GUIDELINES_PATH = KNOWLEDGE_DIR / "resume_guidelines.md"
+INTERVIEW_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
+COACHING_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
 DATA_DIR = PROJECT_ROOT / "data"
 ANSWER_BANK_PATH = DATA_DIR / "answer_bank.yaml"
 
@@ -47,6 +49,10 @@ class Settings:
     openai_api_key: str | None
     openai_base_url: str | None
     openai_model: str
+    stt_model: str
+    tts_model: str
+    tts_voice: str
+    interview_question_count: int
     upload_dir: str
     db_path: str
     max_revisions: int
@@ -61,6 +67,11 @@ class Settings:
         """True when an LLM key is configured for the agents."""
         return bool(self.openai_api_key)
 
+    @property
+    def has_audio(self) -> bool:
+        """True when audio (speech-to-text / text-to-speech) can be attempted."""
+        return bool(self.openai_api_key)
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
@@ -69,6 +80,10 @@ def get_settings() -> Settings:
         openai_api_key=os.getenv("OPENAI_API_KEY") or None,
         openai_base_url=os.getenv("OPENAI_BASE_URL") or None,
         openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+        stt_model=os.getenv("CAREERCREW_STT_MODEL") or "whisper-1",
+        tts_model=os.getenv("CAREERCREW_TTS_MODEL") or "tts-1",
+        tts_voice=os.getenv("CAREERCREW_TTS_VOICE") or "alloy",
+        interview_question_count=_env_int("CAREERCREW_INTERVIEW_QUESTIONS", 5),
         upload_dir=os.getenv("CAREERCREW_UPLOAD_DIR") or "uploads",
         db_path=os.getenv("CAREERCREW_DB_PATH") or "careercrew.db",
         max_revisions=_env_int("CAREERCREW_MAX_REVISIONS", 2),

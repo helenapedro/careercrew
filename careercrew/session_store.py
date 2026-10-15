@@ -44,6 +44,36 @@ CREATE TABLE IF NOT EXISTS decisions (
     decided_at  TEXT NOT NULL,
     FOREIGN KEY (package_id) REFERENCES packages(package_id)
 );
+
+CREATE TABLE IF NOT EXISTS interview_sessions (
+    session_id      TEXT PRIMARY KEY,
+    package_id      TEXT,
+    role_title      TEXT NOT NULL DEFAULT '',
+    session_json    TEXT NOT NULL,
+    overall_score   INTEGER NOT NULL DEFAULT 0,
+    completed       INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interview_turns (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      TEXT NOT NULL,
+    question_index  INTEGER NOT NULL DEFAULT 0,
+    role            TEXT NOT NULL,
+    text            TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES interview_sessions(session_id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT NOT NULL,
+    channel     TEXT NOT NULL DEFAULT 'prep',
+    role        TEXT NOT NULL DEFAULT 'user',
+    content     TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL
+);
 """
 
 
@@ -224,3 +254,93 @@ class SessionStore:
                 (package_id,),
             ).fetchone()
         return int(row["n"]) if row else 0
+
+    # -- interview sessions ----------------------------------------------------
+    def save_interview(self, session, package_id: str | None = None) -> None:
+        """Insert or update a mock interview session (with its transcript turns)."""
+        now = _now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO interview_sessions
+                    (session_id, package_id, role_title, session_json,
+                     overall_score, completed, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    session_json = excluded.session_json,
+                    overall_score = excluded.overall_score,
+                    completed = excluded.completed,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    session.session_id,
+                    package_id,
+                    session.role_title,
+                    session.model_dump_json(),
+                    int(session.overall_score),
+                    1 if session.completed else 0,
+                    now,
+                    now,
+                ),
+            )
+            # Rebuild the turn rows so re-saving never duplicates them.
+            conn.execute("DELETE FROM interview_turns WHERE session_id = ?", (session.session_id,))
+            for turn in session.turns:
+                conn.execute(
+                    "INSERT INTO interview_turns (session_id, question_index, role, text, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        session.session_id,
+                        turn.question_index,
+                        turn.role.value,
+                        turn.text,
+                        turn.created_at.isoformat(),
+                    ),
+                )
+
+    def get_interview(self, session_id: str):
+        """Return a stored mock interview session, or None."""
+        from careercrew.models import MockInterviewSession
+
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT session_json FROM interview_sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return MockInterviewSession.model_validate_json(row["session_json"])
+
+    def latest_interview(self):
+        """Return the most recently updated mock interview session, or None."""
+        from careercrew.models import MockInterviewSession
+
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT session_json FROM interview_sessions ORDER BY updated_at DESC LIMIT 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return MockInterviewSession.model_validate_json(row["session_json"])
+
+    # -- coaching chats --------------------------------------------------------
+    def add_chat_message(
+        self, session_id: str, channel: str, role: str, content: str
+    ) -> None:
+        """Append one chat turn for a channel ('prep' or 'post')."""
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO chat_messages (session_id, channel, role, content, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (session_id, channel, role, content, _now()),
+            )
+
+    def get_chat_history(self, session_id: str, channel: str) -> list[dict]:
+        """Return the persisted chat history (oldest first) for a channel."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT role, content FROM chat_messages "
+                "WHERE session_id = ? AND channel = ? ORDER BY id ASC",
+                (session_id, channel),
+            ).fetchall()
+        return [{"role": row["role"], "content": row["content"]} for row in rows]

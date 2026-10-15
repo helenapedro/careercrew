@@ -73,13 +73,14 @@ def validate_request(
     *,
     resume_path: str | None = None,
     resume_text: str | None = None,
-    jd_source: str = "",
+    jd_path: str | None = None,
+    jd_text: str | None = None,
     screening_questions: list[str] | None = None,
 ) -> InputValidationResult:
     """Validate the resume and JD inputs before any work begins.
 
-    Requires exactly one resume source (file OR pasted text, not both) and a
-    non-empty job description.
+    Requires exactly one resume source (file OR pasted text, not both) and
+    exactly one job-description source (uploaded file OR pasted text).
     """
     errors: list[str] = []
 
@@ -98,12 +99,24 @@ def validate_request(
         if ext not in ALLOWED_EXTENSIONS:
             errors.append(f"Unsupported resume file type: {ext or '(none)'}.")
 
-    jd = (jd_source or "").strip()
-    if not jd:
-        errors.append("Provide a job description (paste text or an https URL).")
-    elif len(jd) > MAX_JD_CHARS:
+    jd_file = bool(jd_path)
+    jd_pasted = bool((jd_text or "").strip())
+    if jd_file and jd_pasted:
+        errors.append(
+            "Provide either an uploaded job description file or pasted job description "
+            "text, not both."
+        )
+    elif not jd_file and not jd_pasted:
+        errors.append(
+            "Provide a job description: upload a file (PDF/DOCX/TXT) or paste the text."
+        )
+    elif jd_file:
+        ext = os.path.splitext((jd_path or "").lower())[1]
+        if ext not in ALLOWED_EXTENSIONS:
+            errors.append(f"Unsupported job description file type: {ext or '(none)'}.")
+    elif len((jd_text or "").strip()) > MAX_JD_CHARS:
         errors.append("The job description is too long.")
-    elif _DISALLOWED_INPUT.search(jd):
+    elif _DISALLOWED_INPUT.search(jd_text or ""):
         errors.append("The job description contains a disallowed instruction pattern.")
 
     if (resume_text or "").strip() and _DISALLOWED_INPUT.search(resume_text or ""):
@@ -147,6 +160,123 @@ def validate_citations(feedback_draft: FeedbackDraft, profile: CandidateProfile)
         if tokens and not any(tok in profile_text for tok in tokens):
             problems.append(f"bullet {index} cites a fact not found in the profile")
     return problems
+
+
+def validate_prep_plan(plan, gaps, requirements=None) -> list[str]:
+    """Verify the Interview Prep Advisor stayed grounded.
+
+    Rules:
+    - Every focus area must cite a real requirement (matching a gap verdict or
+      a job requirement). This is returned as a warning-level problem, not a
+      hard failure, so the user still gets the plan.
+    - ``priority`` must be one of high/medium/low.
+    - Suggested shares should total roughly 100 when there is more than one area.
+    """
+    problems: list[str] = []
+    if plan is None:
+        return ["no interview prep plan was produced"]
+
+    requirement_text = " ".join(
+        f"{verdict.requirement} {verdict.supporting_fact}".lower()
+        for verdict in getattr(gaps, "verdicts", [])
+    )
+    if requirements is not None:
+        requirement_text += " " + requirements.model_dump_json().lower()
+
+    for index, focus in enumerate(plan.focus_areas):
+        if (focus.priority or "").lower() not in {"high", "medium", "low"}:
+            problems.append(f"prep focus {index} has an invalid priority '{focus.priority}'")
+        tokens = [tok for tok in re.findall(r"[a-z0-9]+", (focus.evidence or "").lower()) if len(tok) > 3]
+        if not tokens:
+            problems.append(f"prep focus {index} has no grounded evidence")
+        elif requirement_text and not any(tok in requirement_text for tok in tokens):
+            problems.append(
+                f"prep focus {index} cites evidence not found in the requirements"
+            )
+
+    if len(plan.focus_areas) > 1:
+        total = sum(focus.suggested_share_pct for focus in plan.focus_areas)
+        if total and not (80 <= total <= 120):
+            problems.append(
+                f"prep focus shares total {total}%, which is far from the expected ~100%"
+            )
+    return problems
+
+
+def validate_interview_answer(answer: str, *, max_chars: int = 6000) -> list[str]:
+    """Validate a candidate's interview answer before it reaches any agent.
+
+    Rejects empty, oversized, or instruction-injection answers. Returns problem
+    strings (empty means the answer is acceptable).
+    """
+    problems: list[str] = []
+    text = (answer or "").strip()
+    if not text:
+        problems.append("the answer is empty")
+        return problems
+    if len(text) > max_chars:
+        problems.append(f"the answer is too long (max {max_chars} characters)")
+    if _DISALLOWED_INPUT.search(text):
+        problems.append("the answer contains a disallowed instruction pattern")
+    return problems
+
+
+def validate_evaluation(evaluation, *, max_score: int = 100) -> list[str]:
+    """Verify a per-answer evaluation stayed honest and bounded.
+
+    Rules:
+    - Score in range.
+    - At least one concrete improvement (so feedback is actionable).
+    - ``what_interviewer_wanted`` must not be empty.
+    """
+    problems: list[str] = []
+    if evaluation is None:
+        return ["no evaluation was produced"]
+    if not (0 <= int(evaluation.score) <= max_score):
+        problems.append(f"evaluation score {evaluation.score} is out of range")
+    if not (evaluation.what_interviewer_wanted or "").strip():
+        problems.append("evaluation is missing what the interviewer was looking for")
+    if not evaluation.improvements:
+        problems.append("evaluation has no concrete improvements")
+    return problems
+
+
+def validate_transcript_turn(turn) -> list[str]:
+    """A transcript turn must carry text and a known speaker role."""
+    problems: list[str] = []
+    if turn is None:
+        return ["transcript turn is missing"]
+    if not (getattr(turn, "text", "") or "").strip():
+        problems.append("transcript turn has no text")
+    role = getattr(getattr(turn, "role", None), "value", getattr(turn, "role", None))
+    if role not in {"interviewer", "candidate"}:
+        problems.append(f"transcript turn has an unknown role '{role}'")
+    return problems
+
+
+def validate_coaching_reply(reply: str, *, context_text: str = "") -> list[str]:
+    """Check a coaching chat reply for honesty and safety.
+
+    Returns problem strings. The reply must be non-empty, must not leak PII, and
+    must not invite the candidate to fabricate experience. We do not hard-block
+    the reply (chat must stay usable) - callers surface problems as warnings.
+    """
+    problems: list[str] = []
+    text = (reply or "").strip()
+    if not text:
+        problems.append("the coaching reply is empty")
+        return problems
+    if EMAIL_RE.search(text) or PHONE_RE.search(text):
+        problems.append("the coaching reply appears to contain personal contact details")
+    if re.search(
+        r"\b(lie|fabricate|make up (?:an? )?(?:employer|title|degree|date)|"
+        r"pretend you (?:have|worked))\b",
+        text,
+        re.IGNORECASE,
+    ):
+        problems.append("the coaching reply may suggest misrepresenting experience")
+    return problems
+
 
 
 def validate_package(
