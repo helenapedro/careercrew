@@ -203,9 +203,3 @@ def crew_inputs(
     }
 
 
-# Backwards-compatible alias: the original scaffold exposed ``CareerCrew().crew()``.
-class CareerCrew:
-    """Thin wrapper keeping the original ``CareerCrew().crew()`` entrypoint."""
-
-    def crew(self, *, verbose: bool = True) -> Crew:
-        return build_crew(verbose=verbose)

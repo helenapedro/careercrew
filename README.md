@@ -118,11 +118,26 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description / query_answer_bank
 - `data/answer_bank.yaml` - the verified screening facts (set `verified: true` to allow)
 - `knowledge/resume_guidelines.md`, `knowledge/interview_guidelines.md` - agent knowledge
-- `app.py` - Gradio UI; `main.py` - CLI entrypoint
+- `app.py` - Gradio UI; `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
 - `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
 See `ARCHITECTURE.md` for the full walkthrough.
+
+## Technical presentation
+
+Line-by-line code-path guides for explaining the system live (Analyze → prep →
+HITL → mock interview → coaches):
+
+- [`docs/SPEAKER_CHEATSHEET.md`](docs/SPEAKER_CHEATSHEET.md) — talk order and which files to open
+- [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end
+- [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
+- [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + History `pkg-…`
+- [`docs/CODE_PATH_MOCK_INTERVIEW.md`](docs/CODE_PATH_MOCK_INTERVIEW.md) — voice/text mock interviewer
+- [`docs/CODE_PATH_COACH.md`](docs/CODE_PATH_COACH.md) — Prep coach + Post-interview coach
+
+Engineering product docs (scope, requirements, setup) live under
+`docs/engineering/`.
 
 ## Deployment
 
