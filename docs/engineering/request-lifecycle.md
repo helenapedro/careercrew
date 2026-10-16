@@ -36,6 +36,25 @@ Describe the actual execution path for one representative user request: resume +
 
 Observed runtime output (abridged): `ScreeningPrep` with one answer (`source: "answer_bank"`, `verified: true`, `do_not_claim: []`); `InterviewPrepPlan` with `seniority.band: "mid"` and generic `question_themes`, empty `focus_areas`/`strengths`/`risk_areas`; warnings: "No OPENAI_API_KEY set; running the deterministic MCP fallback only."
 
+## 3b. Execution trace — Scenario B: UI full-crew run (runtime observed)
+
+On 2026-10-16 Helena ran the Gradio UI (`python app.py`, `localhost:7860`) with an API key set: uploaded her real resume PDF (`Helena.Pedro-Resume.pdf`, 158.7 KB), pasted a job description, selected seniority "5-10 years". All 7 progress steps completed (Check inputs → Read resume → Understand role → Score match → Draft rewrites → Prep plan → Screening).
+
+| Step | Observed behavior | Evidence |
+|---|---|---|
+| Input | PDF upload accepted; JD pasted; seniority band selected | PDF page 1: "Helena.Pedro-Resume.pdf 158.7 KB" |
+| Profile Extractor | Structured profile: name, 6+ years summary, skills table, 3 roles with dates | "FROM YOUR RESUME" section |
+| JD Analyzer | Requirements extracted: React, AI, AWS, Python, CI/CD Architecture + detailed items | "WHAT THE ROLE ASKS FOR" section |
+| Gap Analyst | Match score 85/100; 16 covered, 3 reframeable, 0 out of scope; per-requirement evidence table | "Your match score" + requirement-by-requirement table |
+| Feedback Writer | Suggested rewrites, each with "Based on:" citation | "SUGGESTED RESUME REWRITES" section |
+| Talking points | Drafted with "(fact: ...)" citations | "TALKING POINTS" section |
+| Screening prep | 1 verified answer from answer bank; 9 items flagged "still need your input" | "1 verified answer(s) · 9 item(s) still need your input" |
+| DO NOT CLAIM | Unsupported items listed separately, not presented as experience | "DO NOT CLAIM" section |
+| HITL | Decision prompt with Approve prep / Request changes / Reject buttons; "Nothing is finalized or submitted until you approve it." | "Your decision" section |
+| Bundle | `pkg-1e731870` · 6 prep focus areas | "Your prep bundle is ready" banner |
+
+Not exercised in this run: voice mock interview, coaching chats (tabs visible but not used).
+
 ## 4. External interactions
 
 - **MCP server over stdio:** `mcp_server` launched as a subprocess by `MCPToolClient`; `ListToolsRequest` and `CallToolRequest` observed in the server log. Genuine MCP calls, not stubs.
@@ -65,7 +84,7 @@ Observed runtime output (abridged): `ScreeningPrep` with one answer (`source: "a
 
 ## 7. Open questions
 
-- [ ] Runtime-trace the six-agent crew path with an API key (needs key; not available in sandbox).
+- [x] Runtime-trace the six-agent crew path with an API key — done 2026-10-16 via the UI run above (Helena's key, her machine).
 - [ ] Confirm whether `read_resume`/`read_job_description` redact PII for file uploads.
 - [ ] Trace the Gradio UI path (`app.py`): HITL transitions, interview turns, chat persistence to SQLite.
 - [ ] Trace the standalone MCP server path (`python -m mcp_server.server`).

@@ -9,12 +9,12 @@ Comparison between intended behavior (README, `ARCHITECTURE.md`, `docs/engineeri
 |---|---|---|---|
 | Resume ingestion (PDF/DOCX/TXT, pasted text) | Accept resume via upload or paste | `document_tools.read_resume`, `guardrails.check_upload`; `tests/test_document_tools.py` (13 tests) | Verified |
 | JD ingestion | Accept JD via upload or paste; URLs rejected with guidance | `document_tools.read_job_description`, `_looks_like_url`; runtime CLI trace | Verified |
-| Six-agent sequential pipeline | Six agents run in fixed order, no delegation | `config/agents.yaml`, `crew.py` (`Process.sequential`, `allow_delegation: false`) | Verified (structure; LLM execution code-traced only) |
-| Coverage scoring and gap verdicts | Honest 0–100 scoring, covered/reframeable/out-of-scope | `gap_analyst` task config; `tests/test_pipeline.py` | Verified (code) |
-| Cited resume feedback | Every bullet cites a profile fact | `validate_citations`; `tests/test_guardrails.py` | Verified (code) |
-| Seniority-aware prep plan | Plan calibrated to 2–3 / 5–10 / 10+ years | `prep.build_prep_plan`, `build_fallback_plan`; fallback observed generic at runtime | Verified (code) |
+| Six-agent sequential pipeline | Six agents run in fixed order, no delegation | `config/agents.yaml`, `crew.py` (`Process.sequential`); **runtime:** 7/7 progress steps completed in Helena's UI run 2026-10-16 | Verified (runtime) |
+| Coverage scoring and gap verdicts | Honest 0–100 scoring, covered/reframeable/out-of-scope | `gap_analyst` task config; **runtime:** score 85/100, 16 covered / 3 reframeable / 0 out of scope | Verified (runtime) |
+| Cited resume feedback | Every bullet cites a profile fact | `validate_citations`; **runtime:** rewrites shown with "Based on:" citations, talking points with "(fact:)" | Verified (runtime) |
+| Seniority-aware prep plan | Plan calibrated to 2–3 / 5–10 / 10+ years | `prep.build_prep_plan`; **runtime:** 6 prep focus areas in bundle `pkg-1e731870` | Verified (runtime) |
 | Screening answers from answer bank | Answers only from verified entries; unknowns → `do_not_claim` | Runtime CLI trace: real MCP `query_answer_bank` call, `source: "answer_bank"` | Verified (runtime) |
-| HITL review in UI | Approve / Request changes / Reject wired to state machine | `app.py` buttons → `review.PackageReviewService`; `tests/test_review_workflow.py` | Verified |
+| HITL review in UI | Approve / Request changes / Reject wired to state machine | `app.py` buttons → `review.PackageReviewService`; **runtime:** decision prompt + 3 buttons rendered, "Nothing is finalized or submitted until you approve it." | Verified (runtime) |
 | Bounded revisions | Max 2 revisions (configurable) | `config.py:89` (`CAREERCREW_MAX_REVISIONS`, default 2) | Verified |
 | Voice mock interview | Voice Q&A with transcript and evaluation; text fallback | `interview.py`, `audio.py`; fallback verified in `app.py`; voice path itself needs a key | Partial |
 | Coaching chats | Prep + post-interview chats with full memory | `coach.py`; `tests/test_coach.py` (6 tests); runtime chat not traced | Partial |
