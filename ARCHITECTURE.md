@@ -9,20 +9,40 @@
 > - Agent and task details: `docs/engineering/agents-and-workflows.md`
 > - Use cases and user stories: `docs/engineering/use-cases-and-user-stories.md`
 
+
 ## 1. System overview
 
-A user provides a resume (file or pasted text) and a job description (file or
-pasted text), picks a target experience band (2-3, 5-10, or 10+ years), and
-optionally lists employer screening questions. Six agents run in a fixed
-sequence and produce cited feedback plus a seniority-aware interview
-preparation plan and copy-ready screening answers. On top of that, a voice
-**mock interviewer** runs a practice interview with a live transcript and
-per-question feedback, and two **coaching chats** answer follow-up questions.
+CareerCrew helps candidates turn a resume and a job description into a
+clearer job-application strategy, then practice for the interview.
 
-Every claim in the output must trace to a resume fact or a verified
-answer-bank entry; the system says "do not claim" rather than invent facts.
-**Nothing is submitted anywhere** - CareerCrew prepares and practices; the
-candidate applies.
+| | |
+|---|---|
+| 📄 **ANALYZE** | Upload a resume, add a job description, select a target experience level, and optionally provide screening questions. Get evidence-based feedback, an interview preparation plan, and ready-to-use screening answers. |
+| 🎙️ **PRACTICE** | Run a voice or text mock interview. Follow the transcript and receive feedback on each answer. |
+| 💬 **IMPROVE** | Use two coaching chats: one for preparation and one to review interview performance. |
+
+**How it works**
+
+```mermaid
+flowchart LR
+    A["📄 Analyze<br/>Resume + job description"] --> B["🤖 Generate<br/>Feedback + preparation"]
+    B --> C["🎙️ Practice<br/>Mock interview"]
+    C --> D["💬 Improve<br/>Coaching and feedback"]
+
+    classDef analyze fill:#DBEAFE,stroke:#2563EB,color:#1E3A8A;
+    classDef generate fill:#D1FAE5,stroke:#059669,color:#064E3B;
+    classDef practice fill:#F3E8FF,stroke:#9333EA,color:#581C87;
+    classDef improve fill:#FEF3C7,stroke:#D97706,color:#78350F;
+
+    class A analyze;
+    class B generate;
+    class C practice;
+    class D improve;
+```
+
+> **Evidence-first by design:** CareerCrew grounds claims in resume evidence
+> or verified answer-bank entries. It prepares candidates; it does not submit
+> job applications on their behalf.
 
 ```mermaid
 flowchart TD
