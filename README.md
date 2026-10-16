@@ -84,6 +84,20 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - **Guardrails everywhere** — input validation, PII redaction, grounded prep
   advice, bounded scoring, safe coaching replies.
 
+## Documentation
+
+- `ARCHITECTURE.md` — system architecture: numbered end-to-end flow, component
+  legend, HITL state diagram, design decisions, deployment.
+- `docs/engineering/` — product and engineering docs:
+  - `product-overview.md` — scope, users, goals
+  - `agents-and-workflows.md` — agent roster, responsibilities, workflow
+  - `functional-nonfunctional-requirements.md` — requirements with
+    implementation evidence
+  - `setup.md` — install, configuration, run instructions
+  - `testing-and-release.md` — test plan, last results, release gates
+  - `use-cases-and-user-stories.md` — use cases and acceptance criteria
+  - `careercrew-product-draft-v0.1.md` — product draft with verification notes
+
 ## Layout
 
 - `careercrew/config.py` - settings loaded from the environment
@@ -105,9 +119,21 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - `data/answer_bank.yaml` - the verified screening facts (set `verified: true` to allow)
 - `knowledge/resume_guidelines.md`, `knowledge/interview_guidelines.md` - agent knowledge
 - `app.py` - Gradio UI; `main.py` - CLI entrypoint
+- `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
 See `ARCHITECTURE.md` for the full walkthrough.
+
+## Deployment
+
+```bash
+docker build -t careercrew .
+docker run --rm -p 7860:7860 --env-file .env careercrew
+```
+
+The same image runs on Hugging Face Spaces (Docker SDK) with secrets in the
+Space settings. The MCP server runs over stdio inside the container, so no
+second service is needed.
 
 ## Tests
 
