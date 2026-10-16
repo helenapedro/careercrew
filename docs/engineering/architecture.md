@@ -11,11 +11,13 @@ architecture claim is treated as verified.
 
 ### Architecture verification checklist
 
-- [ ] Confirm the actual UI entry points and supported input methods.
-- [ ] Confirm the exact agent/task sequence and data contracts.
-- [ ] Confirm whether MCP tools and deterministic fallbacks are both implemented.
-- [ ] Confirm how output validation, retries, and package completeness are enforced.
-- [ ] Confirm whether human approval/revision/rejection exists in the UI or is only a proposed interaction.
-- [ ] Confirm which workflows use SQLite or other persistence and what is stored.
-- [ ] Confirm the actual mock-interview, voice/text, and coaching paths.
+Verified 2026-10-16 against `dev` at `61d7506`; one item remains open.
+
+- [x] Confirm the actual UI entry points and supported input methods.
+- [x] Confirm the exact agent/task sequence and data contracts.
+- [x] Confirm whether MCP tools and deterministic fallbacks are both implemented.
+- [x] Confirm how output validation, retries, and package completeness are enforced.
+- [x] Confirm whether human approval/revision/rejection exists in the UI or is only a proposed interaction.
+- [x] Confirm which workflows use SQLite or other persistence and what is stored.
+- [x] Confirm the actual mock-interview, voice/text, and coaching paths.
 - [ ] Update the diagram to distinguish in-process modules from external services.

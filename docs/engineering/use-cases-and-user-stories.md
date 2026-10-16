@@ -175,12 +175,12 @@ flowchart TB
 
 ### Use-case verification checklist
 
-- [ ] Confirm resume and job-description input methods and file formats.
-- [ ] Confirm the actual analysis steps and output schemas.
-- [ ] Confirm whether users can approve, revise, or reject suggestions in the current UI.
-- [ ] Confirm screening-answer preparation and its evidence guardrails.
-- [ ] Confirm text and voice mock-interview paths and evaluation outputs.
-- [ ] Confirm coaching and session-history persistence.
+- [x] Confirm resume and job-description input methods and file formats.
+- [x] Confirm the actual analysis steps and output schemas.
+- [x] Confirm whether users can approve, revise, or reject suggestions in the current UI.
+- [x] Confirm screening-answer preparation and its evidence guardrails.
+- [x] Confirm text and voice mock-interview paths and evaluation outputs.
+- [x] Confirm coaching and session-history persistence.
 - [ ] Treat advisor/multi-user support as future scope unless code proves otherwise.
 
 ## 2. User Stories and Acceptance Criteria
@@ -216,49 +216,49 @@ flowchart TB
 > **As a** job seeker, **I want** to compare my resume with a job description, **so that** I can understand my strengths and gaps for the role.
 >
 > **Acceptance criteria**
-> - [ ] The system produces a structured candidate profile and job-requirements representation when inputs are valid.
-> - [ ] Each assessed requirement has a clear coverage classification and supporting evidence, where supported.
-> - [ ] Missing experience is not presented as established candidate experience.
-> - [ ] Invalid or incomplete inputs produce an actionable error or recovery path.
+> - [x] The system produces a structured candidate profile and job-requirements representation when inputs are valid.
+> - [x] Each assessed requirement has a clear coverage classification and supporting evidence, where supported.
+> - [x] Missing experience is not presented as established candidate experience.
+> - [x] Invalid or incomplete inputs produce an actionable error or recovery path.
 
 ### US-02 — Improve my resume honestly
 
 > **As a** job seeker or early-career professional, **I want** tailored resume feedback and talking points, **so that** I can present relevant experience clearly without misrepresenting it.
 >
 > **Acceptance criteria**
-> - [ ] Suggestions are tailored to the target job description.
-> - [ ] Factual suggestions can be traced to information supplied by the user.
-> - [ ] Unsupported claims are excluded or explicitly flagged.
-> - [ ] The user can review, revise, or reject suggestions.
+> - [x] Suggestions are tailored to the target job description.
+> - [x] Factual suggestions can be traced to information supplied by the user.
+> - [x] Unsupported claims are excluded or explicitly flagged.
+> - [x] The user can review, revise, or reject suggestions.
 
 ### US-03 — Prepare screening answers
 
 > **As a** job seeker, **I want** help preparing answers to employer screening questions, **so that** I can respond consistently using verified information about myself.
 >
 > **Acceptance criteria**
-> - [ ] Supported answers are drafted from a verified answer bank or other user-provided evidence.
-> - [ ] Questions that require unknown personal facts are flagged for user input.
-> - [ ] The system does not invent work authorization, notice period, location, salary, or other personal facts.
-> - [ ] CareerCrew does not submit the answers to the employer.
+> - [x] Supported answers are drafted from a verified answer bank or other user-provided evidence.
+> - [x] Questions that require unknown personal facts are flagged for user input.
+> - [x] The system does not invent work authorization, notice period, location, salary, or other personal facts.
+> - [x] CareerCrew does not submit the answers to the employer.
 
 ### US-04 — Practice interviews
 
 > **As a** job seeker or student/early-career professional, **I want** to practice role-specific interview questions and receive feedback, **so that** I can improve my answers before an interview.
 >
 > **Acceptance criteria**
-> - [ ] Questions are relevant to the target role and available preparation context.
-> - [ ] Each answer receives actionable feedback where the evaluation workflow supports it.
-> - [ ] The session provides an understandable summary or evaluation when supported.
-> - [ ] If voice is unavailable, a supported text path remains usable where implemented.
+> - [x] Questions are relevant to the target role and available preparation context.
+> - [x] Each answer receives actionable feedback where the evaluation workflow supports it.
+> - [x] The session provides an understandable summary or evaluation when supported.
+> - [x] If voice is unavailable, a supported text path remains usable where implemented.
 
 ### US-05 — Continue coaching over time
 
 > **As a** job seeker, **I want** coaching to use relevant preparation and practice history, **so that** follow-up advice builds on prior work.
 >
 > **Acceptance criteria**
-> - [ ] Relevant prior context is available to the coaching workflow where implemented.
-> - [ ] The system distinguishes supplied evidence from uncertainty.
-> - [ ] Stored sessions can be retrieved after restart if persistence is part of the configured implementation.
+> - [x] Relevant prior context is available to the coaching workflow where implemented.
+> - [x] The system distinguishes supplied evidence from uncertainty.
+> - [x] Stored sessions can be retrieved after restart if persistence is part of the configured implementation.
 > - [ ] Persistence failures are surfaced rather than represented as successful saves.
 
 ### Optional institutional story — Support multiple job seekers
