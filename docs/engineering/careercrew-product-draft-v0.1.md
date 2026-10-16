@@ -28,15 +28,17 @@ flowchart TD
 
 ## 2. Open Questions for Review
 
-- Which input methods and file types are actually supported today?
-- Is job-description URL ingestion implemented and tested?
-- Which agent roles are active in the current pipeline, and what are their exact output schemas?
-- What output validation is enforced programmatically versus described in prompts?
-- What human-review actions are available in the current UI?
-- Which artifacts are persisted, where, and for how long?
-- Which mock-interview and coaching paths are fully functional?
-- What are the current test results and known failure modes?
-- What measurable success thresholds should be adopted after establishing a baseline?
+Answered 2026-10-16 against `dev` at `61d7506`; remaining open items are marked.
+
+- **Which input methods and file types are actually supported today?** Resume: `.pdf`, `.docx`, or `.txt` upload, or pasted text (exactly one source). JD: file upload or pasted text. (`careercrew/document_tools.py`, `careercrew/guardrails.py`)
+- **Is job-description URL ingestion implemented and tested?** No. Pasted URLs are rejected with a clear error (`_looks_like_url` in `careercrew/document_tools.py`).
+- **Which agent roles are active in the current pipeline, and what are their exact output schemas?** Six agents, sequential, `allow_delegation: false` (`config/agents.yaml`, `careercrew/crew.py`): Profile Extractor, JD Analyzer, Gap Analyst, Feedback Writer, Interview Prep Advisor, Screening Prep Writer. Output schemas live in `careercrew/models.py` (Pydantic contracts).
+- **What output validation is enforced programmatically versus described in prompts?** Programmatic: `validate_citations`, `validate_package`, `validate_prep_plan` (plus interview/coaching validators) in `careercrew/guardrails.py`, covered by `tests/test_guardrails.py` (23 tests).
+- **What human-review actions are available in the current UI?** Approve prep bundle, Request changes, Reject — all wired to the `PackageReviewService` state machine in `app.py`.
+- **Which artifacts are persisted, where, and for how long?** SQLite via `careercrew/session_store.py` (`CAREERCREW_DB_PATH`, default `careercrew.db`): preparation packages, review history, interview sessions and turns, chat messages. Retention/deletion policy: **open**.
+- **Which mock-interview and coaching paths are fully functional?** Voice mock interview (`careercrew/interview.py` + `audio.py`) with explicit text fallback; prep coach and post-interview coach (`careercrew/coach.py`).
+- **What are the current test results and known failure modes?** 112 passed, 0 failed (2026-10-16). Known environment quirk: sandbox proxy variables break `httpx` at import during `test_app_smoke.py` collection; unset them to run. See `testing-and-release.md`.
+- **What measurable success thresholds should be adopted after establishing a baseline?** **Open** — needs a team decision (see `product-overview.md` goals G-01..G-06).
 
 ---
 
