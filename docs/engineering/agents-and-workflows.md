@@ -1,4 +1,4 @@
-## 7. Agent Roles and Tasks
+## 1. Agent Roles and Tasks
 
 The roles below represent the proposed analysis workflow. Their exact prompts, contracts, ordering, and execution behavior must be confirmed against the current code.
 

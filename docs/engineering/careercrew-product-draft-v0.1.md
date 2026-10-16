@@ -16,7 +16,7 @@ flowchart TD
     MG --> S["Smoke test main and record release"]
 ```
 
-## 14. Recommended Next Steps
+## 1. Recommended Next Steps
 
 1. Inspect the current `dev` implementation and classify each requirement as **Implemented**, **Partially implemented**, **Missing**, or **Not verified**.
 2. Verify the agent/task contracts, orchestration sequence, input/output schemas, and guardrails against code.
@@ -26,7 +26,7 @@ flowchart TD
 6. Separate current behavior from planned behavior in the documentation.
 7. Merge `dev` into `main` only after the agreed release gates pass.
 
-## 15. Open Questions for Review
+## 2. Open Questions for Review
 
 - Which input methods and file types are actually supported today?
 - Is job-description URL ingestion implemented and tested?

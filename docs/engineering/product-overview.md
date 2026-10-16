@@ -46,7 +46,7 @@ These groups have different needs: individual job seekers want help with a speci
 - Career advisors and university career services are included as a potential institutional audience; their needs and willingness to adopt the product still require validation.
 
 
-## 5. Product Goals and Proposed Success Measures
+## 3. Product Goals and Proposed Success Measures
 
 These are proposed goals. Quantitative targets should be set after a baseline is measured.
 
@@ -58,7 +58,7 @@ These are proposed goals. Quantitative targets should be set after a baseline is
 | G-04 | Support interview practice | Percentage of completed mock interviews that produce actionable feedback and a final evaluation, where supported |
 | G-05 | Provide continuity | Successful retrieval rate for saved preparation and practice history, where persistence is implemented |
 | G-06 | Handle failures safely | Percentage of invalid inputs and dependency failures handled without silently treating invalid output as success |
-## 6. Key Features
+## 4. Key Features
 
 1. **Resume and job-description ingestion** — accept supported document uploads or pasted text; URL ingestion should be listed only if verified.
 2. **Candidate and role analysis** — extract candidate facts and job requirements into structured representations.
