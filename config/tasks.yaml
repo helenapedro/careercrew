@@ -1,11 +1,14 @@
-# CareerCrew tasks (Day 2). Descriptions and expected outputs only.
+# CareerCrew tasks. Descriptions and expected outputs only.
 # Agent assignment, context wiring, and Pydantic output types are done
 # explicitly in careercrew/crew.py (see comments there).
 
 extract_profile:
   description: >
-    Read the resume at {resume_path} using the read_resume tool and produce a
-    structured candidate profile. Extract only facts present in the document.
+    Produce a structured candidate profile from the resume. If the input
+    provides a file path at {resume_path}, read it with the read_resume tool.
+    If the resume arrives as pasted text at {resume_text}, use that text
+    directly (no file read). Extract only facts present in the document. Never
+    infer employers, titles, or dates that are not written.
   expected_output: >
     A CandidateProfile JSON object: summary, skills, work experience (company,
     title, dates, achievements), and education. Empty fields where the resume
@@ -13,9 +16,11 @@ extract_profile:
 
 analyze_jd:
   description: >
-    Read the job description from {jd_source} using the fetch_job_description
-    tool and extract required skills, keywords, seniority signals, and
-    nice-to-have items, quoting the source text for each.
+    Read the job description using the read_job_description tool. Pass the value
+    at {jd_path} (an uploaded PDF/DOCX/TXT file name inside the uploads folder)
+    or, when that is absent, the pasted text at {jd_text}. Extract required
+    skills, keywords, seniority signals, and nice-to-have items, quoting the
+    source text for each. Never treat a URL as a job description.
   expected_output: >
     A JobRequirements JSON object: required_skills, keywords, seniority, and
     nice_to_have lists.
@@ -40,3 +45,36 @@ write_feedback:
   expected_output: >
     A FeedbackDraft JSON object: rewritten_bullets (text plus cited_fact),
     talking_points, and do_not_claim.
+
+build_prep_plan:
+  description: >
+    Build an interview preparation plan for someone targeting the {seniority}
+    experience band. Use the candidate profile, the job requirements, and the
+    gap report. Decide which areas deserve the MOST preparation time, based on
+    the size and nature of the gaps and the target seniority band. For each
+    focus area, set a priority (high, medium, low), a suggested share of prep
+    time as an integer percentage (all focus areas together should total about
+    100), a short reason, and the exact requirement text it comes from. Also
+    list question themes to practice, the candidate's strongest areas, and the
+    riskiest areas. Never tell the candidate to claim experience the resume
+    does not support.
+  expected_output: >
+    An InterviewPrepPlan JSON object: seniority (band, target_years,
+    detected_years, confidence, rationale), focus_areas (area, priority,
+    suggested_share_pct, why, evidence), question_themes, strengths, and
+    risk_areas.
+
+prepare_screening_answers:
+  description: >
+    Prepare copy-ready answers (nothing is submitted on the candidate's behalf)
+    for EACH employer screening question listed in {screening_questions}. Call
+    the query_answer_bank tool and use only the verified answer it returns
+    (source must be answer_bank). If the answer bank has no verified entry, do
+    NOT guess: add the question to do_not_claim. Then write a short
+    package_summary that explains these are copy-ready answers the candidate
+    can paste into their own application. Carry forward the feedback draft's
+    do_not_claim items.
+  expected_output: >
+    A ScreeningPrep JSON object: role_title, company, screening_answers
+    (question, answer, source=answer_bank, verified), package_summary, and
+    do_not_claim.

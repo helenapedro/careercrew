@@ -1,21 +1,34 @@
 # CareerCrew dependencies. Install with: pip install -r requirements.txt
+# Versions verified against the installed APIs (CrewAI MCP adapter, MCP Python
+# SDK v1, Gradio 6) and pinned for reproducibility.
 # Needs OPENAI_API_KEY in the environment (see .env.example).
 
-# Agent framework (agents.yaml / tasks.yaml / @CrewBase pattern)
-crewai
-crewai-tools
+# Agent framework (agents.yaml / tasks.yaml / CrewBase pattern) + MCP adapter
+crewai[tools]==1.15.27
 
-# MCP server (mcp_server/server.py)
-mcp
+# MCP Python SDK v1 (mcp 2.x renamed FastMCP -> MCPServer; we pin v1)
+mcp==1.28.1
 
-# Web UI shell (app.py)
-gradio
+# Web UI (app.py)
+gradio==6.30.0
 
 # Typed task outputs (careercrew/models.py)
-pydantic>=2
+pydantic==2.12.5
 
-# PDF text extraction (document_tools.read_resume)
-pypdf
+# YAML config loading (agents.yaml / tasks.yaml / answer_bank.yaml)
+PyYAML>=6.0
 
-# .env loading (main.py, app.py)
-python-dotenv
+# PDF text extraction (document_tools read_resume)
+pypdf>=4.0
+
+# DOCX text extraction (document_tools read_resume)
+python-docx>=1.1
+
+# .env loading (config.py)
+python-dotenv==1.2.3
+
+# HTTP (CrewAI/MCP stack)
+httpx==0.28.1
+
+# Audio + LLM helper calls for the mock interviewer and coaches (careercrew/audio.py)
+openai>=1.40.0
