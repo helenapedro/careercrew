@@ -3,6 +3,7 @@
 The following are candidate requirements for implementation review, not a claim that each one is currently satisfied.
 
 | ID | Requirement | Status | Evidence |
+|---|---|---|---|
 | FR-01 | The system shall accept a resume through at least one documented input method, such as supported upload or pasted text. | Implemented | `careercrew/guardrails.py` (`check_upload`, `validate_request`); `tests/test_document_tools.py`, `tests/test_guardrails.py` |
 | FR-02 | The system shall accept a target job description through at least one documented input method. | Implemented | `careercrew/guardrails.py` (`check_upload`, `validate_request`); `tests/test_document_tools.py`, `tests/test_guardrails.py` |
 | FR-03 | The system shall validate required inputs, supported file types and sizes, and conflicting input sources. | Implemented | `careercrew/guardrails.py`; `tests/test_guardrails.py` |
@@ -24,7 +25,7 @@ The following are candidate requirements for implementation review, not a claim 
 ## 2. Proposed Nonfunctional Requirements
 
 | ID | Quality attribute | Proposed requirement |
-|---|---|---|---|
+|---|---|---|
 | NFR-01 | Reliability | Failures must be handled predictably; invalid or incomplete output must not be silently presented as validated success. |
 | NFR-02 | Performance | End-to-end latency, including model calls and retries, should be measured. Set a response-time target after establishing a baseline. |
 | NFR-03 | Security | Uploaded documents and tool access must stay within approved boundaries; document tools must not permit arbitrary file access. |
