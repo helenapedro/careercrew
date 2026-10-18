@@ -124,7 +124,7 @@ prep bundle: nothing is ever submitted to an employer.
 
 ## 5. Deployment
 
-> **Deployment target under review:** Hugging Face Spaces is the currently documented target. Heroku is being evaluated as an alternative (as used for the MarketMind project); this section will be updated once the target is decided.
+> **Deployment target decided:** Heroku (as used for the MarketMind project). This section still documents Hugging Face Spaces and will be updated with the Heroku deployment instructions.
 
 ```mermaid
 flowchart LR
