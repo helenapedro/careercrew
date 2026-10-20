@@ -66,6 +66,35 @@ def test_screening_questions_come_from_verified_bank_not_a_textbox():
     assert "screening_text" not in app.CUSTOM_CSS
 
 
+def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
+    """Pressing Analyze must lock the button until the run finishes."""
+    monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
+    from careercrew import config
+
+    config.reset_settings_cache()
+    pytest.importorskip("gradio")
+    import app
+
+    # Missing inputs: first yield locks the buttons, then the failure re-enables
+    # them so the user is never stuck with a dead Analyze button.
+    gen = app.analyze(None, "", None, "A real job description here.")
+    first = next(gen)
+    assert first[13]["interactive"] is False, "run button must disable immediately"
+    assert first[14]["interactive"] is False, "clear button must disable too"
+
+    last = first
+    for last in gen:
+        pass
+    assert last[13]["interactive"] is True, "run button must come back after a failure"
+    assert last[14]["interactive"] is True
+
+    # The reset state used by Clear also leaves both buttons usable.
+    reset = app._empty_outputs()
+    assert reset[13]["interactive"] is True
+    assert reset[14]["interactive"] is True
+
+
 def test_stage_tracker_reflects_progress():
     import app
 

@@ -555,7 +555,7 @@ def _empty_outputs() -> tuple:
 
         0 error · 1 status · 2 stages · 3 match · 4 prep · 5 screening
         6 approve · 7 reject · 8 revise · 9 package state · 10 notes
-        11 ctx_state · 12 review guide
+        11 ctx_state · 12 review guide · 13 run button · 14 clear button
     """
     return (
         "",  # 0 error_box
@@ -571,6 +571,8 @@ def _empty_outputs() -> tuple:
         gr.update(value="", interactive=False),  # 10 feedback
         None,  # 11 ctx_state
         _review_guide_html("idle"),  # 12 review_guide_html
+        gr.update(interactive=True),  # 13 run_btn
+        gr.update(interactive=True),  # 14 clear_btn
     )
 
 
@@ -667,14 +669,19 @@ def analyze(
             6, gr.update(interactive=False),
             7, gr.update(interactive=False),
             8, gr.update(interactive=False),
+            13, gr.update(interactive=True),
+            14, gr.update(interactive=True),
         )
 
     try:
-        # Immediate feedback so the click never looks dead.
+        # Immediate feedback so the click never looks dead; the run button is
+        # disabled here and only re-enabled when this generator finishes.
         yield emit(
             0, "",
             1, "**Starting…** checking your resume and job description.",
             2, _stages_html(1, "Checking your inputs…"),
+            13, gr.update(interactive=False),
+            14, gr.update(interactive=False),
         )
 
         # --- Stage 1: input guardrails (resume + JD resolution). ------------ #
@@ -808,6 +815,8 @@ def analyze(
             10, gr.update(value="", interactive=True),
             11, _serialize_result(result),
             12, _review_guide_html("ready", package_id=result.package.package_id),
+            13, gr.update(interactive=True),
+            14, gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
@@ -982,6 +991,8 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             8, gr.update(interactive=bool(package)),
             9, state,
             10, gr.update(interactive=bool(package)),
+            13, gr.update(interactive=True),
+            14, gr.update(interactive=True),
             12, _review_guide_html(
                 "ready" if package else "idle",
                 package_id=package.package_id if package else "",
@@ -1065,6 +1076,8 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             package_id=package.package_id,
             detail="Analyze is running again with your experience updates…",
         ),
+        13, gr.update(interactive=False),
+        14, gr.update(interactive=False),
     )
 
     stages: dict[str, object] = {"index": 1, "detail": "Applying your revision notes…"}
@@ -1145,6 +1158,8 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             10, gr.update(value="", interactive=True),
             11, _serialize_result(result),
             12, _review_guide_html("ready", package_id=result.package.package_id),
+            13, gr.update(interactive=True),
+            14, gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
@@ -1768,6 +1783,8 @@ def build_app() -> gr.Blocks:
             feedback,           # 10
             ctx_state,          # 11
             review_guide_html,  # 12
+            run_btn,            # 13
+            clear_btn,          # 14
         ]
 
         decision_outputs = [
