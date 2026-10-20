@@ -126,10 +126,18 @@ See `ARCHITECTURE.md` for the full walkthrough.
 
 ## Technical presentation
 
-Line-by-line code-path guides for explaining the system live (Analyze → prep →
-HITL → mock interview → coaches):
+**Presentation notebooks (Say-this scripts + offline demos):**
 
-- [`docs/SPEAKER_CHEATSHEET.md`](docs/SPEAKER_CHEATSHEET.md) — talk order and which files to open
+- [`notebooks/README.md`](notebooks/README.md) — talk order
+- `notebooks/00_overview.ipynb` → `01_voice_and_transcript.ipynb` → `02_mock_interview_flow.ipynb` → `03_analyze_pipeline.ipynb` → `04_hitl_and_coaches.ipynb`
+
+**Professor walkthrough (open `.py` + guide side-by-side):**
+
+- [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md) — index of per-file annotated guides
+- [`docs/SPEAKER_CHEATSHEET.md`](docs/SPEAKER_CHEATSHEET.md) — talk minute order
+
+**Flow narrative (what happens after each button):**
+
 - [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end
 - [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
 - [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + History `pkg-…`
