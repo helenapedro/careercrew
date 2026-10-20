@@ -148,12 +148,13 @@ def _hero() -> str:
     return (
         "<div class='cc-hero'>"
         "<h1>Match your resume to the role</h1>"
-        "<p class='cc-sub'>See what you already cover, what you can reframe, and what to leave out. "
-        "Get stronger resume bullets and honest screening answers — all grounded in your real experience.</p>"
+        "<p class='cc-sub'>Use the tabs below in order: analyze the match, practice the interview, "
+        "then chat with a coach. Progress and decisions stay inside Analyze — they won’t clutter "
+        "the other steps.</p>"
         "<div class='cc-trust'>"
-        "<span>Cited from your resume</span>"
-        "<span>No invented answers</span>"
-        "<span>You approve before finalize</span>"
+        "<span>1 · Analyze match</span>"
+        "<span>2 · Mock interview</span>"
+        "<span>3 · Coaches</span>"
         "</div></div>"
     )
 
@@ -195,8 +196,8 @@ def _stages_html(current: int = -1, detail: str = "") -> str:
     header = (
         "<div class='cc-card cc-progress'>"
         "<div class='cc-progress-top'>"
-        "<div><h3 style='margin:0'>Progress</h3>"
-        "<div class='cc-progress-label'>We’ll walk through each step as your match is prepared.</div></div>"
+        "<div><h3 style='margin:0'>Analyze progress</h3>"
+        "<div class='cc-progress-label'>Runs only while this match is being prepared.</div></div>"
         f"<div class='cc-progress-count'>{shown} / {_TOTAL_STAGES}</div>"
         "</div><div class='cc-stages'>"
     )
@@ -545,14 +546,14 @@ def _review_guide_html(
     ``phase``: idle | ready | working | approved | rejected
     """
     steps = [
-        (1, "Add resume + job description, then press Analyze match"),
-        (2, "Review Match report, Interview prep plan, and Screening answers"),
+        (1, "Upload resume + JD above, then press Analyze match"),
+        (2, "Open the result sub-tabs (Match / Prep / Screening)"),
         (3, "Decide below — approve, add missing experience, or reject"),
     ]
     if phase == "idle":
         active = 1
         blurb = (
-            "This panel unlocks after Analyze finishes. "
+            "Unlocks after Analyze finishes in this tab. "
             "Nothing here is submitted to an employer."
         )
     elif phase == "working":
@@ -594,7 +595,7 @@ def _review_guide_html(
             f"<span class='cc-review-step-pill'>{pill}</span></div>"
         )
     return (
-        "<div class='cc-panel-head'><h3>Step 3 · Your decision</h3>"
+        "<div class='cc-panel-head'><h3>Your decision</h3>"
         f"<p class='cc-hint'>{blurb}</p></div>"
         f"<div class='cc-review-steps'>{''.join(rows)}</div>"
     )
@@ -1542,123 +1543,219 @@ def _render_post_chat(history, message: str, ctx_state, iv_state):
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="CareerCrew — Match your resume to the role") as demo:
         state = gr.State(None)
+        ctx_state = gr.State(None)
+        iv_state = gr.State(None)
 
         gr.HTML(_topbar())
         gr.HTML(_hero())
 
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                with gr.Group(elem_classes=["cc-panel"]):
-                    gr.HTML(
-                        "<div class='cc-panel-head'><h3>Your resume</h3>"
-                        "<p class='cc-hint'>Upload a file or paste the text — whichever is easier.</p></div>"
-                    )
-                    sample_resume_btn = gr.Button("Try a sample resume", size="sm")
-                    with gr.Tabs():
-                        with gr.Tab("Upload file"):
-                            resume_file = gr.File(
-                                label="PDF, DOCX, or TXT",
-                                file_types=[".pdf", ".docx", ".txt"],
-                                elem_classes=["cc-field"],
-                            )
-                        with gr.Tab("Paste text"):
-                            resume_text = gr.Textbox(
-                                label="Resume text",
-                                placeholder="Paste your resume here…",
-                                lines=14,
-                                elem_classes=["cc-field"],
-                                show_label=False,
-                            )
+        with gr.Tabs(elem_classes=["cc-main-tabs"]):
+            # ------------------------------------------------------------------ #
+            # Tab 1 — Analyze (inputs, progress, results, HITL decision)
+            # ------------------------------------------------------------------ #
+            with gr.Tab("1 · Analyze match"):
+                gr.HTML(
+                    "<div class='cc-panel-head' style='margin-bottom:10px'>"
+                    "<h3>Analyze match</h3>"
+                    "<p class='cc-hint'>Add your resume and the job posting, run Analyze, "
+                    "watch progress here, review the result sub-tabs, then approve or "
+                    "add missing experience. Progress and decisions live only in this tab.</p></div>"
+                )
 
-            with gr.Column(scale=1):
-                with gr.Group(elem_classes=["cc-panel"]):
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=1):
+                        with gr.Group(elem_classes=["cc-panel"]):
+                            gr.HTML(
+                                "<div class='cc-panel-head'><h3>Your resume</h3>"
+                                "<p class='cc-hint'>Upload a file or paste the text.</p></div>"
+                            )
+                            sample_resume_btn = gr.Button("Try a sample resume", size="sm")
+                            with gr.Tabs():
+                                with gr.Tab("Upload file"):
+                                    resume_file = gr.File(
+                                        label="PDF, DOCX, or TXT",
+                                        file_types=[".pdf", ".docx", ".txt"],
+                                        elem_classes=["cc-field"],
+                                    )
+                                with gr.Tab("Paste text"):
+                                    resume_text = gr.Textbox(
+                                        label="Resume text",
+                                        placeholder="Paste your resume here…",
+                                        lines=12,
+                                        elem_classes=["cc-field"],
+                                        show_label=False,
+                                    )
+
+                    with gr.Column(scale=1):
+                        with gr.Group(elem_classes=["cc-panel"]):
+                            gr.HTML(
+                                "<div class='cc-panel-head'><h3>The job</h3>"
+                                "<p class='cc-hint'>Upload the posting or paste the text. "
+                                "URLs are not read directly.</p></div>"
+                            )
+                            sample_jd_btn = gr.Button("Try a sample job", size="sm")
+                            with gr.Tabs():
+                                with gr.Tab("Upload file"):
+                                    jd_file = gr.File(
+                                        label="PDF, DOCX, or TXT",
+                                        file_types=[".pdf", ".docx", ".txt"],
+                                        elem_classes=["cc-field"],
+                                    )
+                                with gr.Tab("Paste posting"):
+                                    jd_text = gr.Textbox(
+                                        label="Job description",
+                                        placeholder="Paste the job description here…",
+                                        lines=10,
+                                        elem_classes=["cc-field"],
+                                        show_label=False,
+                                    )
+                            with gr.Accordion("Optional screening questions", open=False):
+                                screening_text = gr.Textbox(
+                                    label="One question per line",
+                                    placeholder=(
+                                        "Are you authorized to work in the US?\n"
+                                        "What is your notice period?"
+                                    ),
+                                    lines=3,
+                                    elem_classes=["cc-field"],
+                                    show_label=False,
+                                )
+
+                with gr.Row(elem_classes=["cc-cta"], equal_height=True):
                     gr.HTML(
-                        "<div class='cc-panel-head'><h3>The job</h3>"
-                        "<p class='cc-hint'>Upload the posting file or paste the text. "
-                        "Job-posting URLs are not read directly.</p></div>"
+                        "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
+                        "<p>We’ll score the match, plan interview prep, suggest stronger "
+                        "bullets, and prepare honest screening answers.</p></div>",
+                        elem_classes=["cc-cta-copy-wrap"],
                     )
-                    sample_jd_btn = gr.Button("Try a sample job", size="sm")
-                    with gr.Tabs():
-                        with gr.Tab("Upload file"):
-                            jd_file = gr.File(
-                                label="PDF, DOCX, or TXT",
-                                file_types=[".pdf", ".docx", ".txt"],
-                                elem_classes=["cc-field"],
-                            )
-                        with gr.Tab("Paste posting"):
-                            jd_text = gr.Textbox(
-                                label="Job description",
-                                placeholder="Paste the job description here…",
-                                lines=12,
-                                elem_classes=["cc-field"],
-                                show_label=False,
-                            )
-                    with gr.Accordion("Optional screening questions", open=False):
-                        screening_text = gr.Textbox(
-                            label="One question per line",
-                            placeholder="Are you authorized to work in the US?\nWhat is your notice period?",
-                            lines=3,
-                            elem_classes=["cc-field"],
-                            show_label=False,
+                    with gr.Row(elem_classes=["cc-cta-actions"]):
+                        run_btn = gr.Button(
+                            "Analyze match",
+                            variant="primary",
+                            elem_classes=["cc-run"],
+                            scale=0,
+                            min_width=168,
+                        )
+                        clear_btn = gr.Button(
+                            "Clear", elem_classes=["cc-clear"], scale=0, min_width=88
                         )
 
-        with gr.Row(elem_classes=["cc-cta"], equal_height=True):
-            gr.HTML(
-                "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
-                "<p>We’ll score the match, plan your interview prep, suggest stronger "
-                "bullets, and prepare honest screening answers.</p></div>",
-                elem_classes=["cc-cta-copy-wrap"],
-            )
-            with gr.Row(elem_classes=["cc-cta-actions"]):
-                run_btn = gr.Button(
-                    "Analyze match", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168
-                )
-                clear_btn = gr.Button(
-                    "Clear", elem_classes=["cc-clear"], scale=0, min_width=88
-                )
+                error_box = gr.HTML("", elem_classes=["cc-alert-slot"])
+                status = gr.Markdown(_IDLE_STATUS, elem_classes=["cc-status-line"])
+                banner = gr.HTML(_mode_banner())
+                stages_html = gr.HTML(_stages_html(-1))
 
-        # Status + errors sit directly under the CTA so failures are never missed.
-        error_box = gr.HTML("", elem_classes=["cc-alert-slot"])
-        status = gr.Markdown(_IDLE_STATUS, elem_classes=["cc-status-line"])
+                with gr.Tabs(elem_classes=["cc-result-tabs"]):
+                    with gr.Tab("Match report"):
+                        insight_html = gr.HTML(_insight_html(None))
+                    with gr.Tab("Interview prep plan"):
+                        prep_html = gr.HTML(_prep_html(None))
+                    with gr.Tab("Screening answers"):
+                        package_md = gr.HTML(_package_html(None))
 
-        banner = gr.HTML(_mode_banner())
-        stages_html = gr.HTML(_stages_html(-1))
+                with gr.Group(elem_classes=["cc-review"]):
+                    review_guide_html = gr.HTML(_review_guide_html("idle"))
 
-        # Context bundle for the interview + coaching tabs.
-        ctx_state = gr.State(None)
-        iv_state = gr.State(None)
+                    with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-a"]):
+                        gr.HTML(
+                            "<div class='cc-choice-label'>"
+                            "<span class='cc-choice-n'>A</span>"
+                            "<div><strong>Approve</strong> — the prep bundle looks right. "
+                            "Nothing is sent to an employer; this only finalizes it here.</div></div>"
+                        )
+                        approve_btn = gr.Button(
+                            "Approve prep bundle",
+                            variant="primary",
+                            interactive=False,
+                            elem_classes=["cc-approve"],
+                        )
 
-        with gr.Tabs():
-            with gr.Tab("Match report"):
-                insight_html = gr.HTML(_insight_html(None))
-            with gr.Tab("Interview prep plan"):
-                prep_html = gr.HTML(_prep_html(None))
-            with gr.Tab("Screening answers"):
-                package_md = gr.HTML(_package_html(None))
-            with gr.Tab("Mock interview"):
+                    with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-b"]):
+                        gr.HTML(
+                            "<div class='cc-choice-label'>"
+                            "<span class='cc-choice-n'>B</span>"
+                            "<div><strong>Add missing experience</strong> — e.g. the JD wants "
+                            "React but your resume doesn’t list it. Type the update, then press "
+                            "the button. <em>Analyze runs again automatically</em> and refreshes "
+                            "Match / Prep / Screening.</div></div>"
+                        )
+                        feedback = gr.Textbox(
+                            label="Your experience update",
+                            placeholder=(
+                                "e.g. I have 5+ years of React experience building production SPAs."
+                            ),
+                            lines=3,
+                            interactive=False,
+                            elem_classes=["cc-field"],
+                        )
+                        revise_btn = gr.Button(
+                            "Apply updates & re-analyze",
+                            interactive=False,
+                            elem_classes=["cc-revise"],
+                        )
+
+                    with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-c"]):
+                        gr.HTML(
+                            "<div class='cc-choice-label'>"
+                            "<span class='cc-choice-n'>C</span>"
+                            "<div><strong>Reject</strong> — discard this prep bundle "
+                            "(or refresh History).</div></div>"
+                        )
+                        with gr.Row(elem_classes=["cc-review-actions"]):
+                            reject_btn = gr.Button(
+                                "Reject prep bundle",
+                                interactive=False,
+                                elem_classes=["cc-reject"],
+                            )
+                            refresh_btn = gr.Button(
+                                "Refresh history",
+                                size="sm",
+                                elem_classes=["cc-refresh"],
+                            )
+
+                    review_status = gr.Markdown("", elem_classes=["cc-review-status"])
+
+            # ------------------------------------------------------------------ #
+            # Tab 2 — Mock interview
+            # ------------------------------------------------------------------ #
+            with gr.Tab("2 · Mock interview"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Voice mock interview</h3>"
-                    "<p class='cc-hint'>The interviewer asks questions from your resume and "
-                    "the role. Answer by voice (or type), and watch the live transcript and "
-                    "per-question feedback. Practice only — nothing is submitted.</p></div>"
+                    "<p class='cc-hint'>Requires a finished Analyze first. The interviewer asks "
+                    "questions from your resume and the role. Answer by voice or type. "
+                    "Practice only — nothing is submitted.</p></div>"
                 )
                 with gr.Row():
-                    iv_start_btn = gr.Button("Start interview", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168)
+                    iv_start_btn = gr.Button(
+                        "Start interview",
+                        variant="primary",
+                        elem_classes=["cc-run"],
+                        scale=0,
+                        min_width=168,
+                    )
                     iv_questions = gr.Slider(
-                        minimum=3, maximum=10, value=_SETTINGS.interview_question_count, step=1,
-                        label="Number of questions", scale=1,
+                        minimum=3,
+                        maximum=10,
+                        value=_SETTINGS.interview_question_count,
+                        step=1,
+                        label="Number of questions",
+                        scale=1,
                     )
                 iv_error = gr.HTML("")
                 iv_question_html = gr.HTML(_question_html(None, done=True))
                 iv_audio = gr.Audio(
-                    label="Interviewer (listen)", autoplay=True, interactive=False,
+                    label="Interviewer (listen)",
+                    autoplay=True,
+                    interactive=False,
                     elem_id="cc-iv-audio",
                 )
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
                         gr.HTML("<div class='cc-section-title'>Your answer</div>")
                         iv_answer_audio = gr.Audio(
-                            sources=["microphone"], type="filepath", label="Record your answer"
+                            sources=["microphone"],
+                            type="filepath",
+                            label="Record your answer",
                         )
                         iv_answer_text = gr.Textbox(
                             label="Or type your answer",
@@ -1666,41 +1763,61 @@ def build_app() -> gr.Blocks:
                             lines=4,
                             elem_classes=["cc-field"],
                         )
-                        iv_submit_btn = gr.Button("Submit answer", variant="primary", elem_classes=["cc-run"], scale=0, min_width=168)
+                        iv_submit_btn = gr.Button(
+                            "Submit answer",
+                            variant="primary",
+                            elem_classes=["cc-run"],
+                            scale=0,
+                            min_width=168,
+                        )
                     with gr.Column(scale=1):
                         gr.HTML("<div class='cc-section-title'>Live transcript</div>")
                         iv_chatbot = gr.Chatbot(
-                            label="Interview transcript", height=360,
+                            label="Interview transcript",
+                            height=360,
                             elem_id="cc-iv-transcript",
                         )
                 iv_feedback_html = gr.HTML("")
                 iv_overall_html = gr.HTML("")
-            with gr.Tab("Prep coach"):
+
+            # ------------------------------------------------------------------ #
+            # Tab 3 — Prep coach
+            # ------------------------------------------------------------------ #
+            with gr.Tab("3 · Prep coach"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
                     "<p class='cc-hint'>Ask anything about improving your resume or preparing "
-                    "for this role. The coach uses your resume, the job description, and your "
-                    "gap report.</p></div>"
+                    "for this role. Uses your Analyze context when available.</p></div>"
                 )
                 prep_chat = gr.Chatbot(label="Prep coach", height=380)
                 prep_msg = gr.Textbox(
-                    label="Your question", placeholder="How should I talk about the AWS gap?",
-                    lines=2, elem_classes=["cc-field"],
+                    label="Your question",
+                    placeholder="How should I talk about the AWS gap?",
+                    lines=2,
+                    elem_classes=["cc-field"],
                 )
-            with gr.Tab("Post-interview coach"):
+
+            # ------------------------------------------------------------------ #
+            # Tab 4 — Post-interview coach
+            # ------------------------------------------------------------------ #
+            with gr.Tab("4 · Post-interview coach"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Post-interview coach</h3>"
-                    "<p class='cc-hint'>After your mock interview, ask anything about your "
-                    "performance. This coach remembers your resume, the job description, the "
-                    "gap report, your prep plan, and your full interview transcript and "
-                    "evaluations.</p></div>"
+                    "<p class='cc-hint'>After your mock interview, ask about performance. "
+                    "Remembers resume, JD, gaps, prep plan, and interview transcript.</p></div>"
                 )
                 post_chat = gr.Chatbot(label="Post-interview coach", height=380)
                 post_msg = gr.Textbox(
-                    label="Your question", placeholder="What should I improve before the real interview?",
-                    lines=2, elem_classes=["cc-field"],
+                    label="Your question",
+                    placeholder="What should I improve before the real interview?",
+                    lines=2,
+                    elem_classes=["cc-field"],
                 )
-            with gr.Tab("History"):
+
+            # ------------------------------------------------------------------ #
+            # Tab 5 — History
+            # ------------------------------------------------------------------ #
+            with gr.Tab("5 · History"):
                 tracker_table = gr.Dataframe(
                     headers=["Prep bundle", "Role", "Company", "Status", "Revisions", "Updated"],
                     datatype=["str"] * 6,
@@ -1708,70 +1825,15 @@ def build_app() -> gr.Blocks:
                     label="Your recent prep bundles",
                     value=_tracker_rows(),
                 )
+
+            # ------------------------------------------------------------------ #
+            # Advanced
+            # ------------------------------------------------------------------ #
             with gr.Tab("Advanced"):
                 with gr.Accordion("Step-by-step log", open=True):
                     trace_md = gr.Markdown(_trace_markdown(None))
                 with gr.Accordion("Raw screening answers JSON", open=False):
                     package_json = gr.Code(label="Screening answers JSON", language="json")
-
-        with gr.Group(elem_classes=["cc-review"]):
-            review_guide_html = gr.HTML(_review_guide_html("idle"))
-
-            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-a"]):
-                gr.HTML(
-                    "<div class='cc-choice-label'>"
-                    "<span class='cc-choice-n'>A</span>"
-                    "<div><strong>Approve</strong> — the prep bundle looks right. "
-                    "Nothing is sent to an employer; this only finalizes it here.</div></div>"
-                )
-                approve_btn = gr.Button(
-                    "Approve prep bundle",
-                    variant="primary",
-                    interactive=False,
-                    elem_classes=["cc-approve"],
-                )
-
-            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-b"]):
-                gr.HTML(
-                    "<div class='cc-choice-label'>"
-                    "<span class='cc-choice-n'>B</span>"
-                    "<div><strong>Add missing experience</strong> — e.g. the JD wants React "
-                    "but your resume doesn’t list it. Type the update, then press the button. "
-                    "<em>Analyze runs again automatically</em> and refreshes Match / Prep / Screening.</div></div>"
-                )
-                feedback = gr.Textbox(
-                    label="Your experience update",
-                    placeholder="e.g. I have 5+ years of React experience building production SPAs.",
-                    lines=3,
-                    interactive=False,
-                    elem_classes=["cc-field"],
-                )
-                revise_btn = gr.Button(
-                    "Apply updates & re-analyze",
-                    interactive=False,
-                    elem_classes=["cc-revise"],
-                )
-
-            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-c"]):
-                gr.HTML(
-                    "<div class='cc-choice-label'>"
-                    "<span class='cc-choice-n'>C</span>"
-                    "<div><strong>Reject</strong> — discard this prep bundle "
-                    "(or refresh History).</div></div>"
-                )
-                with gr.Row(elem_classes=["cc-review-actions"]):
-                    reject_btn = gr.Button(
-                        "Reject prep bundle",
-                        interactive=False,
-                        elem_classes=["cc-reject"],
-                    )
-                    refresh_btn = gr.Button(
-                        "Refresh history",
-                        size="sm",
-                        elem_classes=["cc-refresh"],
-                    )
-
-            review_status = gr.Markdown("", elem_classes=["cc-review-status"])
 
         gr.HTML(
             "<p class='cc-foot'>CareerCrew keeps everything honest — verified facts only, "

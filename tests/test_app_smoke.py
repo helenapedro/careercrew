@@ -55,8 +55,17 @@ def test_candidate_facing_copy_hides_tech_jargon_in_hero():
 
     hero = app._hero()
     assert "Match your resume" in hero
+    assert "Analyze match" in hero
     assert "CrewAI" not in hero
     assert "MCP" not in hero
+
+
+def test_progress_copy_is_analyze_scoped():
+    import app
+
+    idle = app._stages_html(-1)
+    assert "Analyze progress" in idle
+    assert "only while" in idle.lower() or "prepared" in idle.lower()
 
 
 def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):

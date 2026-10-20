@@ -378,6 +378,24 @@ button.cc-clear:hover {
 .cc-qa-item .cc-q { margin: 0 0 6px; font-weight: 680; color: var(--cc-ink); font-size: 13.5px; }
 .cc-qa-item .cc-a { margin: 0 0 8px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.55; }
 
+/* Top-level workflow tabs */
+.cc-main-tabs > .tab-nav,
+.cc-main-tabs .tabs > .tab-nav {
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+  border-bottom: 1px solid var(--cc-line) !important;
+  margin-bottom: 14px !important;
+}
+.cc-main-tabs .tab-nav button,
+.cc-main-tabs button[role="tab"] {
+  font-weight: 650 !important;
+  font-size: 13.5px !important;
+  border-radius: 10px 10px 0 0 !important;
+}
+.cc-result-tabs {
+  margin: 12px 0 14px;
+}
+
 /* Decision dock — step-by-step HITL */
 .cc-review {
   border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
