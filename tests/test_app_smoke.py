@@ -50,6 +50,22 @@ def test_app_is_light_only_even_when_os_prefers_dark():
     assert "button.upload-container" in app.CUSTOM_CSS
 
 
+def test_screening_questions_come_from_verified_bank_not_a_textbox():
+    """The screening-question input was removed; the bank drives the questions."""
+    import app
+    from careercrew.document_tools import default_screening_questions
+
+    questions = default_screening_questions()
+    assert questions, "answer bank should expose verified questions"
+    assert all(q.strip() for q in questions)
+    # The Analyze callback no longer accepts a screening-questions argument.
+    import inspect
+
+    params = list(inspect.signature(app.analyze).parameters)
+    assert params == ["resume_file", "resume_text", "jd_file", "jd_text"]
+    assert "screening_text" not in app.CUSTOM_CSS
+
+
 def test_stage_tracker_reflects_progress():
     import app
 
@@ -90,7 +106,7 @@ def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
     pytest.importorskip("gradio")
     import app
 
-    outputs = _drain(app.analyze(None, "", None, "A real job description here.", ""))
+    outputs = _drain(app.analyze(None, "", None, "A real job description here."))
     error_box = outputs[0]
     assert "resume" in str(error_box).lower()
     assert "cc-alert" in str(error_box).lower() or "something went wrong" in str(error_box).lower()
@@ -109,7 +125,6 @@ def test_analyze_missing_jd_returns_error(monkeypatch, tmp_path):
             None,
             "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale.",
             None,
-            "",
             "",
         )
     )
@@ -136,7 +151,6 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
             "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale here.",
             None,
             "We need a Python backend engineer with FastAPI and AWS.",
-            "Are you authorized to work in the US?",
         )
     )
     # stages · match · prep · screening · … · ctx
@@ -172,7 +186,6 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             "",
             None,
             "We need a Python backend engineer with FastAPI and AWS.",
-            "",
         )
     )
     assert "answer_bank" in outputs[5] or "prep" in outputs[1].lower()
@@ -205,7 +218,6 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
             "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale here.",
             str(staged_jd),
             "",
-            "What is your notice period?",
         )
     )
     assert "Job description rejected" not in outputs[1]
@@ -232,7 +244,6 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
             "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale here.",
             None,
             "We need a Python backend engineer with React and FastAPI. 5+ years experience.",
-            "Are you authorized to work in the US?",
         )
     )
     package_state = analyzed[9]

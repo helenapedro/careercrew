@@ -98,7 +98,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Start]) --> B["1. Provide screening questions"]
+    A([Start]) --> B["1. Use screening questions from the verified answer bank"]
     B --> C["2. Load verified candidate information"]
     C --> D["3. Match each question to available evidence"]
     D --> E{"4. Evidence sufficient?"}

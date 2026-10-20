@@ -3,12 +3,11 @@
 Plain-language workflow for job seekers:
 
 1. Add a resume (upload or paste) and a job description (upload or paste).
-2. Optionally add screening questions.
-3. Press **Analyze match** and watch live progress.
-4. Review coverage, rewrite suggestions, an interview prep plan (calibrated to
+2. Press **Analyze match** and watch live progress.
+3. Review coverage, rewrite suggestions, an interview prep plan (calibrated to
    the seniority signaled in the JD), and copy-ready screening answers
    (nothing is submitted anywhere).
-5. Practice with the voice mock interviewer, then chat with the prep coach and
+4. Practice with the voice mock interviewer, then chat with the prep coach and
    the post-interview coach.
 
 Screening answers come only from a verified answer bank; unverified questions
@@ -30,6 +29,7 @@ import gradio as gr
 
 from careercrew import audio, coach, guardrails, interview, llm
 from careercrew.config import get_settings
+from careercrew.document_tools import default_screening_questions
 from careercrew.models import (
     AnswerEvaluation,
     CandidateProfile,
@@ -386,8 +386,8 @@ def _package_html(package: ScreeningPrep | None, warnings: list[str] | None = No
         parts.append("</div>")
     else:
         parts.append(
-            "<div class='cc-empty'>No screening questions were answered yet. "
-            "Add questions above and analyze again.</div>"
+            "<div class='cc-empty'>No screening answers were produced. "
+            "Your verified answer bank did not cover the standard questions.</div>"
         )
 
     if package.do_not_claim:
@@ -648,7 +648,7 @@ def _resolve_upload(upload, pasted: str, kind: str) -> tuple[str | None, str | N
 
 
 def analyze(
-    resume_file, resume_text, jd_file, jd_text, screening_text
+    resume_file, resume_text, jd_file, jd_text
 ) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
     outputs = list(_empty_outputs())
@@ -704,7 +704,9 @@ def analyze(
             )
             return
 
-        questions = [line.strip() for line in (screening_text or "").splitlines() if line.strip()]
+        # Screening questions come from the verified answer bank, not from a
+        # text box: the app only answers what it can actually verify.
+        questions = default_screening_questions()
         # Seniority is inferred from the JD inside the pipeline (no UI picker).
         request = AnalysisRequest(
             package_id=make_package_id(),
@@ -1157,12 +1159,6 @@ def _read_sample(name: str) -> str:
         return ""
 
 
-_SAMPLE_QUESTIONS = (
-    "Are you authorized to work in the United States?\n"
-    "What is your notice period?\n"
-    "Do you require visa sponsorship?"
-)
-
 # --------------------------------------------------------------------------- #
 # Interview + coaching callbacks
 # --------------------------------------------------------------------------- #
@@ -1547,17 +1543,6 @@ def build_app() -> gr.Blocks:
                                         elem_classes=["cc-field"],
                                         show_label=False,
                                     )
-                            with gr.Accordion("Optional screening questions", open=False):
-                                screening_text = gr.Textbox(
-                                    label="One question per line",
-                                    placeholder=(
-                                        "Are you authorized to work in the US?\n"
-                                        "What is your notice period?"
-                                    ),
-                                    lines=3,
-                                    elem_classes=["cc-field"],
-                                    show_label=False,
-                                )
 
                 with gr.Row(elem_classes=["cc-cta"], equal_height=True):
                     gr.HTML(
@@ -1798,7 +1783,7 @@ def build_app() -> gr.Blocks:
 
         run_btn.click(
             analyze,
-            inputs=[resume_file, resume_text, jd_file, jd_text, screening_text],
+            inputs=[resume_file, resume_text, jd_file, jd_text],
             outputs=analyze_outputs,
         )
 
@@ -1808,11 +1793,10 @@ def build_app() -> gr.Blocks:
                 gr.update(value=""),
                 gr.update(value=None),
                 gr.update(value=""),
-                gr.update(value=""),
                 *_empty_outputs(),
             ),
             outputs=[
-                resume_file, resume_text, jd_file, jd_text, screening_text,
+                resume_file, resume_text, jd_file, jd_text,
                 *analyze_outputs,
             ],
         )
@@ -1825,9 +1809,8 @@ def build_app() -> gr.Blocks:
             lambda: (
                 gr.update(value=None),
                 gr.update(value=_read_sample("sample_jd.txt")),
-                gr.update(value=_SAMPLE_QUESTIONS),
             ),
-            outputs=[jd_file, jd_text, screening_text],
+            outputs=[jd_file, jd_text],
         )
 
         # --- mock interview wiring ------------------------------------------ #

@@ -12,8 +12,8 @@
 ## 1. System overview
 
 A user provides a resume (file or pasted text) and a job description (file or
-pasted text), picks a target experience band (2-3, 5-10, or 10+ years), and
-optionally lists employer screening questions. Six agents run in a fixed
+pasted text). Seniority is inferred from the JD, and the screening questions come
+from the verified answer bank. Six agents run in a fixed
 sequence and produce cited feedback plus a seniority-aware interview
 preparation plan and copy-ready screening answers. On top of that, a voice
 **mock interviewer** runs a practice interview with a live transcript and
@@ -26,7 +26,7 @@ candidate applies.
 
 ```mermaid
 flowchart TD
-    S1["1 · Input<br/>resume + JD<br/>+ optional screening questions<br/>(seniority inferred from JD)"]
+    S1["1 · Input<br/>resume + JD<br/>(seniority inferred from JD)"]
     S2["2 · Entrypoints<br/>app.py — Gradio UI<br/>main.py — CLI"]
     S3["3 · Input guardrails<br/>validate_request · check_upload · redact_pii"]
     S4["4 · Pipeline<br/>normalize to text · build crew<br/>kickoff · parse · fallback"]

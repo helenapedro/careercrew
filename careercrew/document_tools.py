@@ -200,6 +200,27 @@ def reset_answer_bank_cache() -> None:
     _BANK_CACHE = None
 
 
+def default_screening_questions() -> list[str]:
+    """Questions from the verified answer bank, in bank order.
+
+    The app no longer asks the candidate to type screening questions; it answers
+    the standard set the bank can actually verify. Anything not in the bank is
+    never invented — it simply is not asked.
+    """
+    try:
+        entries = _load_answer_bank()
+    except Exception:  # noqa: BLE001 - a missing bank must not break analysis
+        return []
+    questions: list[str] = []
+    for entry in entries:
+        if not entry.get("verified"):
+            continue
+        question = str(entry.get("question") or "").strip()
+        if question:
+            questions.append(question)
+    return questions
+
+
 def query_answer_bank(question: str) -> dict:
     """Return the verified answer for a screening question, if one exists.
 

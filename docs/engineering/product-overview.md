@@ -4,7 +4,7 @@
 
 CareerCrew is an AI-powered career preparation platform that helps job seekers tailor their application materials and prepare for interviews based on their actual experience and a target job description.
 
-Users provide a resume, a job description, a target experience level, and optionally employer screening questions. CareerCrew analyzes the candidate profile against role requirements, identifies strengths and gaps, generates evidence-supported resume feedback and talking points, and develops a personalized interview-preparation plan. The broader preparation workflow can also support screening-answer preparation, voice or text mock interviews, and contextual coaching.
+Users provide a resume and a job description; seniority is inferred from the JD and screening questions come from a verified answer bank. CareerCrew analyzes the candidate profile against role requirements, identifies strengths and gaps, generates evidence-supported resume feedback and talking points, and develops a personalized interview-preparation plan. The broader preparation workflow can also support screening-answer preparation, voice or text mock interviews, and contextual coaching.
 
 The system is intended to coordinate a sequential multi-agent workflow, structured data models, document tools, and output validation, with human review before users rely on generated material. Recommendations should be grounded in verifiable candidate information; unsupported claims should be flagged rather than invented. CareerCrew assists with preparation and practice and does not submit job applications on the user's behalf.
 
