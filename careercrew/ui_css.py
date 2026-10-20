@@ -75,13 +75,7 @@ footer { display: none !important; }
   font-weight: 700; color: var(--cc-ink);
 }
 .cc-hero .cc-sub {
-  margin: 0 0 12px 0; color: var(--cc-ink-2); font-size: 14px; line-height: 1.5; max-width: 62ch;
-}
-.cc-trust { display: flex; flex-wrap: wrap; gap: 6px; }
-.cc-trust span {
-  font-size: 12px; font-weight: 600; color: var(--cc-ink-2);
-  background: var(--cc-soft); border: 1px solid var(--cc-line);
-  padding: 4px 9px; border-radius: 6px;
+  margin: 0; color: var(--cc-ink-2); font-size: 14px; line-height: 1.5; max-width: 62ch;
 }
 
 .cc-badge {
@@ -513,5 +507,212 @@ button.cc-refresh {
 .gradio-container .form,
 .gradio-container .panel {
   background: transparent !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Light mode is not optional.                                        */
+/* Gradio adds a "dark" class to <body> whenever the OS prefers dark,  */
+/* which swaps its whole palette (navy upload zones, dark inputs).     */
+/* The companion script in LIGHT_MODE_JS strips that class; these      */
+/* overrides cover the window before it runs and any stray dark scope. */
+/* ------------------------------------------------------------------ */
+html,
+body,
+body.dark,
+.dark,
+:root.dark,
+:root .dark {
+  color-scheme: light !important;
+  --body-background-fill: #f7f8fa !important;
+  --body-text-color: #1a1d24 !important;
+  --body-text-color-subdued: #3d4450 !important;
+  --background-fill-primary: #ffffff !important;
+  --background-fill-secondary: #fafbfc !important;
+  --border-color-primary: #e2e5eb !important;
+  --border-color-accent: #bfdbfe !important;
+  --border-color-accent-subdued: #bfdbfe !important;
+  --block-background-fill: #ffffff !important;
+  --block-border-color: #e2e5eb !important;
+  --block-info-text-color: #6b7280 !important;
+  --block-label-background-fill: #fafbfc !important;
+  --block-label-border-color: #e2e5eb !important;
+  --block-label-text-color: #6b7280 !important;
+  --block-title-text-color: #3d4450 !important;
+  --panel-background-fill: #ffffff !important;
+  --panel-border-color: #e2e5eb !important;
+  --input-background-fill: #ffffff !important;
+  --input-background-fill-focus: #ffffff !important;
+  --input-background-fill-hover: #ffffff !important;
+  --input-border-color: #e2e5eb !important;
+  --input-border-color-focus: #bfdbfe !important;
+  --input-border-color-hover: #d1d5db !important;
+  --input-placeholder-color: #9ca3af !important;
+  --code-background-fill: #f0f2f5 !important;
+  --checkbox-background-color: #ffffff !important;
+  --checkbox-border-color: #d1d5db !important;
+  --checkbox-label-background-fill: #ffffff !important;
+  --checkbox-label-border-color: #e2e5eb !important;
+  --checkbox-label-text-color: #1a1d24 !important;
+  --color-accent: #2563eb !important;
+  --color-accent-soft: #eff6ff !important;
+  --table-border-color: #e2e5eb !important;
+  --table-even-background-fill: #ffffff !important;
+  --table-odd-background-fill: #fafbfc !important;
+  --table-text-color: #3d4450 !important;
+  --stat-background-fill: linear-gradient(to right, #60a5fa, #2563eb) !important;
+  --button-secondary-background-fill: #ffffff !important;
+  --button-secondary-background-fill-hover: #f0f2f5 !important;
+  --button-secondary-border-color: #e2e5eb !important;
+  --button-secondary-text-color: #3d4450 !important;
+  --error-background-fill: #fef2f2 !important;
+  --error-text-color: #b91c1c !important;
+  --link-text-color: #2563eb !important;
+  --accordion-text-color: #1a1d24 !important;
+}
+
+body {
+  background: var(--cc-bg) !important;
+  color: var(--cc-ink) !important;
+}
+gradio-app {
+  background: var(--cc-bg) !important;
+}
+
+/* ---- Gradio file uploader: light, dashed, quiet ---- */
+.gradio-container .cc-field.block,
+.gradio-container .cc-field {
+  background: #ffffff !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  color: var(--cc-ink) !important;
+}
+.gradio-container .cc-field button.upload-container,
+.gradio-container button.upload-container {
+  background: var(--cc-surface-2) !important;
+  border: 1px dashed var(--cc-line) !important;
+  border-radius: 8px !important;
+  color: var(--cc-muted) !important;
+  box-shadow: none !important;
+  transition: background .15s ease, border-color .15s ease;
+}
+.gradio-container button.upload-container:hover,
+.gradio-container button.upload-container:focus-visible {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: var(--cc-accent) !important;
+}
+.gradio-container .cc-field [data-testid="upload-text"],
+.gradio-container .cc-field [data-testid="upload-text"] span {
+  color: var(--cc-muted) !important;
+}
+.gradio-container .cc-field button.upload-container:hover [data-testid="upload-text"],
+.gradio-container .cc-field button.upload-container:hover [data-testid="upload-text"] span {
+  color: var(--cc-accent) !important;
+}
+.gradio-container .cc-field [data-testid="upload-text"] .or { color: #9ca3af !important; }
+.gradio-container .cc-field [data-testid="block-label"],
+.gradio-container [data-testid="block-label"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--cc-muted) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.gradio-container .cc-field .file-preview,
+.gradio-container .file-preview {
+  background: var(--cc-surface-2) !important;
+  border: 1px solid var(--cc-line) !important;
+  color: var(--cc-ink) !important;
+}
+
+/* ---- Accordion, tabs, slider, chatbot ---- */
+.gradio-container .cc-panel .label-wrap,
+.gradio-container details > summary {
+  background: transparent !important;
+  color: var(--cc-ink-2) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+.gradio-container .cc-main-tabs button[role="tab"],
+.gradio-container .cc-result-tabs button[role="tab"] {
+  color: var(--cc-muted) !important;
+  background: transparent !important;
+}
+.gradio-container .cc-main-tabs button[role="tab"][aria-selected="true"],
+.gradio-container .cc-result-tabs button[role="tab"][aria-selected="true"] {
+  color: var(--cc-accent) !important;
+}
+.gradio-container .cc-main-tabs .tab-nav,
+.gradio-container .cc-result-tabs .tab-nav {
+  border-bottom: 1px solid var(--cc-line) !important;
+  background: transparent !important;
+}
+.gradio-container input[type="range"] { accent-color: var(--cc-accent); }
+.gradio-container .cc-panel button:not(.cc-run):not(.cc-clear),
+.gradio-container .cc-panel button.secondary {
+  background: #ffffff !important;
+  border: 1px solid var(--cc-line) !important;
+  color: var(--cc-ink-2) !important;
+  box-shadow: none !important;
+}
+.gradio-container .cc-panel button:not(.cc-run):not(.cc-clear):hover {
+  background: var(--cc-soft) !important;
+  color: var(--cc-ink) !important;
+}
+.gradio-container .chatbot,
+.gradio-container .bubble-wrap {
+  background: #ffffff !important;
+  border-color: var(--cc-line) !important;
+  color: var(--cc-ink) !important;
+}
+.gradio-container .message.user {
+  background: #eff6ff !important;
+  color: var(--cc-ink) !important;
+  border-color: #bfdbfe !important;
+}
+.gradio-container .message.bot {
+  background: var(--cc-surface-2) !important;
+  color: var(--cc-ink) !important;
+  border-color: var(--cc-line) !important;
+}
+"""
+
+# Gradio re-applies the "dark" class to <body> whenever the OS is in dark
+# mode (matchMedia listener inside its bundle). The app is light-only, so we
+# strip the class and keep it stripped. A stylesheet is also injected with the
+# light palette scoped to .dark, which covers the first paint before the
+# observer runs.
+LIGHT_MODE_JS = """
+() => {
+  const forceLight = () => {
+    const html = document.documentElement;
+    const body = document.body;
+    if (!html || !body) return;
+    if (html.classList.contains("dark")) html.classList.remove("dark");
+    if (body.classList.contains("dark")) body.classList.remove("dark");
+    html.style.colorScheme = "light";
+    body.style.colorScheme = "light";
+    body.style.background = "#f7f8fa";
+    body.style.color = "#1a1d24";
+  };
+
+  forceLight();
+  document.addEventListener("DOMContentLoaded", forceLight);
+
+  // Gradio keeps a media-query listener that flips the class back.
+  const watch = new MutationObserver(forceLight);
+  const start = () => {
+    if (!document.body) return setTimeout(start, 10);
+    forceLight();
+    watch.observe(document.body, { attributes: true, attributeFilter: ["class", "style"] });
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  };
+  start();
+
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => forceLight();
+  if (mq.addEventListener) mq.addEventListener("change", onChange);
+  else if (mq.addListener) mq.addListener(onChange);
 }
 """

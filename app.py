@@ -47,7 +47,7 @@ from careercrew.models import (
 from careercrew.pipeline import AnalysisRequest, make_package_id, run_analysis
 from careercrew.review import PackageReviewService, ReviewError
 from careercrew.session_store import SessionStore
-from careercrew.ui_css import CUSTOM_CSS
+from careercrew.ui_css import CUSTOM_CSS, LIGHT_MODE_JS
 
 logging.basicConfig(level=get_settings().log_level)
 logger = logging.getLogger("careercrew.app")
@@ -135,14 +135,9 @@ def _hero() -> str:
     return (
         "<div class='cc-hero'>"
         "<h1>Match your resume to the role</h1>"
-        "<p class='cc-sub'>Use the tabs below in order: analyze the match, practice the interview, "
-        "then chat with a coach. Progress and decisions stay inside Analyze — they won’t clutter "
-        "the other steps.</p>"
-        "<div class='cc-trust'>"
-        "<span>1 · Analyze match</span>"
-        "<span>2 · Mock interview</span>"
-        "<span>3 · Coaches</span>"
-        "</div></div>"
+        "<p class='cc-sub'>Use the tabs below in order: run <strong>Analyze match</strong>, "
+        "then practice the mock interview, then chat with a coach. Progress and decisions stay "
+        "inside Analyze — they won’t clutter the other steps.</p></div>"
     )
 
 
@@ -1915,6 +1910,7 @@ def main() -> None:
         show_error=True,
         theme=theme(),
         css=CUSTOM_CSS,
+        js=LIGHT_MODE_JS,
     )
 
 

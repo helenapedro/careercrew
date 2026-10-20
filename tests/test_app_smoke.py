@@ -36,6 +36,20 @@ def test_custom_theme_and_css_exist():
     assert app.theme() is not None
 
 
+def test_app_is_light_only_even_when_os_prefers_dark():
+    """Gradio adds a ``dark`` class from the OS preference; the app must undo it."""
+    import app
+
+    script = app.LIGHT_MODE_JS
+    assert 'classList.remove("dark")' in script
+    assert "matchMedia" in script
+    # The stylesheet must also neutralise Gradio's dark palette, so the first
+    # paint (before the script runs) is not a navy flash on a light app.
+    assert "body.dark" in app.CUSTOM_CSS
+    assert "--body-background-fill: #f7f8fa !important" in app.CUSTOM_CSS
+    assert "button.upload-container" in app.CUSTOM_CSS
+
+
 def test_stage_tracker_reflects_progress():
     import app
 
