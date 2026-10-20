@@ -64,6 +64,34 @@ def test_run_analysis_produces_prep_plan(monkeypatch):
     assert result.prep_plan.seniority.target_years == "5-10 years"
 
 
+def test_apply_revision_experience_covers_matching_requirement():
+    from careercrew.models import GapReport, GapVerdict, JobRequirements
+    from careercrew.pipeline import AnalysisRequest, _apply_revision_experience
+
+    request = AnalysisRequest(
+        package_id="pkg-rev",
+        resume_text="Python engineer",
+        jd_text="Need React and Python. 5 years React required.",
+        revision_notes="I have 5+ years of React experience building SPAs.",
+    )
+    profile, gaps, reqs = _apply_revision_experience(
+        None,
+        GapReport(
+            coverage_score=20,
+            verdicts=[
+                GapVerdict(requirement="React", verdict="out_of_scope", supporting_fact=""),
+                GapVerdict(requirement="Python", verdict="covered", supporting_fact="resume"),
+            ],
+        ),
+        JobRequirements(required_skills=["React", "Python"]),
+        request,
+    )
+    assert any("Candidate-attested" in r.company for r in profile.experience)
+    react = next(v for v in gaps.verdicts if v.requirement == "React")
+    assert react.verdict == "covered"
+    assert "React" in react.supporting_fact
+
+
 def test_run_analysis_infers_seniority_from_jd(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     from careercrew import config

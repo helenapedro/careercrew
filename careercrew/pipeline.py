@@ -39,10 +39,13 @@ from careercrew.models import (
     ExecutionTrace,
     FeedbackDraft,
     GapReport,
+    GapVerdict,
     InterviewPrepPlan,
     JobRequirements,
+    RewrittenBullet,
     ScreeningAnswer,
     ScreeningPrep,
+    WorkExperience,
     infer_seniority_from_jd,
 )
 
@@ -198,6 +201,93 @@ def deterministic_package(
 
 #: Backwards-compatible alias for the deterministic fallback.
 deterministic_screening_prep = deterministic_package
+
+
+def _apply_revision_experience(
+    profile: CandidateProfile | None,
+    gaps: GapReport | None,
+    requirements: JobRequirements | None,
+    request: AnalysisRequest,
+) -> tuple[CandidateProfile, GapReport, JobRequirements]:
+    """Fold Request-changes notes into profile/gaps when the crew did not.
+
+    Used so offline / fallback runs still treat candidate-attested experience
+    (e.g. React years) as covering matching JD requirements.
+    """
+    profile = profile or CandidateProfile()
+    gaps = gaps or GapReport()
+    requirements = requirements or JobRequirements()
+    notes = (request.revision_notes or "").strip()
+    if not notes:
+        return profile, gaps, requirements
+
+    already = any(
+        "candidate-attested" in (role.company or "").lower()
+        or notes[:80] in " ".join(role.achievements)
+        for role in profile.experience
+    )
+    if not already:
+        profile.experience.append(
+            WorkExperience(
+                company="Candidate-attested update",
+                title="Additional experience (Request changes)",
+                achievements=[notes],
+            )
+        )
+
+    notes_l = notes.lower()
+    # Promote out-of-scope / missing requirements that the notes clearly cover.
+    updated: list[GapVerdict] = []
+    seen_reqs: set[str] = set()
+    for verdict in gaps.verdicts:
+        seen_reqs.add(verdict.requirement.lower())
+        req_l = verdict.requirement.lower()
+        tokens = [t for t in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", req_l) if t not in {"and", "the", "with", "for"}]
+        if verdict.verdict == "out_of_scope" and any(tok in notes_l for tok in tokens):
+            updated.append(
+                GapVerdict(
+                    requirement=verdict.requirement,
+                    verdict="covered",
+                    supporting_fact=notes[:240],
+                )
+            )
+        else:
+            updated.append(verdict)
+
+    skill_pool = list(requirements.required_skills) + list(requirements.keywords)
+    if not skill_pool and (request.jd_text or "").strip():
+        # Offline path often has no structured JD yet — pull tokens that appear
+        # in both the posting and the candidate's attested notes.
+        jd_l = request.jd_text.lower()
+        for tok in sorted(set(re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", notes_l)), key=len, reverse=True):
+            if len(tok) < 4 or tok in {"have", "years", "year", "with", "experience", "building"}:
+                continue
+            if tok in jd_l:
+                skill_pool.append(tok)
+
+    for skill in skill_pool:
+        key = (skill or "").strip()
+        if not key or key.lower() in seen_reqs:
+            continue
+        if key.lower() in notes_l:
+            updated.append(
+                GapVerdict(
+                    requirement=key,
+                    verdict="covered",
+                    supporting_fact=notes[:240],
+                )
+            )
+            seen_reqs.add(key.lower())
+            if key not in requirements.required_skills and key not in requirements.keywords:
+                requirements.keywords.append(key)
+
+    if updated:
+        gaps.verdicts = updated
+        covered = sum(1 for v in updated if (v.verdict or "").lower() == "covered")
+        if updated:
+            gaps.coverage_score = max(gaps.coverage_score, round(100 * covered / len(updated)))
+
+    return profile, gaps, requirements
 
 
 def _parse_package(data: Any, package_id: str) -> ScreeningPrep | None:
@@ -431,6 +521,26 @@ def run_analysis(
         for item in feedback.do_not_claim:
             if item not in package.do_not_claim:
                 package.do_not_claim.append(item)
+
+    # Candidate-attested Request-changes notes enrich profile/gaps (especially
+    # important on the offline fallback path where the crew did not re-score).
+    if (request.revision_notes or "").strip():
+        profile, gaps, requirements = _apply_revision_experience(
+            profile, gaps, requirements, request
+        )
+        if feedback is None:
+            feedback = FeedbackDraft(
+                rewritten_bullets=[
+                    RewrittenBullet(
+                        text=f"Highlight attested experience: {(request.revision_notes or '')[:180]}",
+                        cited_fact=(request.revision_notes or "")[:240],
+                    )
+                ],
+                talking_points=[
+                    f"Be ready to discuss: {(request.revision_notes or '')[:160]}",
+                ],
+            )
+        warnings.append("Candidate-attested Request changes updates were applied to experience.")
 
     # Build a deterministic prep plan when the crew did not produce one, so the
     # Interview Prep tab always has grounded, gap-derived guidance.

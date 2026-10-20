@@ -193,7 +193,7 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
 
 
 def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
-    """Request changes must re-run the pipeline and refresh results, not only flip status."""
+    """Request changes merges new experience and rebuilds results (not status-only)."""
     monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
     monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -211,19 +211,36 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
             None,
             "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale here.",
             None,
-            "We need a Python backend engineer with FastAPI and AWS. 5+ years experience.",
+            "We need a Python backend engineer with React and FastAPI. 5+ years experience.",
             "Are you authorized to work in the US?",
         )
     )
     package_state = analyzed[12]
     assert package_state is not None
 
-    revised = _drain(
-        app.request_revision(package_state, "Drop any AWS claims that are weak.")
-    )
+    notes = "I have 5+ years of React experience building production SPAs."
+    revised = _drain(app.request_revision(package_state, notes))
     assert "revision" in str(revised[1]).lower()
     assert "ready" in str(revised[1]).lower()
     assert revised[12] is not None
-    assert "Drop any AWS" in revised[7] or "Revision notes" in revised[7] or "revision" in revised[1].lower()
-    # Notes box cleared after a successful revision.
+    # Saved inputs now include the attested experience for further revisions.
+    stored = app._STORE.get_package(revised[12]["package_id"])
+    assert stored is not None
+    assert "React" in (stored.get("inputs") or {}).get("resume_text", "")
+    assert "CANDIDATE-ATTESTED" in (stored.get("inputs") or {}).get("resume_text", "")
+    # Offline path surfaces the update in context / package copy.
+    assert "React" in revised[15] or "React" in revised[7] or "attested" in revised[1].lower()
     assert revised[13] == ""
+
+
+def test_merge_revision_into_resume_appends_attested_block():
+    import app
+
+    merged = app._merge_revision_into_resume(
+        None,
+        "ALEX RIVERA. Skills: Python.",
+        "I have 5+ years of React experience.",
+    )
+    assert "Python" in merged
+    assert "CANDIDATE-ATTESTED UPDATE" in merged
+    assert "5+ years of React" in merged

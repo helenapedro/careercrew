@@ -870,8 +870,41 @@ def reject(state, feedback):
     )
 
 
+def _merge_revision_into_resume(
+    resume_path: str | None, resume_text: str | None, notes: str
+) -> str:
+    """Fold candidate-attested Request-changes notes into the resume text.
+
+    Agents then re-extract the profile and re-score gaps so new experience
+    (e.g. React years) updates the match report, prep plan, and rewrites.
+    """
+    base = (resume_text or "").strip()
+    if not base and resume_path:
+        try:
+            from careercrew.document_tools import read_resume
+
+            base = (read_resume(resume_path) or "").strip()
+        except Exception:  # noqa: BLE001 - fall back to notes-only addendum
+            logger.warning("could not re-read resume %s for revision", resume_path, exc_info=True)
+            base = ""
+    block = (
+        "\n\n---\n"
+        "CANDIDATE-ATTESTED UPDATE (from Request changes):\n"
+        "Treat the following as real experience the candidate confirms they have, "
+        "even if it was missing from the original resume. Use it when scoring "
+        "coverage, writing bullets, and planning interview prep.\n"
+        f"{notes.strip()}\n"
+    )
+    return f"{base}{block}".strip() if base else notes.strip()
+
+
 def request_revision(state, feedback) -> Iterator[tuple]:
-    """Apply HITL revision notes, re-run analysis on the saved inputs, refresh UI."""
+    """Merge candidate experience updates, re-analyze, and refresh every result tab.
+
+    ``Request changes`` is how the candidate adds missing experience (e.g. React
+    years not on the resume). Notes are folded into the resume context and the
+    full Analyze pipeline runs again so gaps, prep, and answers update.
+    """
     outputs = list(_empty_outputs())
 
     def emit(*pairs) -> tuple:
@@ -897,7 +930,10 @@ def request_revision(state, feedback) -> Iterator[tuple]:
 
     notes = (feedback or "").strip()
     if not notes:
-        yield fail("Please describe the revision you want in the notes box.")
+        yield fail(
+            "Describe the experience or corrections to apply "
+            "(e.g. “I have 5+ years of React experience”)."
+        )
         return
 
     status_now, revisions = _current_status(package)
@@ -935,10 +971,12 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         )
         return
 
+    # Fold notes into resume text so profile → gaps → prep all see the new experience.
+    updated_resume = _merge_revision_into_resume(resume_path, resume_text, notes)
     request = AnalysisRequest(
         package_id=package.package_id,
-        resume_path=resume_path,
-        resume_text=resume_text,
+        resume_path=None,
+        resume_text=updated_resume,
         jd_path=jd_path,
         jd_text=jd_text,
         seniority=saved.get("seniority") or "",
@@ -948,8 +986,11 @@ def request_revision(state, feedback) -> Iterator[tuple]:
 
     yield emit(
         0, "",
-        1, f"**Revision {outcome.revision_count}…** re-running analysis with your notes.",
-        3, _stages_html(1, "Applying your revision notes…"),
+        1, (
+            f"**Revision {outcome.revision_count}…** updating your experience from the "
+            "notes and re-analyzing the match."
+        ),
+        3, _stages_html(1, "Merging your experience updates…"),
         9, gr.update(interactive=False),
         10, gr.update(interactive=False),
         11, gr.update(interactive=False),
@@ -1017,14 +1058,14 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         mode = " (limited mode)" if result.used_fallback else ""
         status = (
             f"**Revision {outcome.revision_count} is ready{mode}.** "
-            f"Your notes were applied and the prep bundle was rebuilt — "
-            f"`{result.package.package_id}`. Review the updated tabs, then approve, "
-            f"request further changes, or reject."
+            f"Your experience updates were merged and the match / prep / answers "
+            f"were rebuilt — `{result.package.package_id}`. Review the updated tabs, "
+            f"then approve, add more experience, or reject."
         )
         yield emit(
             0, "",
             1, status,
-            3, _stages_html(_FINAL, "Revision complete — review the updated prep bundle."),
+            3, _stages_html(_FINAL, "Experience updated — review the new match report."),
             4, _trace_markdown(result),
             5, _insight_html(result),
             6, _prep_html(result.prep_plan),
@@ -1550,15 +1591,20 @@ def build_app() -> gr.Blocks:
         with gr.Group(elem_classes=["cc-review"]):
             gr.HTML(
                 "<div class='cc-panel-head'><h3>Your decision</h3>"
-                "<p class='cc-hint'>Review the prep bundle — rewrites, talking points, and "
-                "do-not-claim items. Nothing is finalized or submitted until you approve it.</p></div>"
+                "<p class='cc-hint'>Review the prep bundle. Use <strong>Request changes</strong> "
+                "to add experience that was missing from your resume (for example React years) "
+                "— we rebuild the match report from those updates. Nothing is submitted "
+                "until you approve.</p></div>"
             )
             feedback = gr.Textbox(
-                label="Notes for a revision (required if you request changes)",
-                placeholder="e.g. Drop the AWS bullet — it’s not backed by my resume.",
-                lines=2,
+                label="Experience updates / corrections (required for Request changes)",
+                placeholder="e.g. I have 5+ years of React experience building production SPAs.",
+                lines=3,
                 elem_classes=["cc-field"],
-                info="Request changes re-runs analysis with these notes and refreshes the results.",
+                info=(
+                    "These notes are merged into your experience and Analyze runs again "
+                    "so coverage, prep plan, and rewrites update."
+                ),
             )
             with gr.Row(elem_classes=["cc-review-actions"]):
                 approve_btn = gr.Button(

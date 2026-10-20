@@ -7,12 +7,17 @@ extract_profile:
     Produce a structured candidate profile from the resume. If the input
     provides a file path at {resume_path}, read it with the read_resume tool.
     If the resume arrives as pasted text at {resume_text}, use that text
-    directly (no file read). Extract only facts present in the document. Never
-    infer employers, titles, or dates that are not written.
+    directly (no file read). Extract facts present in the document. Also
+    incorporate any candidate-attested updates at {revision_notes}: these are
+    skills or experience the candidate confirmed during review (for example
+    "I have 5+ years of React") even when they were missing from the original
+    resume. Merge those updates into skills and experience. Do not invent
+    employers, titles, or dates that appear in neither the resume nor the
+    revision notes.
   expected_output: >
     A CandidateProfile JSON object: summary, skills, work experience (company,
-    title, dates, achievements), and education. Empty fields where the resume
-    does not state them.
+    title, dates, achievements), and education. Empty fields where neither the
+    resume nor the revision notes state them.
 
 analyze_jd:
   description: >
@@ -31,7 +36,10 @@ analyze_gaps:
     keyword and skill coverage from 0 to 100. For each requirement, give a
     verdict: covered, reframeable (real experience can be reframed to cover
     it), or out_of_scope, with the supporting profile fact for each covered
-    or reframeable item.
+    or reframeable item. Treat candidate-attested updates from {revision_notes}
+    as valid supporting facts. If a requirement was previously out of scope but
+    the candidate now claims matching experience in those notes, mark it
+    covered or reframeable and cite the attested update.
   expected_output: >
     A GapReport JSON object: coverage_score plus per-requirement verdicts with
     supporting facts.
@@ -39,10 +47,11 @@ analyze_gaps:
 write_feedback:
   description: >
     Draft 5 to 8 tailored bullet rewrites and 3 interview talking points from
-    the gap report. Every bullet must cite the profile fact it is based on.
-    List out-of-scope requirements under do_not_claim instead of writing
-    bullets for them. Honor any human revision notes at {revision_notes}
-    (drop, rephrase, or emphasize items the reviewer asked for).
+    the gap report. Every bullet must cite the profile fact it is based on
+    (resume fact or candidate-attested update from {revision_notes}). List
+    requirements that remain out of scope under do_not_claim. When revision
+    notes add experience that now covers a requirement, write bullets and
+    talking points that use that attested experience.
   expected_output: >
     A FeedbackDraft JSON object: rewritten_bullets (text plus cited_fact),
     talking_points, and do_not_claim.
@@ -59,9 +68,9 @@ build_prep_plan:
     time as an integer percentage (all focus areas together should total about
     100), a short reason, and the exact requirement text it comes from. Also
     list question themes to practice, the candidate's strongest areas, and the
-    riskiest areas. Never tell the candidate to claim experience the resume
-    does not support. If revision notes at {revision_notes} are present,
-    adjust priorities and themes to match them.
+    riskiest areas. Never invent experience that appears in neither the resume
+    nor {revision_notes}. When revision notes add experience, reduce prep time
+    on those formerly missing areas and emphasize rehearsal of the new claims.
   expected_output: >
     An InterviewPrepPlan JSON object: seniority (band, target_years,
     detected_years, confidence, rationale), focus_areas (area, priority,

@@ -6,7 +6,8 @@ Implements the real backend state transitions for an application package:
                             -> REJECTED
                             -> (REVISE) -> DRAFT (a new bounded revision)
 
-A revision is a targeted re-run driven by reviewer feedback, limited to
+A revision lets the candidate attest missing experience (or corrections),
+then re-runs analysis with those notes folded into the resume. Limited to
 ``max_revisions`` cycles. There is no silent auto-approval: a package only
 becomes APPROVED when a human explicitly approves it.
 """
@@ -135,7 +136,10 @@ class PackageReviewService:
         self._store.update_status(package.package_id, ReviewStatus.DRAFT, next_count)
         return ReviewOutcome(
             status=ReviewStatus.DRAFT,
-            message=f"Revision {next_count} requested; re-running targeted packaging.",
+            message=(
+                f"Revision {next_count} requested; merging candidate experience "
+                "updates and re-analyzing."
+            ),
             revision_count=next_count,
             needs_revision=True,
         )
