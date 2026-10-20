@@ -1724,13 +1724,22 @@ def build_app() -> gr.Blocks:
                     "<p class='cc-hint'>Ask anything about improving your resume or preparing "
                     "for this role. Uses your Analyze context when available.</p></div>"
                 )
-                prep_chat = gr.Chatbot(label="Prep coach", height=380)
-                prep_msg = gr.Textbox(
-                    label="Your question",
-                    placeholder="How should I talk about the AWS gap?",
-                    lines=2,
-                    elem_classes=["cc-field"],
-                )
+                prep_chat = gr.Chatbot(label="Chat", height=380, show_label=False)
+                with gr.Row(equal_height=True):
+                    prep_msg = gr.Textbox(
+                        label="Your question",
+                        placeholder="How should I talk about the AWS gap?",
+                        lines=2,
+                        scale=4,
+                        elem_classes=["cc-field"],
+                    )
+                    prep_send_btn = gr.Button(
+                        "Send",
+                        variant="primary",
+                        elem_classes=["cc-run"],
+                        scale=0,
+                        min_width=100,
+                    )
 
             # ------------------------------------------------------------------ #
             # Tab 4 — Post-interview coach
@@ -1741,13 +1750,22 @@ def build_app() -> gr.Blocks:
                     "<p class='cc-hint'>After your mock interview, ask about performance. "
                     "Remembers resume, JD, gaps, prep plan, and interview transcript.</p></div>"
                 )
-                post_chat = gr.Chatbot(label="Post-interview coach", height=380)
-                post_msg = gr.Textbox(
-                    label="Your question",
-                    placeholder="What should I improve before the real interview?",
-                    lines=2,
-                    elem_classes=["cc-field"],
-                )
+                post_chat = gr.Chatbot(label="Chat", height=380, show_label=False)
+                with gr.Row(equal_height=True):
+                    post_msg = gr.Textbox(
+                        label="Your question",
+                        placeholder="What should I improve before the real interview?",
+                        lines=2,
+                        scale=4,
+                        elem_classes=["cc-field"],
+                    )
+                    post_send_btn = gr.Button(
+                        "Send",
+                        variant="primary",
+                        elem_classes=["cc-run"],
+                        scale=0,
+                        min_width=100,
+                    )
 
         gr.HTML(
             "<p class='cc-foot'>CareerCrew keeps everything honest — verified facts only, "
@@ -1835,13 +1853,23 @@ def build_app() -> gr.Blocks:
             ],
         )
 
-        # --- coaching chat wiring ------------------------------------------- #
+        # --- coaching chat wiring (Enter or Send) --------------------------- #
         prep_msg.submit(
             _render_prep_chat,
             inputs=[prep_chat, prep_msg, ctx_state],
             outputs=[prep_chat, prep_msg],
         )
+        prep_send_btn.click(
+            _render_prep_chat,
+            inputs=[prep_chat, prep_msg, ctx_state],
+            outputs=[prep_chat, prep_msg],
+        )
         post_msg.submit(
+            _render_post_chat,
+            inputs=[post_chat, post_msg, ctx_state, iv_state],
+            outputs=[post_chat, post_msg],
+        )
+        post_send_btn.click(
             _render_post_chat,
             inputs=[post_chat, post_msg, ctx_state, iv_state],
             outputs=[post_chat, post_msg],
