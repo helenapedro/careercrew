@@ -81,7 +81,7 @@ Reset tuple for clear/error paths.
 | `_load_package` / `_current_status` | State → ScreeningPrep; SQLite status + revisions |
 | `approve` | `ReviewAction.APPROVE` → message with prep bundle id + next-tab hint |
 | `reject` | `REJECT` |
-| `request_revision` | `REVISE` (notes required); may signal re-run needs |
+| `request_revision` | `REVISE` (notes required) → re-runs `run_analysis` with saved inputs + `revision_notes`, refreshes all result tabs |
 | `_tracker_rows` | History dataframe from `list_packages` |
 
 **Say this:** “Approve only changes SQLite status — nothing is submitted to an employer.”

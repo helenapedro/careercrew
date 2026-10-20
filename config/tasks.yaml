@@ -41,7 +41,8 @@ write_feedback:
     Draft 5 to 8 tailored bullet rewrites and 3 interview talking points from
     the gap report. Every bullet must cite the profile fact it is based on.
     List out-of-scope requirements under do_not_claim instead of writing
-    bullets for them.
+    bullets for them. Honor any human revision notes at {revision_notes}
+    (drop, rephrase, or emphasize items the reviewer asked for).
   expected_output: >
     A FeedbackDraft JSON object: rewritten_bullets (text plus cited_fact),
     talking_points, and do_not_claim.
@@ -59,7 +60,8 @@ build_prep_plan:
     100), a short reason, and the exact requirement text it comes from. Also
     list question themes to practice, the candidate's strongest areas, and the
     riskiest areas. Never tell the candidate to claim experience the resume
-    does not support.
+    does not support. If revision notes at {revision_notes} are present,
+    adjust priorities and themes to match them.
   expected_output: >
     An InterviewPrepPlan JSON object: seniority (band, target_years,
     detected_years, confidence, rationale), focus_areas (area, priority,
@@ -75,7 +77,8 @@ prepare_screening_answers:
     NOT guess: add the question to do_not_claim. Then write a short
     package_summary that explains these are copy-ready answers the candidate
     can paste into their own application. Carry forward the feedback draft's
-    do_not_claim items.
+    do_not_claim items. Mention any human revision notes at {revision_notes}
+    in the package_summary when they are not empty.
   expected_output: >
     A ScreeningPrep JSON object: role_title, company, screening_answers
     (question, answer, source=answer_bank, verified), package_summary, and

@@ -57,7 +57,7 @@ Store: [`careercrew/session_store.py`](../careercrew/session_store.py).
 | Button | Handler in `app.py` | Service call |
 |--------|---------------------|--------------|
 | Approve prep bundle | `approve(state, feedback)` | `apply_decision(..., APPROVE)` |
-| Request changes | `request_revision(state, feedback)` | `apply_decision(..., REVISE)` — **notes required** |
+| Request changes | `request_revision(state, feedback)` | `apply_decision(..., REVISE)` — **notes required**, then **re-runs** `run_analysis` on saved inputs with `revision_notes` and refreshes all result tabs |
 | Reject | `reject(state, feedback)` | `apply_decision(..., REJECT)` |
 | Refresh history | `refresh_btn` → `_tracker_rows()` | `list_packages` read-only |
 
@@ -103,4 +103,5 @@ Each approve/reject/revise also **INSERT**s into SQLite `decisions`:
 - HITL is real persistence, not a fake button  
 - Approve does **not** call any employer API  
 - Revise without notes is rejected by the service  
+- **Request changes** re-runs the pipeline with the reviewer’s notes (same `package_id`) and refreshes Match / Prep / Screening  
 - After terminal APPROVED/REJECTED, further decisions fail until a new Analyze  

@@ -190,3 +190,40 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
     )
     assert "Job description rejected" not in outputs[1]
     assert "Verified answer" in outputs[7] or "answer_bank" in outputs[7]
+
+
+def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
+    """Request changes must re-run the pipeline and refresh results, not only flip status."""
+    monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    import importlib
+
+    import app
+
+    importlib.reload(app)
+
+    analyzed = _drain(
+        app.analyze(
+            None,
+            "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale here.",
+            None,
+            "We need a Python backend engineer with FastAPI and AWS. 5+ years experience.",
+            "Are you authorized to work in the US?",
+        )
+    )
+    package_state = analyzed[12]
+    assert package_state is not None
+
+    revised = _drain(
+        app.request_revision(package_state, "Drop any AWS claims that are weak.")
+    )
+    assert "revision" in str(revised[1]).lower()
+    assert "ready" in str(revised[1]).lower()
+    assert revised[12] is not None
+    assert "Drop any AWS" in revised[7] or "Revision notes" in revised[7] or "revision" in revised[1].lower()
+    # Notes box cleared after a successful revision.
+    assert revised[13] == ""

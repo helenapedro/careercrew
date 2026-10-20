@@ -201,8 +201,14 @@ class SessionStore:
             ).fetchone()
         if row is None:
             return None
+        import json
+
         data = dict(row)
         data["package"] = ApplicationPackage.model_validate_json(data["package_json"])
+        try:
+            data["inputs"] = json.loads(data.get("inputs_json") or "{}")
+        except (TypeError, ValueError):
+            data["inputs"] = {}
         return data
 
     def get_decisions(self, package_id: str) -> list[ReviewDecision]:

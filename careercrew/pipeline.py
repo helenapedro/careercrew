@@ -66,6 +66,8 @@ class AnalysisRequest:
     jd_text: str | None = None
     screening_questions: list[str] = field(default_factory=list)
     seniority: str = ""
+    #: Human HITL notes from "Request changes" — empty on the first Analyze.
+    revision_notes: str = ""
 
 
 @dataclass
@@ -175,16 +177,21 @@ def deterministic_package(
         else:
             do_not_claim.append(question)
 
+    summary = (
+        "Copy-ready screening answers assembled from the verified answer bank. "
+        "Nothing is submitted on your behalf. Questions without a verified entry "
+        "are listed under do_not_claim."
+    )
+    notes = (request.revision_notes or "").strip()
+    if notes:
+        summary += f" Revision notes applied: {notes}"
+
     return ScreeningPrep(
         package_id=request.package_id,
         role_title="",
         company="",
         screening_answers=answers,
-        package_summary=(
-            "Copy-ready screening answers assembled from the verified answer bank. "
-            "Nothing is submitted on your behalf. Questions without a verified entry "
-            "are listed under do_not_claim."
-        ),
+        package_summary=summary,
         do_not_claim=do_not_claim,
     )
 
@@ -263,6 +270,8 @@ def _run_crew(
             request.seniority
             or "the seniority / years of experience signaled in the job description"
         ),
+        revision_notes=(request.revision_notes or "").strip()
+        or "(none — produce the initial package)",
     )
     started = time.perf_counter()
     crew = build_crew(verbose=False, on_task=on_task)

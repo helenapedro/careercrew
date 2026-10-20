@@ -183,6 +183,7 @@ def crew_inputs(
     jd_text: str | None = None,
     screening_questions: str = "",
     seniority: str = "",
+    revision_notes: str = "",
 ) -> dict:
     """Build the inputs mapping used by ``Crew.kickoff``.
 
@@ -201,6 +202,8 @@ def crew_inputs(
         "screening_questions": screening_questions or "(none provided)",
         "seniority": seniority
         or "the seniority / years of experience signaled in the job description",
+        "revision_notes": revision_notes
+        or "(none — produce the initial package)",
     }
 
 

@@ -759,6 +759,7 @@ def analyze(
         _REVIEW.submit_for_review(
             {
                 "resume_path": request.resume_path,
+                "resume_text": request.resume_text,
                 "jd_path": request.jd_path,
                 "jd_text": request.jd_text,
                 "seniority": request.seniority,
@@ -869,18 +870,36 @@ def reject(state, feedback):
     )
 
 
-def request_revision(state, feedback):
+def request_revision(state, feedback) -> Iterator[tuple]:
+    """Apply HITL revision notes, re-run analysis on the saved inputs, refresh UI."""
+    outputs = list(_empty_outputs())
+
+    def emit(*pairs) -> tuple:
+        for position in range(0, len(pairs), 2):
+            outputs[pairs[position]] = pairs[position + 1]
+        return tuple(outputs)
+
+    def fail(message: str) -> tuple:
+        return emit(
+            0, _alert_html(message, kind="error"),
+            1, "Revision could not finish — see the message above.",
+            3, _stages_html(-1),
+            9, gr.update(interactive=True),
+            10, gr.update(interactive=True),
+            11, gr.update(interactive=True),
+            12, state,
+        )
+
     package = _load_package(state)
     if package is None:
-        return gr.update(), state, "Nothing to revise.", gr.update(), _tracker_rows()
-    if not (feedback or "").strip():
-        return (
-            gr.update(),
-            state,
-            "Please describe the revision you want.",
-            gr.update(),
-            _tracker_rows(),
-        )
+        yield fail("Nothing to revise — run Analyze first.")
+        return
+
+    notes = (feedback or "").strip()
+    if not notes:
+        yield fail("Please describe the revision you want in the notes box.")
+        return
+
     status_now, revisions = _current_status(package)
     try:
         outcome = _REVIEW.apply_decision(
@@ -888,21 +907,140 @@ def request_revision(state, feedback):
             ReviewDecision(
                 package_id=package.package_id,
                 decision=ReviewAction.REVISE,
-                reviewer_feedback=feedback,
+                reviewer_feedback=notes,
             ),
             status_now,
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), state, f"Cannot revise: {exc}", gr.update(), _tracker_rows()
+        yield fail(f"Cannot revise: {exc}")
+        return
 
-    return (
-        gr.update(interactive=True),
-        state,
-        f"Revision {outcome.revision_count} requested — update the inputs and analyze again.",
-        _package_html(package, []),
-        _tracker_rows(),
+    stored = _STORE.get_package(package.package_id) or {}
+    saved = stored.get("inputs") or {}
+    resume_path = saved.get("resume_path") or None
+    resume_text = saved.get("resume_text") or None
+    jd_path = saved.get("jd_path") or None
+    jd_text = saved.get("jd_text") or None
+    if not resume_path and not resume_text:
+        yield fail(
+            "Saved resume inputs are missing for this prep bundle. "
+            "Update the resume/JD fields and press Analyze match again."
+        )
+        return
+    if not jd_path and not jd_text:
+        yield fail(
+            "Saved job-description inputs are missing for this prep bundle. "
+            "Update the resume/JD fields and press Analyze match again."
+        )
+        return
+
+    request = AnalysisRequest(
+        package_id=package.package_id,
+        resume_path=resume_path,
+        resume_text=resume_text,
+        jd_path=jd_path,
+        jd_text=jd_text,
+        seniority=saved.get("seniority") or "",
+        screening_questions=list(saved.get("screening_questions") or []),
+        revision_notes=notes,
     )
+
+    yield emit(
+        0, "",
+        1, f"**Revision {outcome.revision_count}…** re-running analysis with your notes.",
+        3, _stages_html(1, "Applying your revision notes…"),
+        9, gr.update(interactive=False),
+        10, gr.update(interactive=False),
+        11, gr.update(interactive=False),
+        12, state,
+        13, notes,
+    )
+
+    stages: dict[str, object] = {"index": 1, "detail": "Applying your revision notes…"}
+
+    def progress(message: str) -> None:
+        lowered = message.lower()
+        if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
+            stages["index"], stages["detail"] = 7, "Preparing screening answers…"
+        elif "six-agent crew" in lowered:
+            stages["index"], stages["detail"] = 2, "Re-reading your resume…"
+        else:
+            stages["detail"] = message
+
+    def on_task(output) -> None:
+        name = getattr(output, "name", "") or ""
+        agent = getattr(output, "agent", "") or ""
+        stage = _AGENT_STAGE.get(agent) or _TASK_STAGE.get(name)
+        if stage:
+            title = next((t for n, t, _ in STAGES if n == stage), name or agent)
+            stages["index"] = stage + 1
+            stages["detail"] = f"Finished: {title}"
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(run_analysis, request, progress=progress, on_task=on_task)
+            expected = 2
+            last_yielded = 1
+            while not future.done():
+                reported = int(stages["index"])
+                if reported >= expected:
+                    expected = reported + 1
+                target = min(expected, _TOTAL_STAGES)
+                if target != last_yielded:
+                    last_yielded = target
+                    detail = str(stages["detail"] or "Working…")
+                    yield emit(3, _stages_html(target, detail), 1, detail)
+                _wait_futures([future], timeout=1.0)
+
+            try:
+                result = future.result()
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("revision re-run failed")
+                yield fail(str(exc) or "Revision re-run failed unexpectedly.")
+                return
+
+        _REVIEW.submit_for_review(
+            {
+                "resume_path": request.resume_path,
+                "resume_text": request.resume_text,
+                "jd_path": request.jd_path,
+                "jd_text": request.jd_text,
+                "seniority": request.seniority,
+                "screening_questions": request.screening_questions,
+            },
+            result.package,
+            result.trace,
+            revision_count=outcome.revision_count,
+        )
+
+        mode = " (limited mode)" if result.used_fallback else ""
+        status = (
+            f"**Revision {outcome.revision_count} is ready{mode}.** "
+            f"Your notes were applied and the prep bundle was rebuilt — "
+            f"`{result.package.package_id}`. Review the updated tabs, then approve, "
+            f"request further changes, or reject."
+        )
+        yield emit(
+            0, "",
+            1, status,
+            3, _stages_html(_FINAL, "Revision complete — review the updated prep bundle."),
+            4, _trace_markdown(result),
+            5, _insight_html(result),
+            6, _prep_html(result.prep_plan),
+            7, _package_html(result.package, result.warnings),
+            8, result.package.model_dump_json(indent=2),
+            9, gr.update(interactive=True),
+            10, gr.update(interactive=True),
+            11, gr.update(interactive=True),
+            12, result.package.model_dump(),
+            13, "",
+            14, _tracker_rows(),
+            15, _serialize_result(result),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("request_revision crashed")
+        yield fail(f"Unexpected error: {exc}")
 
 
 def _read_sample(name: str) -> str:
@@ -1420,6 +1558,7 @@ def build_app() -> gr.Blocks:
                 placeholder="e.g. Drop the AWS bullet — it’s not backed by my resume.",
                 lines=2,
                 elem_classes=["cc-field"],
+                info="Request changes re-runs analysis with these notes and refreshes the results.",
             )
             with gr.Row(elem_classes=["cc-review-actions"]):
                 approve_btn = gr.Button(
@@ -1548,7 +1687,7 @@ def build_app() -> gr.Blocks:
         revise_btn.click(
             request_revision,
             inputs=[state, feedback],
-            outputs=[revise_btn, state, review_status, package_md, tracker_table],
+            outputs=analyze_outputs,
         )
         refresh_btn.click(_tracker_rows, outputs=[tracker_table])
 
