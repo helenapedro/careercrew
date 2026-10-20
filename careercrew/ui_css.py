@@ -34,10 +34,14 @@ body.dark {
   --cc-shadow: rgba(0, 0, 0, .45);
 }
 
+/* Fixed page width so switching tabs does not reflow the viewport. */
 .gradio-container {
+  width: min(1180px, calc(100vw - 32px)) !important;
   max-width: 1180px !important;
+  min-width: min(1180px, calc(100vw - 32px)) !important;
   margin: 0 auto !important;
   padding-top: 18px !important;
+  box-sizing: border-box !important;
   background:
     radial-gradient(900px 380px at 12% -8%, color-mix(in srgb, var(--cc-accent) 14%, transparent), transparent 58%),
     radial-gradient(700px 320px at 92% 0%, color-mix(in srgb, #06b6d4 10%, transparent), transparent 52%),
@@ -45,7 +49,12 @@ body.dark {
   color: var(--cc-ink) !important;
 }
 footer { display: none !important; }
-.contain { gap: 14px !important; }
+.contain {
+  gap: 14px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
 
 [data-testid="block-info"] {
   background: transparent !important; border: none !important;
@@ -378,11 +387,19 @@ button.cc-clear:hover {
 .cc-qa-item .cc-q { margin: 0 0 6px; font-weight: 680; color: var(--cc-ink); font-size: 13.5px; }
 .cc-qa-item .cc-a { margin: 0 0 8px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.55; }
 
-/* Top-level workflow tabs */
+/* Top-level workflow tabs — full-width panels so content never shrinks the page */
+.cc-main-tabs,
+.cc-main-tabs > .tabs,
+.cc-main-tabs .tabs {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
 .cc-main-tabs > .tab-nav,
 .cc-main-tabs .tabs > .tab-nav {
   gap: 4px !important;
   flex-wrap: wrap !important;
+  width: 100% !important;
   border-bottom: 1px solid var(--cc-line) !important;
   margin-bottom: 14px !important;
 }
@@ -392,8 +409,17 @@ button.cc-clear:hover {
   font-size: 13.5px !important;
   border-radius: 10px 10px 0 0 !important;
 }
+.cc-main-tabs .tabitem,
+.cc-main-tabs [role="tabpanel"],
+.cc-result-tabs .tabitem,
+.cc-result-tabs [role="tabpanel"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
 .cc-result-tabs {
   margin: 12px 0 14px;
+  width: 100% !important;
 }
 
 /* Decision dock — step-by-step HITL */
