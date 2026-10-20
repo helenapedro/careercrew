@@ -44,23 +44,23 @@ write(
     [
         (
             "markdown",
-            """# CareerCrew — presentation overview
+            """# CareerCrew — system overview
 
-**Goal of this notebook:** one-slide mental model before diving into code.
+CareerCrew is a multi-agent preparation system built with CrewAI and MCP.
+Six specialized agents analyze a resume against a job description, produce an
+honest interview prep plan, and draft screening answers **only** from a verified
+answer bank. The product also includes a **voice mock interviewer** and two
+coaching chats.
 
-**Open beside this:** `ARCHITECTURE.md`, `README.md`
+**Nothing is submitted to a job board.** CareerCrew prepares and practices;
+the candidate applies themselves.
+
+Related docs: `ARCHITECTURE.md`, `README.md`
 """,
         ),
         (
             "markdown",
-            """## Say this (30 seconds)
-
-> CareerCrew is a **multi-agent prep system**. Six CrewAI agents analyze a resume against a job description, build an honest prep plan, and draft screening answers **only** from a verified answer bank. On top of that we add a **voice mock interviewer** and coaching chats. **Nothing is submitted** to a job board — we prepare and practice only.
-""",
-        ),
-        (
-            "markdown",
-            """## End-to-end picture
+            """## End-to-end flow
 
 ```
 Resume + JD  →  ANALYZE (6 agents + MCP tools)
@@ -88,36 +88,35 @@ Resume + JD  →  ANALYZE (6 agents + MCP tools)
 | 5 | Prep advisor | Interview prep plan |
 | 6 | Screening drafter | Answers from answer bank only |
 
-Tools talk to an **MCP server** (`read_resume`, `read_job_description`, `query_answer_bank`).
+Tools talk to an **MCP server** exposing `read_resume`, `read_job_description`,
+and `query_answer_bank`.
 """,
         ),
         (
             "markdown",
             """## Where voice fits
 
-Voice is **only** in the Mock interview tab:
+Voice is used **only** in the Mock interview tab:
 
 | Direction | Mechanism | Module |
 |-----------|-----------|--------|
-| Agent → you | TTS (`tts-1`) + Chatbot transcript | `audio.speak` + `append_turn` |
-| You → agent | Mic filepath → Whisper STT (or typed text) | `audio.transcribe` |
-| Eval | **Text only** to chat LLM | `interview.evaluate_answer` |
+| Agent → candidate | TTS (`tts-1`) + Chatbot transcript | `audio.speak` + `append_turn` |
+| Candidate → agent | Mic filepath → Whisper STT (or typed text) | `audio.transcribe` |
+| Evaluation | **Text only** to the chat LLM | `interview.evaluate_answer` |
 
-> **Key honesty line:** the chat LLM never receives the audio file — only the transcript string.
+The chat LLM never receives the audio file — only the transcript string.
 """,
         ),
         (
             "markdown",
-            """## Presentation map
+            """## Notebooks in this folder
 
 | Notebook | Topic |
 |----------|--------|
-| `01_voice_and_transcript.ipynb` | How voice + live transcript stay in sync |
+| `01_voice_and_transcript.ipynb` | How voice and the live transcript stay in sync |
 | `02_mock_interview_flow.ipynb` | Start → ask → submit → score |
 | `03_analyze_pipeline.ipynb` | Analyze button → crew → fallback |
 | `04_hitl_and_coaches.ipynb` | Review states + coaching memory |
-
-Speaker minute order: `docs/SPEAKER_CHEATSHEET.md`
 """,
         ),
     ],
@@ -128,29 +127,39 @@ write(
     [
         (
             "markdown",
-            """# How the agent talks to us — and how we talk back
+            """# Voice and live transcript
 
-**Focus:** voice in, voice out, and the **live transcript** Chatbot.
+This notebook explains how the mock interviewer **speaks**, how the candidate
+**answers by voice or text**, and how the **live transcript** stays synchronized.
 
-**Open beside this:**
-- `app.py` → `iv_audio`, `iv_answer_audio`, `_ask_question`, `interview_submit`, `_turns_to_messages`
-- `careercrew/audio.py` → `speak`, `transcribe`
+**Source files**
+- `app.py` — `iv_audio`, `iv_answer_audio`, `_ask_question`, `interview_submit`, `_turns_to_messages`
+- `careercrew/audio.py` — `speak`, `transcribe`
 """,
         ),
         (
             "markdown",
-            """## Say this (20 seconds)
+            """## How it works
 
-> When the interviewer asks a question, we take the **same text string**, synthesize speech with TTS for the ear, and append that string as an interviewer turn for the eye. When I answer, Gradio saves my mic to a temp file; Whisper turns it into text (or I type). Only that text goes to the evaluator. Then we append my answer to the transcript and speak the next question the same way. **Voice and transcript are always the same underlying text — audio is just I/O around it.**
+When the interviewer asks a question, CareerCrew uses the **same text string**
+twice: TTS synthesizes speech for listening, and `append_turn` adds that text
+to the transcript for reading.
+
+When the candidate answers, Gradio saves the microphone recording to a temporary
+filepath. Whisper converts it to text (or the candidate can type). **Only that
+text** is sent to the evaluation LLM. The answer is appended to the transcript,
+then the next question is spoken and displayed the same way.
+
+Voice and transcript are always the same underlying text — audio is I/O around it.
 """,
         ),
         (
             "markdown",
-            """## Board diagram
+            """## Architecture diagram
 
 ```
-AGENT SPEAKS                          YOU ANSWER
-───────────                           ──────────
+AGENT SPEAKS                          CANDIDATE ANSWERS
+───────────                           ─────────────────
 question.text                         mic → Gradio temp filepath
      │                                      │
      ├─► audio.speak() → .mp3               ├─► audio.transcribe() → TEXT
@@ -167,21 +176,21 @@ Chat LLM / evaluate_answer sees TEXT ONLY — never the audio bytes.
         ),
         (
             "markdown",
-            """## 1. UI widgets (Gradio) — where the mic and speaker live
+            """## 1. Gradio UI widgets
 
-File: `app.py` (Mock interview tab, ~1363–1378)
+Defined in `app.py` (Mock interview tab, ~1363–1378):
 
 | Widget | Role |
 |--------|------|
 | `iv_audio` | Interviewer player (`autoplay=True`, not interactive) |
-| `iv_answer_audio` | Your mic (`sources=["microphone"]`, `type="filepath"`) |
+| `iv_answer_audio` | Candidate mic (`sources=["microphone"]`, `type="filepath"`) |
 | `iv_answer_text` | Optional typed fallback |
 | `iv_chatbot` | Live transcript |
 """,
         ),
         (
             "code",
-            """# Exact shapes from app.py (illustrative — not importing Gradio here)
+            """# Widget configuration used in app.py (illustrative)
 
 ui = {
     "iv_audio": {
@@ -191,7 +200,7 @@ ui = {
     },
     "iv_answer_audio": {
         "sources": ["microphone"],
-        "type": "filepath",  # Gradio passes a temp path string into interview_submit
+        "type": "filepath",  # Gradio passes a temp path into interview_submit
         "label": "Record your answer",
     },
     "iv_answer_text": {
@@ -205,32 +214,33 @@ ui = {
 }
 
 for name, cfg in ui.items():
-    print(f"{name:16} → {cfg}")
+    print(f"{name:16} -> {cfg}")
 """,
         ),
         (
             "markdown",
-            """## 2. Agent talks = TTS + transcript turn
+            """## 2. Agent speaks = TTS + transcript turn
 
 `_ask_question` in `app.py` (~1043–1060):
 
-1. `audio.speak(question.text)` → temp `.mp3` (or `None` if no key)
+1. `audio.speak(question.text)` → temporary `.mp3` (or `None` if no API key)
 2. `interview.append_turn(..., INTERVIEWER, question.text)`
-3. Return path to `iv_audio` **and** `_turns_to_messages(session)` to `iv_chatbot`
+3. Return the audio path to `iv_audio` and `_turns_to_messages(session)` to `iv_chatbot`
 
-`audio.speak` (`careercrew/audio.py`): OpenAI **`tts-1`** → write temp mp3 → return path. On failure → `None` (text-only mode).
+`audio.speak` (`careercrew/audio.py`) calls OpenAI **`tts-1`**, writes a temp mp3,
+and returns the path. On failure it returns `None` and the UI stays text-only.
 """,
         ),
         (
             "code",
-            """# Simulate what _ask_question does with the transcript (no API calls)
+            """# Simulate _ask_question transcript behavior (no API calls)
 
 def speak_stub(text: str):
     \"\"\"Stand-in for audio.speak — real code writes a temp .mp3.\"\"\"
     print(f"[TTS] would synthesize: {text!r}")
-    return "/tmp/careercrew_q_demo.mp3"  # fake path for the demo
+    return "/tmp/careercrew_q_demo.mp3"
 
-turns = []  # like session.turns
+turns = []
 
 def append_turn(role: str, text: str):
     turns.append({"role": role, "text": text})
@@ -239,13 +249,13 @@ question_text = "Tell me about a time you owned an API end-to-end."
 audio_path = speak_stub(question_text)
 append_turn("interviewer", question_text)
 
-print("audio_path →", audio_path)
-print("turns      →", turns)
+print("audio_path ->", audio_path)
+print("turns      ->", turns)
 """,
         ),
         (
             "markdown",
-            """## 3. You talk = mic filepath → Whisper → text
+            """## 3. Candidate answers = mic filepath → Whisper → text
 
 `interview_submit` in `app.py` (~1092–1094):
 
@@ -255,14 +265,14 @@ answer = transcript.strip() or (answer_text or "").strip()
 ```
 
 - Gradio recorded the mic and passed **`answer_audio`** as a filepath.
-- `audio.transcribe` opens the file → OpenAI **`whisper-1`** → string.
-- Prefer voice transcript; if empty, use typed text.
-- Then `validate_interview_answer` + `evaluate_answer` (chat LLM, **text only**).
+- `audio.transcribe` opens the file and calls OpenAI **`whisper-1`**.
+- Voice transcript is preferred; if empty, typed text is used.
+- Then `validate_interview_answer` and `evaluate_answer` run on **text only**.
 """,
         ),
         (
             "code",
-            """# Simulate STT preference: voice wins over typed text when both exist
+            """# Voice transcript preferred over typed text when both exist
 
 def transcribe_stub(path):
     \"\"\"Stand-in for audio.transcribe — real code calls whisper-1.\"\"\"
@@ -276,7 +286,7 @@ answer_text = "short typed draft"         # optional
 transcript = transcribe_stub(answer_audio) if answer_audio else ""
 answer = transcript.strip() or (answer_text or "").strip()
 
-print("final answer to LLM →", answer)
+print("final answer to LLM ->", answer)
 print("note: chat model never sees", answer_audio)
 """,
         ),
@@ -284,14 +294,15 @@ print("note: chat model never sees", answer_audio)
             "markdown",
             """## 4. Live transcript sync
 
-`_turns_to_messages` (`app.py` ~926–932):
+`_turns_to_messages` (`app.py` ~926–932) maps session turns to Gradio Chatbot messages:
 
 | Session role | Chatbot role |
 |--------------|--------------|
 | `INTERVIEWER` | `"assistant"` |
 | `CANDIDATE` | `"user"` |
 
-Updated after every ask and every submit so the Chatbot stays synchronized with voice.
+The Chatbot is refreshed after every ask and every submit so it stays
+synchronized with the spoken dialogue.
 """,
         ),
         (
@@ -305,12 +316,12 @@ def turns_to_messages(turns):
         messages.append({"role": role, "content": turn["text"]})
     return messages
 
-# Continue the mock session from earlier cells
 append_turn("candidate", answer)
 append_turn("interviewer", "How did you measure that latency improvement?")
 
 chatbot_messages = turns_to_messages(turns)
-print("What the Gradio Chatbot receives:\\n")
+print("What the Gradio Chatbot receives:")
+print()
 for m in chatbot_messages:
     who = "Interviewer" if m["role"] == "assistant" else "You"
     print(f"  {who}: {m['content']}")
@@ -318,21 +329,22 @@ for m in chatbot_messages:
         ),
         (
             "markdown",
-            """## 5. Failure-tolerant design (say this if asked)
+            """## 5. Failure-tolerant design
 
 | Failure | Behavior |
 |---------|----------|
-| No OpenAI key | `audio_available()` false → text-only interview |
+| No OpenAI key | `audio_available()` is false → text-only interview |
 | TTS fails | Question still shown as HTML text |
 | STT fails / no mic | Typed `iv_answer_text` still works |
-| Empty answer | Guardrail rejects; ask again |
+| Empty answer | Guardrail rejects; candidate is asked again |
 
-Never crash the UI for audio problems (`audio.py` catches exceptions → `""` / `None`).
+`audio.py` catches exceptions and returns `""` / `None` so audio problems
+never crash the UI.
 """,
         ),
         (
             "markdown",
-            """## Code checklist for the professor
+            """## Code reference
 
 | Step | File | Symbol |
 |------|------|--------|
@@ -343,7 +355,7 @@ Never crash the UI for audio problems (`audio.py` catches exceptions → `""` / 
 | Whisper / TTS | `careercrew/audio.py` | `transcribe`, `speak` |
 | Persist text | `session_store.py` | `save_interview` |
 
-**Next notebook:** `02_mock_interview_flow.ipynb` (full start → score loop).
+Continue with `02_mock_interview_flow.ipynb` for the full interview loop.
 """,
         ),
     ],
@@ -356,19 +368,30 @@ write(
             "markdown",
             """# Mock interview — full round-trip
 
-**Focus:** Start → generate questions → ask → evaluate → next / overall score.
+This notebook covers the complete mock-interview lifecycle: start, generate
+questions, ask, evaluate each answer, then move to the next question or compute
+an overall score.
 
-**Open beside this:**
-- `app.py` → `interview_start`, `_ask_question`, `interview_submit`
-- `careercrew/interview.py` → `generate_questions`, `evaluate_answer`, `append_turn`, `overall_evaluation`
+**Source files**
+- `app.py` — `interview_start`, `_ask_question`, `interview_submit`
+- `careercrew/interview.py` — `generate_questions`, `evaluate_answer`, `append_turn`, `overall_evaluation`
 - Detail doc: `docs/CODE_PATH_MOCK_INTERVIEW.md`
 """,
         ),
         (
             "markdown",
-            """## Say this (25 seconds)
+            """## Overview
 
-> The mock interview needs Analyze context first. On Start we generate grounded questions from the resume, JD, gaps, and prep plan. We ask question zero with TTS and a transcript line. Each Submit: STT or text → guardrail → evaluate → append your turn → either ask the next question the same way, or compute an overall score when finished. Practice only — nothing is submitted.
+The mock interview requires Analyze context first (`ctx_state`).
+
+On **Start**, CareerCrew generates grounded questions from the resume, JD, gaps,
+and prep plan, then asks question zero with TTS and a transcript line.
+
+On each **Submit**: STT or typed text → guardrail → evaluate → append the
+candidate turn → either ask the next question the same way, or compute an
+overall score when finished.
+
+This is practice only — nothing is submitted to an employer.
 """,
         ),
         (
@@ -402,7 +425,7 @@ write(
             "markdown",
             """## Step A — `interview_start`
 
-1. `_load_context(ctx_state)` — must exist or show “Analyze first”.
+1. `_load_context(ctx_state)` — must exist, or show “Analyze first”.
 2. `interview.generate_questions(...)` — LLM JSON list, or `_fallback_questions` from gaps/prep.
 3. Build `MockInterviewSession` with a new `session_id`.
 4. Return `_ask_question(session, 0)`.
@@ -410,7 +433,7 @@ write(
         ),
         (
             "code",
-            """# Tiny offline model of question generation + session start
+            """# Offline model of question generation + session start
 
 from dataclasses import dataclass, field
 
@@ -430,7 +453,7 @@ class Session:
     overall_score: int = 0
 
 def fallback_questions(gaps, n=3):
-    \"\"\"Mirrors interview._fallback_questions idea: grounded in gaps.\"\"\"
+    \"\"\"Mirrors interview._fallback_questions: questions grounded in gaps.\"\"\"
     base = [f"How would you approach: {g}?" for g in gaps] or [
         "Walk me through a recent project you owned."
     ]
@@ -454,7 +477,7 @@ for q in session.questions:
 | TTS | `audio.speak(question.text)` |
 | Transcript | `append_turn(INTERVIEWER, question.text)` |
 | Persist | `_STORE.save_interview(session)` |
-| UI out | question HTML, audio path, chatbot messages, `iv_state` JSON |
+| UI output | question HTML, audio path, chatbot messages, `iv_state` JSON |
 """,
         ),
         (
@@ -475,11 +498,12 @@ print("turns so far:", session.turns)
 
 Prefer STT over typed text → validate → `evaluate_answer` → append candidate turn.
 
-**Evaluation fields:** `score`, `what_interviewer_wanted`, `strengths`, `improvements`, `model_answer_outline`.
+**Evaluation fields:** `score`, `what_interviewer_wanted`, `strengths`,
+`improvements`, `model_answer_outline`.
 
 Then:
-- if more questions → `_ask_question(next)` + show feedback HTML
-- if last → `overall_evaluation` (average scores + summary)
+- if more questions remain → `_ask_question(next)` and show feedback HTML
+- if this was the last answer → `overall_evaluation` (average scores + summary)
 """,
         ),
         (
@@ -528,12 +552,12 @@ print("transcript lines:", len(session.turns))
 | SQLite `interview_sessions` | session blob, overall score, completed |
 | SQLite `interview_turns` | role + text per turn |
 
-Audio paths may be referenced; **durable content is text**.
+Audio paths may be referenced temporarily; **durable content is text**.
 """,
         ),
         (
             "markdown",
-            """## Code checklist
+            """## Code reference
 
 | Concern | File | Symbol |
 |---------|------|--------|
@@ -544,7 +568,7 @@ Audio paths may be referenced; **durable content is text**.
 | Turns | `interview.py` | `append_turn` |
 | Guardrails | `guardrails.py` | `validate_interview_answer`, `validate_evaluation` |
 
-**Related:** `01_voice_and_transcript.ipynb` for STT/TTS detail.
+See `01_voice_and_transcript.ipynb` for STT/TTS detail.
 """,
         ),
     ],
@@ -557,21 +581,30 @@ write(
             "markdown",
             """# Analyze button — crew pipeline
 
-**Focus:** what happens when the user clicks **Analyze**.
+This notebook explains what happens when the user clicks **Analyze**: Gradio
+collects inputs, the pipeline builds a six-agent CrewAI crew with MCP tools,
+and a typed analysis package is produced (or a deterministic fallback).
 
-**Open beside this:**
-- `app.py` → `analyze`
-- `careercrew/pipeline.py` → `run_analysis`
-- `careercrew/crew.py` → `build_crew`
+**Source files**
+- `app.py` — `analyze`
+- `careercrew/pipeline.py` — `run_analysis`
+- `careercrew/crew.py` — `build_crew`
 - `config/agents.yaml`, `config/tasks.yaml`
-- `docs/CODE_PATH_ANALYZE.md`
+- Detail doc: `docs/CODE_PATH_ANALYZE.md`
 """,
         ),
         (
             "markdown",
-            """## Say this (30 seconds)
+            """## Overview
 
-> Analyze is the core. Gradio gathers resume and JD (upload or paste), runs input guardrails, then `pipeline.run_analysis` builds a CrewAI crew of six agents with MCP tools. They produce a typed package: profile, requirements, gaps, rewrites, prep plan, screening answers. If the LLM crew fails, we still return a **deterministic fallback package** so the demo never dies. The result is submitted into HITL review and shown across the UI tabs.
+Analyze is the core of CareerCrew. Gradio gathers the resume and JD (upload or
+paste), runs input guardrails, then `pipeline.run_analysis` builds a CrewAI crew
+of six agents with MCP tools.
+
+The crew produces a typed package: profile, requirements, gaps, rewrites, prep
+plan, and screening answers. If the LLM crew fails, CareerCrew still returns a
+**deterministic fallback package** so the demo keeps working. The result is
+submitted into HITL review and rendered across the UI tabs.
 """,
         ),
         (
@@ -596,7 +629,7 @@ Gradio Analyze
         ),
         (
             "markdown",
-            """## Agents & tools (what to point at)
+            """## Agents and tools
 
 | Piece | Location |
 |-------|----------|
@@ -611,7 +644,7 @@ Gradio Analyze
         ),
         (
             "code",
-            """# Chalkboard: six-step pipeline as a list (no CrewAI import needed)
+            """# Six-step Analyze crew sequence
 
 STEPS = [
     ("1 Resume reader", "Structured CandidateProfile"),
@@ -627,25 +660,25 @@ for name, out in STEPS:
     print(f"  {name:20} -> {out}")
 
 print()
-print("Fallback story:")
+print("Fallback:")
 print("  crew fails / no key -> pipeline.deterministic_package(...)")
 print("  still grounded in gaps + answer bank retrieval")
 """,
         ),
         (
             "markdown",
-            """## Guardrails (say if asked)
+            """## Guardrails
 
 - **Input:** file type/size, one resume source, one JD source, no raw job-board scrape.
-- **Tools:** confinement for uploads; answer bank query only verified facts.
-- **Output:** Pydantic validation; prep advice must stay grounded; screening never invents unverified claims.
+- **Tools:** upload confinement; answer bank returns only verified facts.
+- **Output:** Pydantic validation; prep advice stays grounded; screening never invents unverified claims.
 
-File: `careercrew/guardrails.py`.
+Implementation: `careercrew/guardrails.py`.
 """,
         ),
         (
             "markdown",
-            """## Code checklist
+            """## Code reference
 
 | Step | File | Symbol |
 |------|------|--------|
@@ -655,7 +688,7 @@ File: `careercrew/guardrails.py`.
 | MCP | `mcp_server/server.py` | three tools |
 | HITL handoff | `review.py` | `submit_for_review` |
 
-**Next:** `04_hitl_and_coaches.ipynb`
+Continue with `04_hitl_and_coaches.ipynb`.
 """,
         ),
     ],
@@ -666,28 +699,33 @@ write(
     [
         (
             "markdown",
-            """# HITL review + coaching chats
+            """# HITL review and coaching chats
 
-**Focus:** approve / revise / reject, History `pkg-…`, and the two coaches.
+This notebook covers human-in-the-loop review (approve / revise / reject),
+package history (`pkg-…`), and the two coaching chats.
 
-**Open beside this:**
+**Source files**
 - `careercrew/review.py`
 - `careercrew/session_store.py`
 - `careercrew/coach.py`
-- `app.py` approve / reject / coach handlers
-- `docs/CODE_PATH_HITL.md`, `docs/CODE_PATH_COACH.md`
+- `app.py` — approve / reject / coach handlers
+- Detail docs: `docs/CODE_PATH_HITL.md`, `docs/CODE_PATH_COACH.md`
 """,
         ),
         (
             "markdown",
-            """## Say this — HITL (20 seconds)
+            """## HITL overview
 
-> After Analyze, the package enters a human-in-the-loop state machine. You can **approve**, **request revision**, or **reject**. Every package gets an id like `pkg-…` stored in SQLite and listed under History. CareerCrew still never auto-submits applications.
+After Analyze, the package enters a human-in-the-loop state machine. The user
+can **approve**, **request revision**, or **reject**. Every package gets an id
+like `pkg-…`, stored in SQLite and listed under History.
+
+CareerCrew still never auto-submits applications.
 """,
         ),
         (
             "markdown",
-            """## Review state machine (simplified)
+            """## Review state machine
 
 ```
           submit_for_review
@@ -703,7 +741,7 @@ write(
                  └──► user re-analyzes → new package
 ```
 
-Allowed transitions live in `review.py` (`_ALLOWED`).
+Allowed transitions are defined in `review.py` (`_ALLOWED`).
 """,
         ),
         (
@@ -712,7 +750,7 @@ Allowed transitions live in `review.py` (`_ALLOWED`).
 
 ALLOWED = {
     "PENDING": {"APPROVED", "REVISION_REQUESTED", "REJECTED"},
-    "REVISION_REQUESTED": {"PENDING"},  # after re-analyze / resubmit path
+    "REVISION_REQUESTED": {"PENDING"},
     "APPROVED": set(),
     "REJECTED": set(),
 }
@@ -736,9 +774,16 @@ state = transition(state, "approve")
         ),
         (
             "markdown",
-            """## Say this — Coaches (20 seconds)
+            """## Coaching chats
 
-> Two Gradio chat tabs. The **prep coach** helps improve the resume and preparation using Analyze memory. The **post-interview coach** has the full mock transcript, per-question evaluations, and overall score. Both use the chat LLM with guardrailed replies — still advisory, not auto-apply.
+CareerCrew provides two Gradio chat tabs:
+
+- **Prep coach** — helps improve the resume and preparation using Analyze memory.
+- **Post-interview coach** — uses the full mock transcript, per-question
+  evaluations, and overall score.
+
+Both use the chat LLM with guardrailed replies. They are advisory only;
+they do not auto-apply.
 """,
         ),
         (
@@ -756,7 +801,7 @@ Chats persist via `session_store.py`.
         ),
         (
             "code",
-            """# What "full memory" means for the post-interview coach (conceptual)
+            """# Context available to the post-interview coach
 
 post_interview_context = {
     "role_title": "Backend Engineer",
@@ -779,7 +824,7 @@ for k, v in post_interview_context.items():
         ),
         (
             "markdown",
-            """## Code checklist
+            """## Code reference
 
 | Concern | File | Symbol |
 |---------|------|--------|
@@ -788,7 +833,7 @@ for k, v in post_interview_context.items():
 | SQLite | `session_store.py` | packages, chats, interviews |
 | Coaches | `coach.py` | prep + post-interview reply builders |
 
-**Back to voice detail:** `01_voice_and_transcript.ipynb`
+Voice / transcript detail: `01_voice_and_transcript.ipynb`
 """,
         ),
     ],

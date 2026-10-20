@@ -126,7 +126,7 @@ See `ARCHITECTURE.md` for the full walkthrough.
 
 ## Technical presentation
 
-**Presentation notebooks (Say-this scripts + offline demos):**
+**Presentation notebooks (big-screen explanations + offline demos):**
 
 - [`notebooks/README.md`](notebooks/README.md) — talk order
 - `notebooks/00_overview.ipynb` → `01_voice_and_transcript.ipynb` → `02_mock_interview_flow.ipynb` → `03_analyze_pipeline.ipynb` → `04_hitl_and_coaches.ipynb`
