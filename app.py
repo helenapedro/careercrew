@@ -1867,13 +1867,13 @@ def build_app() -> gr.Blocks:
 
 
 def theme() -> gr.themes.Base:
-    """The CareerCrew visual theme (indigo accent, larger radii, Inter font)."""
-    return gr.themes.Soft(
-        primary_hue=gr.themes.colors.indigo,
-        secondary_hue=gr.themes.colors.violet,
-        neutral_hue=gr.themes.colors.slate,
-        radius_size=gr.themes.sizes.radius_lg,
-        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+    """Clean light theme — simple blue accent, no fancy chrome."""
+    return gr.themes.Default(
+        primary_hue=gr.themes.colors.blue,
+        secondary_hue=gr.themes.colors.blue,
+        neutral_hue=gr.themes.colors.gray,
+        radius_size=gr.themes.sizes.radius_sm,
+        font=["ui-sans-serif", "system-ui", "Segoe UI", "sans-serif"],
     )
 
 
