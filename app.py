@@ -1896,12 +1896,13 @@ def build_app() -> gr.Blocks:
 
 def theme() -> gr.themes.Base:
     """Clean light theme — simple blue accent, no fancy chrome."""
+    # Do not pass plain string fonts: Gradio 6 compares Font objects on launch
+    # and crashes with AttributeError if font entries are bare strings.
     return gr.themes.Default(
         primary_hue=gr.themes.colors.blue,
         secondary_hue=gr.themes.colors.blue,
         neutral_hue=gr.themes.colors.gray,
         radius_size=gr.themes.sizes.radius_sm,
-        font=["ui-sans-serif", "system-ui", "Segoe UI", "sans-serif"],
     )
 
 
