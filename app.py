@@ -11,7 +11,6 @@ Plain-language workflow for job seekers:
 5. Practice with the voice mock interviewer, then chat with the prep coach and
    the post-interview coach.
 
-Technical details (agents, MCP, JSON, traces) live under **Advanced**.
 Screening answers come only from a verified answer bank; unverified questions
 are surfaced for the candidate instead of being invented.
 """
@@ -116,18 +115,6 @@ def _alert_html(message: str = "", *, kind: str = "error") -> str:
     )
 
 
-def _mode_banner() -> str:
-    if _SETTINGS.has_llm:
-        return (
-            "<div class='cc-status-chip'><span class='dot'></span>"
-            "Full analysis ready — your match, rewrites, and package will be prepared</div>"
-        )
-    return (
-        "<div class='cc-status-chip warn'><span class='dot'></span>"
-        "Limited mode — screening answers still work; add an API key for the full match report</div>"
-    )
-
-
 def _topbar() -> str:
     chip = (
         "<div class='cc-status-chip'><span class='dot'></span>Ready</div>"
@@ -209,25 +196,6 @@ def _empty_card(title: str, hint: str) -> str:
         f"<div class='cc-card'><h3>{_esc(title)}</h3>"
         f"<div class='cc-empty'><strong>Nothing here yet</strong>{_esc(hint)}</div></div>"
     )
-
-
-def _trace_markdown(result) -> str:
-    if not result:
-        return (
-            "**Advanced — what ran behind the scenes**\n\n"
-            "After you analyze a match, this tab shows the detailed step log "
-            "(useful for debugging or class demos)."
-        )
-    marker = {"ok": "PASS", "warning": "WARN", "error": "FAIL"}
-    lines = ["**Execution trace**", ""]
-    for event in result.trace.events:
-        tag = marker.get(event.status, event.status.upper())
-        duration = f" · {event.duration_ms} ms" if event.duration_ms is not None else ""
-        lines.append(f"- `{tag}` **{event.step}** — {event.detail}{duration}")
-    if result.warnings:
-        lines.append("\n**Warnings**")
-        lines.extend(f"- {warning}" for warning in result.warnings)
-    return "\n".join(lines)
 
 
 def _verdict_class(verdict: str) -> str:
@@ -522,22 +490,6 @@ def _prep_html(plan: InterviewPrepPlan | None) -> str:
     return "".join(parts)
 
 
-def _tracker_rows() -> list[list]:
-    rows = []
-    for entry in _STORE.list_packages(limit=50):
-        rows.append(
-            [
-                entry.package_id,
-                entry.role_title,
-                entry.company,
-                entry.status.value,
-                entry.revision_count,
-                entry.updated_at.astimezone().strftime("%Y-%m-%d %H:%M"),
-            ]
-        )
-    return rows
-
-
 def _review_guide_html(
     phase: str = "idle", *, package_id: str = "", detail: str = ""
 ) -> str:
@@ -571,7 +523,7 @@ def _review_guide_html(
         active = 3
         blurb = (
             f"Rejected{f' — `{_esc(package_id)}`' if package_id else ''}. "
-            "Adjust inputs above and Analyze again if you want a new bundle."
+            "Update the resume or job above and Analyze again for a new bundle."
         )
     else:  # ready
         active = 3
@@ -602,25 +554,28 @@ def _review_guide_html(
 
 
 def _empty_outputs() -> tuple:
-    """The reset state shared by every early return in :func:`analyze`."""
+    """The reset state shared by every early return in :func:`analyze`.
+
+    Index map::
+
+        0 error · 1 status · 2 stages · 3 match · 4 prep · 5 screening
+        6 approve · 7 reject · 8 revise · 9 package state · 10 notes
+        11 ctx_state · 12 review guide
+    """
     return (
-        "",  # error_box (HTML alert; empty = hidden)
-        _IDLE_STATUS,  # status
-        _mode_banner(),  # banner
-        _stages_html(-1),  # stages_html
-        _trace_markdown(None),  # trace_md
-        _insight_html(None),  # insight_html
-        _prep_html(None),  # prep_html
-        _package_html(None),  # package_md (HTML package view)
-        "",  # package_json
-        gr.update(interactive=False),  # approve_btn
-        gr.update(interactive=False),  # reject_btn
-        gr.update(interactive=False),  # revise_btn
-        None,  # state
-        gr.update(value="", interactive=False),  # review_feedback
-        _tracker_rows(),  # tracker_table
-        None,  # context_state (JSON bundle for interview + coach tabs)
-        _review_guide_html("idle"),  # review_guide_html
+        "",  # 0 error_box
+        _IDLE_STATUS,  # 1 status
+        _stages_html(-1),  # 2 stages_html
+        _insight_html(None),  # 3 insight_html
+        _prep_html(None),  # 4 prep_html
+        _package_html(None),  # 5 package_md
+        gr.update(interactive=False),  # 6 approve_btn
+        gr.update(interactive=False),  # 7 reject_btn
+        gr.update(interactive=False),  # 8 revise_btn
+        None,  # 9 state
+        gr.update(value="", interactive=False),  # 10 feedback
+        None,  # 11 ctx_state
+        _review_guide_html("idle"),  # 12 review_guide_html
     )
 
 
@@ -713,10 +668,10 @@ def analyze(
         return emit(
             0, _alert_html(message, kind="error"),
             1, status,
-            3, _stages_html(-1),
-            9, gr.update(interactive=False),
-            10, gr.update(interactive=False),
-            11, gr.update(interactive=False),
+            2, _stages_html(-1),
+            6, gr.update(interactive=False),
+            7, gr.update(interactive=False),
+            8, gr.update(interactive=False),
         )
 
     try:
@@ -724,7 +679,7 @@ def analyze(
         yield emit(
             0, "",
             1, "**Starting…** checking your resume and job description.",
-            3, _stages_html(1, "Checking your inputs…"),
+            2, _stages_html(1, "Checking your inputs…"),
         )
 
         # --- Stage 1: input guardrails (resume + JD resolution). ------------ #
@@ -769,7 +724,7 @@ def analyze(
         yield emit(
             0, "",
             1, "Checking your inputs…",
-            3, _stages_html(1, "Checking that your resume and job description look valid"),
+            2, _stages_html(1, "Checking that your resume and job description look valid"),
         )
 
         stages: dict[str, object] = {"index": 1, "detail": "Checking your inputs…"}
@@ -795,7 +750,7 @@ def analyze(
                 stages["detail"] = f"Finished: {title}"
 
         def advance(stage_index: int, label: str) -> tuple:
-            return emit(3, _stages_html(stage_index, label), 1, label)
+            return emit(2, _stages_html(stage_index, label), 1, label)
 
         # run_analysis blocks, so run it on a worker thread and poll for progress.
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -845,20 +800,17 @@ def analyze(
         yield emit(
             0, "",
             1, status,
-            3, _stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
-            4, _trace_markdown(result),
-            5, _insight_html(result),
-            6, _prep_html(result.prep_plan),
-            7, _package_html(result.package, result.warnings),
-            8, result.package.model_dump_json(indent=2),
-            9, gr.update(interactive=True),
-            10, gr.update(interactive=True),
-            11, gr.update(interactive=True),
-            12, result.package.model_dump(),
-            13, gr.update(value="", interactive=True),
-            14, _tracker_rows(),
-            15, _serialize_result(result),
-            16, _review_guide_html("ready", package_id=result.package.package_id),
+            2, _stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
+            3, _insight_html(result),
+            4, _prep_html(result.prep_plan),
+            5, _package_html(result.package, result.warnings),
+            6, gr.update(interactive=True),
+            7, gr.update(interactive=True),
+            8, gr.update(interactive=True),
+            9, result.package.model_dump(),
+            10, gr.update(value="", interactive=True),
+            11, _serialize_result(result),
+            12, _review_guide_html("ready", package_id=result.package.package_id),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
@@ -882,7 +834,7 @@ def _current_status(package: ScreeningPrep) -> tuple[ReviewStatus, int]:
 
 
 def approve(state, feedback):
-    """Returns the shared decision-dock outputs (guide + three buttons + status…)."""
+    """Returns the shared decision-dock outputs (guide + buttons + status…)."""
     package = _load_package(state)
     if package is None:
         return (
@@ -893,7 +845,6 @@ def approve(state, feedback):
             "Nothing to approve — run Analyze first.",
             None,
             gr.update(),
-            _tracker_rows(),
             gr.update(),
         )
     status_now, revisions = _current_status(package)
@@ -917,7 +868,6 @@ def approve(state, feedback):
             f"Cannot approve: {exc}",
             state,
             gr.update(),
-            _tracker_rows(),
             gr.update(),
         )
     return (
@@ -929,7 +879,6 @@ def approve(state, feedback):
         "Next: open **Interview prep plan**, **Mock interview**, or **Prep coach**.",
         package.model_dump(),
         _package_html(package, []),
-        _tracker_rows(),
         gr.update(value="", interactive=False),
     )
 
@@ -945,7 +894,6 @@ def reject(state, feedback):
             "Nothing to reject — run Analyze first.",
             None,
             gr.update(),
-            _tracker_rows(),
             gr.update(),
         )
     status_now, revisions = _current_status(package)
@@ -969,7 +917,6 @@ def reject(state, feedback):
             f"Cannot reject: {exc}",
             state,
             gr.update(),
-            _tracker_rows(),
             gr.update(),
         )
     return (
@@ -980,7 +927,6 @@ def reject(state, feedback):
         f"Rejected — prep bundle `{package.package_id}` will not be used.",
         package.model_dump(),
         _package_html(package, []),
-        _tracker_rows(),
         gr.update(value="", interactive=False),
     )
 
@@ -1033,13 +979,13 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         return emit(
             0, _alert_html(message, kind="error"),
             1, "Revision could not finish — see the message above.",
-            3, _stages_html(-1),
-            9, gr.update(interactive=bool(package)),
+            2, _stages_html(-1),
+            6, gr.update(interactive=bool(package)),
+            7, gr.update(interactive=bool(package)),
+            8, gr.update(interactive=bool(package)),
+            9, state,
             10, gr.update(interactive=bool(package)),
-            11, gr.update(interactive=bool(package)),
-            12, state,
-            13, gr.update(interactive=bool(package)),
-            16, _review_guide_html(
+            12, _review_guide_html(
                 "ready" if package else "idle",
                 package_id=package.package_id if package else "",
             ),
@@ -1111,13 +1057,13 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             f"**Revision {outcome.revision_count}…** updating your experience from the "
             "notes and re-analyzing the match."
         ),
-        3, _stages_html(1, "Merging your experience updates…"),
-        9, gr.update(interactive=False),
-        10, gr.update(interactive=False),
-        11, gr.update(interactive=False),
-        12, state,
-        13, gr.update(value=notes, interactive=False),
-        16, _review_guide_html(
+        2, _stages_html(1, "Merging your experience updates…"),
+        6, gr.update(interactive=False),
+        7, gr.update(interactive=False),
+        8, gr.update(interactive=False),
+        9, state,
+        10, gr.update(value=notes, interactive=False),
+        12, _review_guide_html(
             "working",
             package_id=package.package_id,
             detail="Analyze is running again with your experience updates…",
@@ -1157,7 +1103,7 @@ def request_revision(state, feedback) -> Iterator[tuple]:
                 if target != last_yielded:
                     last_yielded = target
                     detail = str(stages["detail"] or "Working…")
-                    yield emit(3, _stages_html(target, detail), 1, detail)
+                    yield emit(2, _stages_html(target, detail), 1, detail)
                 _wait_futures([future], timeout=1.0)
 
             try:
@@ -1191,20 +1137,17 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         yield emit(
             0, "",
             1, status,
-            3, _stages_html(_FINAL, "Experience updated — review the new match report."),
-            4, _trace_markdown(result),
-            5, _insight_html(result),
-            6, _prep_html(result.prep_plan),
-            7, _package_html(result.package, result.warnings),
-            8, result.package.model_dump_json(indent=2),
-            9, gr.update(interactive=True),
-            10, gr.update(interactive=True),
-            11, gr.update(interactive=True),
-            12, result.package.model_dump(),
-            13, gr.update(value="", interactive=True),
-            14, _tracker_rows(),
-            15, _serialize_result(result),
-            16, _review_guide_html("ready", package_id=result.package.package_id),
+            2, _stages_html(_FINAL, "Experience updated — review the new match report."),
+            3, _insight_html(result),
+            4, _prep_html(result.prep_plan),
+            5, _package_html(result.package, result.warnings),
+            6, gr.update(interactive=True),
+            7, gr.update(interactive=True),
+            8, gr.update(interactive=True),
+            9, result.package.model_dump(),
+            10, gr.update(value="", interactive=True),
+            11, _serialize_result(result),
+            12, _review_guide_html("ready", package_id=result.package.package_id),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
@@ -1642,7 +1585,6 @@ def build_app() -> gr.Blocks:
 
                 error_box = gr.HTML("", elem_classes=["cc-alert-slot"])
                 status = gr.Markdown(_IDLE_STATUS, elem_classes=["cc-status-line"])
-                banner = gr.HTML(_mode_banner())
                 stages_html = gr.HTML(_stages_html(-1))
 
                 with gr.Tabs(elem_classes=["cc-result-tabs"]):
@@ -1698,20 +1640,13 @@ def build_app() -> gr.Blocks:
                         gr.HTML(
                             "<div class='cc-choice-label'>"
                             "<span class='cc-choice-n'>C</span>"
-                            "<div><strong>Reject</strong> — discard this prep bundle "
-                            "(or refresh History).</div></div>"
+                            "<div><strong>Reject</strong> — discard this prep bundle.</div></div>"
                         )
-                        with gr.Row(elem_classes=["cc-review-actions"]):
-                            reject_btn = gr.Button(
-                                "Reject prep bundle",
-                                interactive=False,
-                                elem_classes=["cc-reject"],
-                            )
-                            refresh_btn = gr.Button(
-                                "Refresh history",
-                                size="sm",
-                                elem_classes=["cc-refresh"],
-                            )
+                        reject_btn = gr.Button(
+                            "Reject prep bundle",
+                            interactive=False,
+                            elem_classes=["cc-reject"],
+                        )
 
                     review_status = gr.Markdown("", elem_classes=["cc-review-status"])
 
@@ -1814,27 +1749,6 @@ def build_app() -> gr.Blocks:
                     elem_classes=["cc-field"],
                 )
 
-            # ------------------------------------------------------------------ #
-            # Tab 5 — History
-            # ------------------------------------------------------------------ #
-            with gr.Tab("5 · History"):
-                tracker_table = gr.Dataframe(
-                    headers=["Prep bundle", "Role", "Company", "Status", "Revisions", "Updated"],
-                    datatype=["str"] * 6,
-                    interactive=False,
-                    label="Your recent prep bundles",
-                    value=_tracker_rows(),
-                )
-
-            # ------------------------------------------------------------------ #
-            # Advanced
-            # ------------------------------------------------------------------ #
-            with gr.Tab("Advanced"):
-                with gr.Accordion("Step-by-step log", open=True):
-                    trace_md = gr.Markdown(_trace_markdown(None))
-                with gr.Accordion("Raw screening answers JSON", open=False):
-                    package_json = gr.Code(label="Screening answers JSON", language="json")
-
         gr.HTML(
             "<p class='cc-foot'>CareerCrew keeps everything honest — verified facts only, "
             "practice interviews that never submit anything, and anything uncertain left "
@@ -1845,21 +1759,17 @@ def build_app() -> gr.Blocks:
         analyze_outputs = [
             error_box,          # 0
             status,             # 1
-            banner,             # 2
-            stages_html,        # 3
-            trace_md,           # 4
-            insight_html,       # 5
-            prep_html,          # 6
-            package_md,         # 7
-            package_json,       # 8
-            approve_btn,        # 9
-            reject_btn,         # 10
-            revise_btn,         # 11
-            state,              # 12
-            feedback,           # 13
-            tracker_table,      # 14
-            ctx_state,          # 15
-            review_guide_html,  # 16
+            stages_html,        # 2
+            insight_html,       # 3
+            prep_html,          # 4
+            package_md,         # 5
+            approve_btn,        # 6
+            reject_btn,         # 7
+            revise_btn,         # 8
+            state,              # 9
+            feedback,           # 10
+            ctx_state,          # 11
+            review_guide_html,  # 12
         ]
 
         decision_outputs = [
@@ -1870,7 +1780,6 @@ def build_app() -> gr.Blocks:
             review_status,
             state,
             package_md,
-            tracker_table,
             feedback,
         ]
 
@@ -1953,7 +1862,6 @@ def build_app() -> gr.Blocks:
             inputs=[state, feedback],
             outputs=analyze_outputs,
         )
-        refresh_btn.click(_tracker_rows, outputs=[tracker_table])
 
     return demo
 

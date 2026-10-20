@@ -125,14 +125,11 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
             "Are you authorized to work in the US?",
         )
     )
-    package_json = outputs[8]
-    assert "answer_bank" in package_json
-    # The stage tracker ends fully complete and the prep plan is populated.
-    assert "RUNNING" not in outputs[3]
-    assert "Interview prep plan" in outputs[6] or "prep" in outputs[6].lower()
-    assert "Verified answer" in outputs[7] or "answer_bank" in outputs[7]
-    # The context bundle for the interview/coach tabs is serialized.
-    assert "prep_plan" in str(outputs[15])
+    # stages · match · prep · screening · … · ctx
+    assert "RUNNING" not in outputs[2]
+    assert "Interview prep plan" in outputs[4] or "prep" in outputs[4].lower()
+    assert "Verified answer" in outputs[5] or "answer_bank" in outputs[5]
+    assert "prep_plan" in str(outputs[11])
 
 
 def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
@@ -164,7 +161,7 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             "",
         )
     )
-    assert "answer_bank" in outputs[8] or "prep" in outputs[1].lower()
+    assert "answer_bank" in outputs[5] or "prep" in outputs[1].lower()
     assert "invalid resume path" not in str(outputs[0]).lower()
     assert "Resume rejected" not in outputs[1]
 
@@ -198,7 +195,7 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
         )
     )
     assert "Job description rejected" not in outputs[1]
-    assert "Verified answer" in outputs[7] or "answer_bank" in outputs[7]
+    assert "Verified answer" in outputs[5] or "answer_bank" in outputs[5]
 
 
 def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
@@ -224,24 +221,24 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
             "Are you authorized to work in the US?",
         )
     )
-    package_state = analyzed[12]
+    package_state = analyzed[9]
     assert package_state is not None
 
     notes = "I have 5+ years of React experience building production SPAs."
     revised = _drain(app.request_revision(package_state, notes))
     assert "revision" in str(revised[1]).lower()
     assert "ready" in str(revised[1]).lower()
-    assert revised[12] is not None
+    assert revised[9] is not None
     # Saved inputs now include the attested experience for further revisions.
-    stored = app._STORE.get_package(revised[12]["package_id"])
+    stored = app._STORE.get_package(revised[9]["package_id"])
     assert stored is not None
     assert "React" in (stored.get("inputs") or {}).get("resume_text", "")
     assert "CANDIDATE-ATTESTED" in (stored.get("inputs") or {}).get("resume_text", "")
     # Offline path surfaces the update in context / package copy.
-    assert "React" in revised[15] or "React" in revised[7] or "attested" in revised[1].lower()
+    assert "React" in revised[11] or "React" in revised[5] or "attested" in revised[1].lower()
     # Decision guide returns to "ready" after the automatic re-analyze.
-    assert "Your decision" in revised[16] or "ready" in revised[16].lower() or "Prep bundle" in revised[16]
-    fb = revised[13]
+    assert "Your decision" in revised[12] or "ready" in revised[12].lower() or "Prep bundle" in revised[12]
+    fb = revised[10]
     if isinstance(fb, dict):
         assert fb.get("value", "") == ""
     else:
