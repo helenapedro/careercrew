@@ -80,19 +80,19 @@ def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
     # them so the user is never stuck with a dead Analyze button.
     gen = app.analyze(None, "", None, "A real job description here.")
     first = next(gen)
-    assert first[13]["interactive"] is False, "run button must disable immediately"
-    assert first[14]["interactive"] is False, "clear button must disable too"
+    assert first[12]["interactive"] is False, "run button must disable immediately"
+    assert first[13]["interactive"] is False, "clear button must disable too"
 
     last = first
     for last in gen:
         pass
-    assert last[13]["interactive"] is True, "run button must come back after a failure"
-    assert last[14]["interactive"] is True
+    assert last[12]["interactive"] is True, "run button must come back after a failure"
+    assert last[13]["interactive"] is True
 
     # The reset state used by Clear also leaves both buttons usable.
     reset = app._empty_outputs()
+    assert reset[12]["interactive"] is True
     assert reset[13]["interactive"] is True
-    assert reset[14]["interactive"] is True
 
 
 def test_stage_tracker_reflects_progress():
@@ -185,8 +185,7 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
     # stages · match · prep · screening · … · ctx
     assert "RUNNING" not in outputs[2]
     assert "Interview prep plan" in outputs[4] or "prep" in outputs[4].lower()
-    assert "Verified answer" in outputs[5] or "answer_bank" in outputs[5]
-    assert "prep_plan" in str(outputs[11])
+    assert "prep_plan" in str(outputs[10])
 
 
 def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
@@ -217,7 +216,7 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             "We need a Python backend engineer with FastAPI and AWS.",
         )
     )
-    assert "answer_bank" in outputs[5] or "prep" in outputs[1].lower()
+    assert "answer_bank" in outputs[4] or "prep" in outputs[1].lower()
     assert "invalid resume path" not in str(outputs[0]).lower()
     assert "Resume rejected" not in outputs[1]
 
@@ -250,7 +249,7 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
         )
     )
     assert "Job description rejected" not in outputs[1]
-    assert "Verified answer" in outputs[5] or "answer_bank" in outputs[5]
+    assert "prep" in outputs[4].lower()
 
 
 def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
@@ -275,16 +274,16 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
             "We need a Python backend engineer with React and FastAPI. 5+ years experience.",
         )
     )
-    package_state = analyzed[9]
+    package_state = analyzed[8]
     assert package_state is not None
 
     notes = "I have 5+ years of React experience building production SPAs."
     revised = _drain(app.request_revision(package_state, notes))
     assert "revision" in str(revised[1]).lower()
     assert "ready" in str(revised[1]).lower()
-    assert revised[9] is not None
+    assert revised[8] is not None
     # Saved inputs now include the attested experience for further revisions.
-    stored = app._STORE.get_package(revised[9]["package_id"])
+    stored = app._STORE.get_package(revised[8]["package_id"])
     assert stored is not None
     assert "React" in (stored.get("inputs") or {}).get("resume_text", "")
     assert "CANDIDATE-ATTESTED" in (stored.get("inputs") or {}).get("resume_text", "")

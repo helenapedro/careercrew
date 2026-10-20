@@ -4,14 +4,13 @@ Plain-language workflow for job seekers:
 
 1. Add a resume (upload or paste) and a job description (upload or paste).
 2. Press **Analyze match** and watch live progress.
-3. Review coverage, rewrite suggestions, an interview prep plan (calibrated to
-   the seniority signaled in the JD), and copy-ready screening answers
-   (nothing is submitted anywhere).
+3. Review coverage, rewrite suggestions, and an interview prep plan calibrated
+   to the seniority signaled in the JD.
 4. Practice with the voice mock interviewer, then chat with the prep coach and
    the post-interview coach.
 
-Screening answers come only from a verified answer bank; unverified questions
-are surfaced for the candidate instead of being invented.
+Every claim traces to a resume fact. Unsupported items are surfaced for the
+candidate to answer instead of being invented.
 """
 
 from __future__ import annotations
@@ -346,74 +345,6 @@ def _insight_html(result) -> str:
     return "".join(parts)
 
 
-def _package_html(package: ScreeningPrep | None, warnings: list[str] | None = None) -> str:
-    """Candidate-facing copy-ready screening answers + items needing input."""
-    if package is None:
-        return _empty_card(
-            "Copy-ready screening answers",
-            "After analysis, you’ll see verified answers you can paste into your own "
-            "application — and anything that still needs your personal input. "
-            "Nothing is submitted for you.",
-        )
-
-    parts = ["<div class='cc-card'>"]
-    parts.append("<h3>Copy-ready screening answers</h3>")
-    role = package.role_title or "Role"
-    company = package.company or "Company"
-    parts.append(
-        f"<p class='cc-hint'><span class='cc-badge ghost'>{_esc(package.package_id)}</span> "
-        f"{_esc(role)} · {_esc(company)}</p>"
-    )
-    parts.append(
-        "<div class='cc-alert info'><strong>Nothing is submitted</strong>"
-        "These are answers you can copy into your own application. CareerCrew never "
-        "applies on your behalf.</div>"
-    )
-    if package.package_summary:
-        parts.append(f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.55'>{_esc(package.package_summary)}</p>")
-
-    parts.append(f"<div class='cc-section-title'>Screening answers ({len(package.screening_answers)})</div>")
-    if package.screening_answers:
-        parts.append("<div class='cc-qa'>")
-        for answer in package.screening_answers:
-            parts.append(
-                "<div class='cc-qa-item'>"
-                f"<p class='cc-q'>{_esc(answer.question)}</p>"
-                f"<p class='cc-a'>{_esc(answer.answer)}</p>"
-                "<span class='cc-badge on'>Verified answer</span>"
-                "</div>"
-            )
-        parts.append("</div>")
-    else:
-        parts.append(
-            "<div class='cc-empty'>No screening answers were produced. "
-            "Your verified answer bank did not cover the standard questions.</div>"
-        )
-
-    if package.do_not_claim:
-        n = len(package.do_not_claim)
-        items = "".join(f"<li>{_esc(item)}</li>" for item in package.do_not_claim)
-        parts.append(
-            f"<div class='cc-section-title'>Needs your input<span class='cc-count'>{n}</span></div>"
-            "<div class='cc-caution'>"
-            "<div class='cc-caution-head'><span class='cc-caution-mark'>!</span>"
-            "Answer these yourself</div>"
-            "<p class='cc-caution-lead'>We won’t invent answers for these. "
-            "Fill them in from your own facts before you apply.</p>"
-            f"<ul class='cc-list'>{items}</ul>"
-            "</div>"
-        )
-
-    if warnings:
-        notes = "".join(f"<li>{_esc(w)}</li>" for w in warnings)
-        parts.append(
-            f"<div class='cc-section-title'>Notes</div><ul class='cc-list'>{notes}</ul>"
-        )
-
-    parts.append("</div>")
-    return "".join(parts)
-
-
 def _priority_class(priority: str) -> str:
     key = (priority or "").strip().lower()
     if key == "high":
@@ -494,7 +425,7 @@ def _review_guide_html(
     """
     steps = [
         (1, "Upload resume + JD above, then press Analyze match"),
-        (2, "Open the result sub-tabs (Match / Prep / Screening)"),
+        (2, "Open the result sub-tabs (Match / Prep)"),
         (3, "Decide below — approve, add missing experience, or reject"),
     ]
     if phase == "idle":
@@ -553,9 +484,9 @@ def _empty_outputs() -> tuple:
 
     Index map::
 
-        0 error · 1 status · 2 stages · 3 match · 4 prep · 5 screening
-        6 approve · 7 reject · 8 revise · 9 package state · 10 notes
-        11 ctx_state · 12 review guide · 13 run button · 14 clear button
+        0 error · 1 status · 2 stages · 3 match · 4 prep
+        5 approve · 6 reject · 7 revise · 8 package state · 9 notes
+        10 ctx_state · 11 review guide · 12 run button · 13 clear button
     """
     return (
         "",  # 0 error_box
@@ -563,16 +494,15 @@ def _empty_outputs() -> tuple:
         _stages_html(-1),  # 2 stages_html
         _insight_html(None),  # 3 insight_html
         _prep_html(None),  # 4 prep_html
-        _package_html(None),  # 5 package_md
-        gr.update(interactive=False),  # 6 approve_btn
-        gr.update(interactive=False),  # 7 reject_btn
-        gr.update(interactive=False),  # 8 revise_btn
-        None,  # 9 state
-        gr.update(value="", interactive=False),  # 10 feedback
-        None,  # 11 ctx_state
-        _review_guide_html("idle"),  # 12 review_guide_html
-        gr.update(interactive=True),  # 13 run_btn
-        gr.update(interactive=True),  # 14 clear_btn
+        gr.update(interactive=False),  # 5 approve_btn
+        gr.update(interactive=False),  # 6 reject_btn
+        gr.update(interactive=False),  # 7 revise_btn
+        None,  # 8 state
+        gr.update(value="", interactive=False),  # 9 feedback
+        None,  # 10 ctx_state
+        _review_guide_html("idle"),  # 11 review_guide_html
+        gr.update(interactive=True),  # 12 run_btn
+        gr.update(interactive=True),  # 13 clear_btn
     )
 
 
@@ -666,11 +596,11 @@ def analyze(
             0, _alert_html(message, kind="error"),
             1, status,
             2, _stages_html(-1),
+            5, gr.update(interactive=False),
             6, gr.update(interactive=False),
             7, gr.update(interactive=False),
-            8, gr.update(interactive=False),
+            12, gr.update(interactive=True),
             13, gr.update(interactive=True),
-            14, gr.update(interactive=True),
         )
 
     try:
@@ -680,8 +610,8 @@ def analyze(
             0, "",
             1, "**Starting…** checking your resume and job description.",
             2, _stages_html(1, "Checking your inputs…"),
+            12, gr.update(interactive=False),
             13, gr.update(interactive=False),
-            14, gr.update(interactive=False),
         )
 
         # --- Stage 1: input guardrails (resume + JD resolution). ------------ #
@@ -797,7 +727,6 @@ def analyze(
         status = (
             f"**Your prep bundle is ready{mode}.** "
             f"`{result.package.package_id}` · "
-            f"{len(result.package.screening_answers)} verified answer(s) · "
             f"{len(result.prep_plan.focus_areas)} prep focus area(s) · "
             f"{len(result.package.do_not_claim)} item(s) still need your input."
         )
@@ -807,16 +736,15 @@ def analyze(
             2, _stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
             3, _insight_html(result),
             4, _prep_html(result.prep_plan),
-            5, _package_html(result.package, result.warnings),
+            5, gr.update(interactive=True),
             6, gr.update(interactive=True),
             7, gr.update(interactive=True),
-            8, gr.update(interactive=True),
-            9, result.package.model_dump(),
-            10, gr.update(value="", interactive=True),
-            11, _serialize_result(result),
-            12, _review_guide_html("ready", package_id=result.package.package_id),
+            8, result.package.model_dump(),
+            9, gr.update(value="", interactive=True),
+            10, _serialize_result(result),
+            11, _review_guide_html("ready", package_id=result.package.package_id),
+            12, gr.update(interactive=True),
             13, gr.update(interactive=True),
-            14, gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
@@ -851,7 +779,6 @@ def approve(state, feedback):
             "Nothing to approve — run Analyze first.",
             None,
             gr.update(),
-            gr.update(),
         )
     status_now, revisions = _current_status(package)
     try:
@@ -874,7 +801,6 @@ def approve(state, feedback):
             f"Cannot approve: {exc}",
             state,
             gr.update(),
-            gr.update(),
         )
     return (
         _review_guide_html("approved", package_id=package.package_id),
@@ -884,7 +810,6 @@ def approve(state, feedback):
         f"Approved — prep bundle `{package.package_id}` is ready to use. "
         "Next: open **Interview prep plan**, **Mock interview**, or **Prep coach**.",
         package.model_dump(),
-        _package_html(package, []),
         gr.update(value="", interactive=False),
     )
 
@@ -899,7 +824,6 @@ def reject(state, feedback):
             gr.update(),
             "Nothing to reject — run Analyze first.",
             None,
-            gr.update(),
             gr.update(),
         )
     status_now, revisions = _current_status(package)
@@ -923,7 +847,6 @@ def reject(state, feedback):
             f"Cannot reject: {exc}",
             state,
             gr.update(),
-            gr.update(),
         )
     return (
         _review_guide_html("rejected", package_id=package.package_id),
@@ -932,7 +855,6 @@ def reject(state, feedback):
         gr.update(interactive=False),
         f"Rejected — prep bundle `{package.package_id}` will not be used.",
         package.model_dump(),
-        _package_html(package, []),
         gr.update(value="", interactive=False),
     )
 
@@ -986,14 +908,14 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             0, _alert_html(message, kind="error"),
             1, "Revision could not finish — see the message above.",
             2, _stages_html(-1),
+            5, gr.update(interactive=bool(package)),
             6, gr.update(interactive=bool(package)),
             7, gr.update(interactive=bool(package)),
-            8, gr.update(interactive=bool(package)),
-            9, state,
-            10, gr.update(interactive=bool(package)),
+            8, state,
+            9, gr.update(interactive=bool(package)),
+            12, gr.update(interactive=True),
             13, gr.update(interactive=True),
-            14, gr.update(interactive=True),
-            12, _review_guide_html(
+            11, _review_guide_html(
                 "ready" if package else "idle",
                 package_id=package.package_id if package else "",
             ),
@@ -1066,18 +988,18 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             "notes and re-analyzing the match."
         ),
         2, _stages_html(1, "Merging your experience updates…"),
+        5, gr.update(interactive=False),
         6, gr.update(interactive=False),
         7, gr.update(interactive=False),
-        8, gr.update(interactive=False),
-        9, state,
-        10, gr.update(value=notes, interactive=False),
-        12, _review_guide_html(
+        8, state,
+        9, gr.update(value=notes, interactive=False),
+        11, _review_guide_html(
             "working",
             package_id=package.package_id,
             detail="Analyze is running again with your experience updates…",
         ),
+        12, gr.update(interactive=False),
         13, gr.update(interactive=False),
-        14, gr.update(interactive=False),
     )
 
     stages: dict[str, object] = {"index": 1, "detail": "Applying your revision notes…"}
@@ -1150,16 +1072,15 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             2, _stages_html(_FINAL, "Experience updated — review the new match report."),
             3, _insight_html(result),
             4, _prep_html(result.prep_plan),
-            5, _package_html(result.package, result.warnings),
+            5, gr.update(interactive=True),
             6, gr.update(interactive=True),
             7, gr.update(interactive=True),
-            8, gr.update(interactive=True),
-            9, result.package.model_dump(),
-            10, gr.update(value="", interactive=True),
-            11, _serialize_result(result),
-            12, _review_guide_html("ready", package_id=result.package.package_id),
+            8, result.package.model_dump(),
+            9, gr.update(value="", interactive=True),
+            10, _serialize_result(result),
+            11, _review_guide_html("ready", package_id=result.package.package_id),
+            12, gr.update(interactive=True),
             13, gr.update(interactive=True),
-            14, gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
@@ -1562,8 +1483,8 @@ def build_app() -> gr.Blocks:
                 with gr.Row(elem_classes=["cc-cta"], equal_height=True):
                     gr.HTML(
                         "<div class='cc-cta-copy'><h3>Ready when you are</h3>"
-                        "<p>We’ll score the match, plan interview prep, suggest stronger "
-                        "bullets, and prepare honest screening answers.</p></div>",
+                        "<p>We’ll score the match, plan interview prep, and suggest "
+                        "stronger, evidence-backed bullets.</p></div>",
                         elem_classes=["cc-cta-copy-wrap"],
                     )
                     with gr.Row(elem_classes=["cc-cta-actions"]):
@@ -1587,8 +1508,6 @@ def build_app() -> gr.Blocks:
                         insight_html = gr.HTML(_insight_html(None))
                     with gr.Tab("Interview prep plan"):
                         prep_html = gr.HTML(_prep_html(None))
-                    with gr.Tab("Screening answers"):
-                        package_md = gr.HTML(_package_html(None))
 
                 with gr.Group(elem_classes=["cc-review"]):
                     review_guide_html = gr.HTML(_review_guide_html("idle"))
@@ -1614,7 +1533,7 @@ def build_app() -> gr.Blocks:
                             "<div><strong>Add missing experience</strong> — e.g. the JD wants "
                             "React but your resume doesn’t list it. Type the update, then press "
                             "the button. <em>Analyze runs again automatically</em> and refreshes "
-                            "Match / Prep / Screening.</div></div>"
+                            "Match and Prep.</div></div>"
                         )
                         feedback = gr.Textbox(
                             label="Your experience update",
@@ -1775,16 +1694,15 @@ def build_app() -> gr.Blocks:
             stages_html,        # 2
             insight_html,       # 3
             prep_html,          # 4
-            package_md,         # 5
-            approve_btn,        # 6
-            reject_btn,         # 7
-            revise_btn,         # 8
-            state,              # 9
-            feedback,           # 10
-            ctx_state,          # 11
-            review_guide_html,  # 12
-            run_btn,            # 13
-            clear_btn,          # 14
+            approve_btn,        # 5
+            reject_btn,         # 6
+            revise_btn,         # 7
+            state,              # 8
+            feedback,           # 9
+            ctx_state,          # 10
+            review_guide_html,  # 11
+            run_btn,            # 12
+            clear_btn,          # 13
         ]
 
         decision_outputs = [
@@ -1794,7 +1712,6 @@ def build_app() -> gr.Blocks:
             revise_btn,
             review_status,
             state,
-            package_md,
             feedback,
         ]
 
