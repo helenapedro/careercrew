@@ -74,6 +74,8 @@ def test_screening_prep_is_application_package_alias():
 
 
 def test_seniority_band_labels_and_parser():
+    from careercrew.models import infer_seniority_from_jd
+
     assert SeniorityBand.EARLY.label == "2-3 years"
     assert SeniorityBand.MID.label == "5-10 years"
     assert SeniorityBand.SENIOR.label == "10+ years"
@@ -81,6 +83,12 @@ def test_seniority_band_labels_and_parser():
     assert seniority_band_from_label("5-10 years") is SeniorityBand.MID
     assert seniority_band_from_label("10+ years") is SeniorityBand.SENIOR
     assert seniority_band_from_label("senior") is SeniorityBand.SENIOR
+    assert seniority_band_from_label("5+ years of Python experience") is SeniorityBand.MID
+    assert seniority_band_from_label("10+ years building systems") is SeniorityBand.SENIOR
+    assert infer_seniority_from_jd(
+        "Senior Backend Engineer. Required: 5+ years building services."
+    ) == "5-10 years"
+    assert infer_seniority_from_jd("We need a great teammate.") == ""
 
 
 def test_interview_prep_plan_defaults():

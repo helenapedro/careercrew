@@ -199,7 +199,8 @@ def crew_inputs(
         "jd_path": jd_path or "(none; use pasted jd_text)",
         "jd_text": jd_text or "(none; use the read_job_description tool)",
         "screening_questions": screening_questions or "(none provided)",
-        "seniority": seniority or "2-3 years",
+        "seniority": seniority
+        or "the seniority / years of experience signaled in the job description",
     }
 
 

@@ -33,7 +33,7 @@ Both must:
 | Assembly | `crew.py` — MCP **off**; extra knowledge `interview_guidelines.md` |
 | Context tasks | `extract_profile`, `analyze_jd`, `analyze_gaps` |
 | Output type | `InterviewPrepPlan` (Pydantic) |
-| Kickoff input | `seniority` from UI dropdown (`2-3 years` / `5-10 years` / `10+ years`) |
+| Kickoff input | `seniority` inferred from the JD (optional CLI `--seniority` override) |
 
 **Why MCP off:** prep planning uses structured upstream outputs already in context; it does not re-read files.
 

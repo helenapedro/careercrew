@@ -26,7 +26,6 @@ Run the pipeline on the samples (fictional test data):
 
 ```bash
 python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt \
-  --seniority "5-10 years" \
   --screening "Are you authorized to work in the US?" \
   --screening "What is your notice period?"
 ```
@@ -61,9 +60,8 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - **Job description** — upload a `.pdf`, `.docx`, or `.txt` file **or** paste the
   text. Provide exactly one. Job-posting **URLs are not read directly** (job
   boards block automated access); the app tells you to upload the file or paste
-  the text instead.
-- **Target experience level** — choose `2-3 years`, `5-10 years`, or `10+ years`
-  so the prep plan calibrates its expectations.
+  the text instead. Target experience / seniority for the prep plan is
+  **inferred from the JD** (years of experience and title signals).
 
 ## Features
 

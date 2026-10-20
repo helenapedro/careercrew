@@ -41,9 +41,11 @@ CLI on the fictional samples:
 
 ```bash
 python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt \
-  --seniority "5-10 years" \
   --screening "Are you authorized to work in the US?"
 ```
+
+Seniority for the prep plan is inferred from the JD. Optional CLI override:
+`--seniority "5-10 years"`.
 
 Web UI:
 

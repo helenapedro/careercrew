@@ -26,7 +26,7 @@ candidate applies.
 
 ```mermaid
 flowchart TD
-    S1["1 · Input<br/>resume + JD + seniority band<br/>+ optional screening questions"]
+    S1["1 · Input<br/>resume + JD<br/>+ optional screening questions<br/>(seniority inferred from JD)"]
     S2["2 · Entrypoints<br/>app.py — Gradio UI<br/>main.py — CLI"]
     S3["3 · Input guardrails<br/>validate_request · check_upload · redact_pii"]
     S4["4 · Pipeline<br/>normalize to text · build crew<br/>kickoff · parse · fallback"]

@@ -31,8 +31,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--seniority",
-        default="2-3 years",
-        help="Target experience band (2-3 years, 5-10 years, or 10+ years)",
+        default="",
+        help=(
+            "Optional override for the target experience band "
+            "(2-3 years, 5-10 years, or 10+ years). "
+            "When omitted, seniority is inferred from the job description."
+        ),
     )
     parser.add_argument(
         "--screening",

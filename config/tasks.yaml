@@ -48,10 +48,12 @@ write_feedback:
 
 build_prep_plan:
   description: >
-    Build an interview preparation plan for someone targeting the {seniority}
-    experience band. Use the candidate profile, the job requirements, and the
-    gap report. Decide which areas deserve the MOST preparation time, based on
-    the size and nature of the gaps and the target seniority band. For each
+    Build an interview preparation plan calibrated to the target experience
+    band: {seniority}. Infer the band from the job requirements' seniority
+    field and any years-of-experience signals in the posting when the value
+    above is a placeholder. Use the candidate profile, the job requirements,
+    and the gap report. Decide which areas deserve the MOST preparation time,
+    based on the size and nature of the gaps and that seniority band. For each
     focus area, set a priority (high, medium, low), a suggested share of prep
     time as an integer percentage (all focus areas together should total about
     100), a short reason, and the exact requirement text it comes from. Also

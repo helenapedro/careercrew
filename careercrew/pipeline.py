@@ -43,6 +43,7 @@ from careercrew.models import (
     JobRequirements,
     ScreeningAnswer,
     ScreeningPrep,
+    infer_seniority_from_jd,
 )
 
 logger = logging.getLogger("careercrew.pipeline")
@@ -258,7 +259,10 @@ def _run_crew(
         jd_path=request.jd_path if not request.jd_text else None,
         jd_text=request.jd_text,
         screening_questions="\n".join(request.screening_questions) or "(none provided)",
-        seniority=request.seniority or "2-3 years",
+        seniority=(
+            request.seniority
+            or "the seniority / years of experience signaled in the job description"
+        ),
     )
     started = time.perf_counter()
     crew = build_crew(verbose=False, on_task=on_task)
@@ -350,7 +354,7 @@ def run_analysis(
     # document tool directly (not through MCP) so the original
     # JobDescriptionError message is preserved for the UI.
     try:
-        _prepare_jd_text(request)
+        jd_plain = _prepare_jd_text(request)
         trace.add("input.jd", "pipeline", "job description read")
     except JobDescriptionError as exc:
         trace.add("input.jd", "pipeline", str(exc), status="error")
@@ -361,6 +365,17 @@ def run_analysis(
             "The job description could not be read. Upload a PDF/DOCX/TXT file "
             "or paste the job description text instead."
         ) from exc
+
+    # Seniority comes from the job description (not a UI picker). Optional
+    # request.seniority remains as a CLI override when explicitly provided.
+    if not (request.seniority or "").strip():
+        request.seniority = infer_seniority_from_jd(jd_plain)
+        if request.seniority:
+            trace.add(
+                "input.seniority",
+                "pipeline",
+                f"inferred from JD: {request.seniority}",
+            )
 
     # 2/3. Run the crew and parse typed outputs; fall back if needed.
     profile: CandidateProfile | None = None
@@ -413,11 +428,14 @@ def run_analysis(
     if prep_plan is None:
         from careercrew.prep import build_fallback_plan
 
+        # Prefer JD-extracted requirements.seniority when the crew produced it.
+        reqs = requirements or JobRequirements()
+        effective_seniority = (reqs.seniority or request.seniority or "").strip()
         prep_plan = build_fallback_plan(
             profile or CandidateProfile(),
-            requirements or JobRequirements(),
+            reqs,
             gaps or GapReport(),
-            request.seniority,
+            effective_seniority,
         )
         if settings.has_llm:
             warnings.append("Interview prep plan used the deterministic gap-based fallback.")

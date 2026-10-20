@@ -3,10 +3,11 @@
 Plain-language workflow for job seekers:
 
 1. Add a resume (upload or paste) and a job description (upload or paste).
-2. Pick your target experience band and optionally add screening questions.
+2. Optionally add screening questions.
 3. Press **Analyze match** and watch live progress.
-4. Review coverage, rewrite suggestions, an interview prep plan, and copy-ready
-   screening answers (nothing is submitted anywhere).
+4. Review coverage, rewrite suggestions, an interview prep plan (calibrated to
+   the seniority signaled in the JD), and copy-ready screening answers
+   (nothing is submitted anywhere).
 5. Practice with the voice mock interviewer, then chat with the prep coach and
    the post-interview coach.
 
@@ -464,7 +465,7 @@ def _prep_html(plan: InterviewPrepPlan | None) -> str:
         return _empty_card(
             "Interview prep plan",
             "After analysis, you’ll see which parts of the role to spend the most "
-            "preparation time on, based on your gaps and your target experience band.",
+            "preparation time on, based on your gaps and the seniority signaled in the job posting.",
         )
 
     parts = ["<div class='cc-card'>"]
@@ -632,7 +633,7 @@ def _resolve_upload(upload, pasted: str, kind: str) -> tuple[str | None, str | N
 
 
 def analyze(
-    resume_file, resume_text, jd_file, jd_text, screening_text, seniority
+    resume_file, resume_text, jd_file, jd_text, screening_text
 ) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
     outputs = list(_empty_outputs())
@@ -689,13 +690,14 @@ def analyze(
             return
 
         questions = [line.strip() for line in (screening_text or "").splitlines() if line.strip()]
+        # Seniority is inferred from the JD inside the pipeline (no UI picker).
         request = AnalysisRequest(
             package_id=make_package_id(),
             resume_path=resume_path,
             resume_text=pasted_resume,
             jd_path=jd_path,
             jd_text=pasted_jd,
-            seniority=(seniority or "2-3 years"),
+            seniority="",
             screening_questions=questions,
         )
 
@@ -916,9 +918,6 @@ _SAMPLE_QUESTIONS = (
     "What is your notice period?\n"
     "Do you require visa sponsorship?"
 )
-
-_SENIORITY_CHOICES = ["2-3 years", "5-10 years", "10+ years"]
-
 
 # --------------------------------------------------------------------------- #
 # Interview + coaching callbacks
@@ -1289,13 +1288,6 @@ def build_app() -> gr.Blocks:
                                 elem_classes=["cc-field"],
                                 show_label=False,
                             )
-                    with gr.Row():
-                        seniority_dd = gr.Dropdown(
-                            choices=_SENIORITY_CHOICES,
-                            value=_SENIORITY_CHOICES[0],
-                            label="Target experience level",
-                            elem_classes=["cc-field"],
-                        )
                     with gr.Accordion("Optional screening questions", open=False):
                         screening_text = gr.Textbox(
                             label="One question per line",
@@ -1481,7 +1473,7 @@ def build_app() -> gr.Blocks:
 
         run_btn.click(
             analyze,
-            inputs=[resume_file, resume_text, jd_file, jd_text, screening_text, seniority_dd],
+            inputs=[resume_file, resume_text, jd_file, jd_text, screening_text],
             outputs=analyze_outputs,
         )
 
@@ -1491,12 +1483,11 @@ def build_app() -> gr.Blocks:
                 gr.update(value=""),
                 gr.update(value=None),
                 gr.update(value=""),
-                gr.update(value=_SENIORITY_CHOICES[0]),
                 gr.update(value=""),
                 *_empty_outputs(),
             ),
             outputs=[
-                resume_file, resume_text, jd_file, jd_text, seniority_dd, screening_text,
+                resume_file, resume_text, jd_file, jd_text, screening_text,
                 *analyze_outputs,
             ],
         )

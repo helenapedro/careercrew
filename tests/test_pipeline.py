@@ -64,6 +64,24 @@ def test_run_analysis_produces_prep_plan(monkeypatch):
     assert result.prep_plan.seniority.target_years == "5-10 years"
 
 
+def test_run_analysis_infers_seniority_from_jd(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    result = run_analysis(
+        _request(
+            seniority="",
+            jd_text=(
+                "Senior Backend Engineer. Required: 5+ years building backend "
+                "services in Python."
+            ),
+        )
+    )
+    assert result.prep_plan.seniority.band.value == "mid"
+    assert result.prep_plan.seniority.target_years == "5-10 years"
+
+
 def test_run_analysis_rejects_bad_inputs():
     with pytest.raises(ValueError):
         run_analysis(AnalysisRequest(package_id="pkg-x", jd_text=""))

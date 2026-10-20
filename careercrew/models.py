@@ -7,6 +7,7 @@ missing field instead of an invented sentence.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from enum import Enum
 
@@ -184,21 +185,71 @@ class SeniorityBand(str, Enum):
         }[self]
 
 
+_YEARS_RE = re.compile(r"(\d+)\s*\+?\s*(?:-\s*\d+\s*)?(?:years?|yrs?)\b", re.I)
+
+
 def seniority_band_from_label(label: str) -> SeniorityBand:
-    """Map a UI label (or a band value) onto a :class:`SeniorityBand`."""
+    """Map a JD/UI label onto a :class:`SeniorityBand`.
+
+    Prefers explicit year ranges from the posting (e.g. ``5+ years``) over
+    title keywords (``Senior``), then falls back to early-career.
+    """
     key = (label or "").strip().lower()
-    # Match the explicit UI labels first (they overlap: "5-10" contains "10").
+    if not key:
+        return SeniorityBand.EARLY
+    # Explicit band labels / ranges first (order matters: "10+" before "5-10").
     if "10+" in key or "10 +" in key:
         return SeniorityBand.SENIOR
     if "5-10" in key or "5 - 10" in key:
         return SeniorityBand.MID
     if "2-3" in key or "2 - 3" in key:
         return SeniorityBand.EARLY
-    if "senior" in key:
+    years = [int(match.group(1)) for match in _YEARS_RE.finditer(key)]
+    if years:
+        high = max(years)
+        if high >= 10:
+            return SeniorityBand.SENIOR
+        if high >= 5:
+            return SeniorityBand.MID
+        return SeniorityBand.EARLY
+    if any(token in key for token in ("staff", "principal", "senior")):
         return SeniorityBand.SENIOR
-    if "mid" in key:
+    if "mid" in key or "intermediate" in key:
         return SeniorityBand.MID
+    if any(token in key for token in ("junior", "entry", "early", "associate")):
+        return SeniorityBand.EARLY
     return SeniorityBand.EARLY
+
+
+def infer_seniority_from_jd(text: str) -> str:
+    """Derive a target experience label from job-description text.
+
+    Returns a band label such as ``\"5-10 years\"`` when the posting mentions
+    years of experience or a seniority title; otherwise ``\"\"``.
+    """
+    blob = (text or "").strip()
+    if not blob:
+        return ""
+    key = blob.lower()
+    has_signal = bool(_YEARS_RE.search(key)) or any(
+        token in key
+        for token in (
+            "senior",
+            "junior",
+            "staff",
+            "principal",
+            "mid-level",
+            "mid level",
+            "intermediate",
+            "entry-level",
+            "entry level",
+            "associate",
+            "seniority",
+        )
+    )
+    if not has_signal:
+        return ""
+    return seniority_band_from_label(blob).label
 
 
 class SeniorityAssessment(BaseModel):

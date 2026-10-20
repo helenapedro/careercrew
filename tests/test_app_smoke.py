@@ -67,7 +67,7 @@ def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
     pytest.importorskip("gradio")
     import app
 
-    outputs = _drain(app.analyze(None, "", None, "A real job description here.", "", "2-3 years"))
+    outputs = _drain(app.analyze(None, "", None, "A real job description here.", ""))
     error_box = outputs[0]
     assert "resume" in str(error_box).lower()
     assert "cc-alert" in str(error_box).lower() or "something went wrong" in str(error_box).lower()
@@ -88,7 +88,6 @@ def test_analyze_missing_jd_returns_error(monkeypatch, tmp_path):
             None,
             "",
             "",
-            "2-3 years",
         )
     )
     assert "job description" in str(outputs[0]).lower()
@@ -115,7 +114,6 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
             None,
             "We need a Python backend engineer with FastAPI and AWS.",
             "Are you authorized to work in the US?",
-            "5-10 years",
         )
     )
     package_json = outputs[8]
@@ -155,7 +153,6 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             None,
             "We need a Python backend engineer with FastAPI and AWS.",
             "",
-            "2-3 years",
         )
     )
     assert "answer_bank" in outputs[8] or "prep" in outputs[1].lower()
@@ -189,7 +186,6 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
             str(staged_jd),
             "",
             "What is your notice period?",
-            "2-3 years",
         )
     )
     assert "Job description rejected" not in outputs[1]
