@@ -378,15 +378,76 @@ button.cc-clear:hover {
 .cc-qa-item .cc-q { margin: 0 0 6px; font-weight: 680; color: var(--cc-ink); font-size: 13.5px; }
 .cc-qa-item .cc-a { margin: 0 0 8px; color: var(--cc-ink-2); font-size: 13.5px; line-height: 1.55; }
 
-/* Decision dock */
+/* Decision dock — step-by-step HITL */
 .cc-review {
   border: 1px solid var(--cc-line); border-radius: 18px; background: var(--cc-surface);
   padding: 18px 18px 16px; box-shadow: 0 16px 34px -30px var(--cc-shadow);
   margin-top: 6px;
 }
-.cc-review .cc-panel-head { margin: 0 0 14px; }
+.cc-review .cc-panel-head { margin: 0 0 12px; }
 .cc-review .cc-panel-head h3 { margin: 0; font-size: 17px; font-weight: 740; color: var(--cc-ink); }
-.cc-review .cc-panel-head .cc-hint { margin: 4px 0 0; color: var(--cc-muted); font-size: 13px; line-height: 1.5; max-width: 62ch; }
+.cc-review .cc-panel-head .cc-hint { margin: 4px 0 0; color: var(--cc-muted); font-size: 13px; line-height: 1.5; max-width: 70ch; }
+
+.cc-review-steps {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 0 0 16px; padding: 10px 12px;
+  border-radius: 14px; background: var(--cc-soft);
+  border: 1px solid var(--cc-line);
+}
+.cc-review-step {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--cc-muted); line-height: 1.4;
+}
+.cc-review-step.active { color: var(--cc-ink); font-weight: 650; }
+.cc-review-step.done { color: var(--cc-ink-2); }
+.cc-review-step-n {
+  flex: 0 0 22px; height: 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 740;
+  background: var(--cc-surface); border: 1px solid var(--cc-line); color: var(--cc-muted);
+}
+.cc-review-step.active .cc-review-step-n {
+  background: var(--cc-accent); border-color: transparent; color: #fff;
+}
+.cc-review-step.done .cc-review-step-n {
+  background: color-mix(in srgb, var(--cc-good, #22c55e) 18%, transparent);
+  border-color: transparent; color: var(--cc-ink);
+}
+.cc-review-step-t { flex: 1; }
+.cc-review-step-pill {
+  font-size: 10px; font-weight: 720; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px;
+  background: var(--cc-surface); border: 1px solid var(--cc-line); color: var(--cc-muted);
+}
+.cc-review-step.active .cc-review-step-pill {
+  background: color-mix(in srgb, var(--cc-accent) 16%, transparent);
+  border-color: transparent; color: var(--cc-accent);
+}
+
+.cc-review-choice {
+  border: 1px solid var(--cc-line); border-radius: 14px;
+  padding: 12px 14px 14px; margin: 0 0 10px; background: var(--cc-surface-2, var(--cc-surface));
+}
+.cc-review-choice-a {
+  border-color: color-mix(in srgb, var(--cc-accent) 35%, var(--cc-line));
+  background: color-mix(in srgb, var(--cc-accent) 6%, transparent);
+}
+.cc-choice-label {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--cc-ink-2);
+}
+.cc-choice-n {
+  flex: 0 0 26px; height: 26px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 780;
+  background: var(--cc-soft); border: 1px solid var(--cc-line); color: var(--cc-ink);
+}
+.cc-review-choice-a .cc-choice-n {
+  background: var(--cc-accent); border-color: transparent; color: #fff;
+}
+.cc-choice-label strong { color: var(--cc-ink); }
+.cc-choice-label em { font-style: normal; font-weight: 680; color: var(--cc-accent); }
+
 .cc-review-actions {
   display: flex !important; flex-wrap: wrap !important; align-items: center !important;
   gap: 10px !important; margin-top: 4px !important;
@@ -410,6 +471,11 @@ button.cc-revise, button.cc-reject, button.cc-refresh {
   color: var(--cc-ink-2) !important; font-weight: 650 !important;
   min-height: 42px !important; border-radius: 12px !important;
   box-shadow: none !important;
+}
+button.cc-revise {
+  background: color-mix(in srgb, var(--cc-accent) 12%, var(--cc-soft)) !important;
+  border-color: color-mix(in srgb, var(--cc-accent) 40%, var(--cc-line)) !important;
+  color: var(--cc-ink) !important; font-weight: 700 !important;
 }
 button.cc-reject {
   color: var(--cc-bad) !important;

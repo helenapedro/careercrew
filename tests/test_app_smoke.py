@@ -230,7 +230,13 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
     assert "CANDIDATE-ATTESTED" in (stored.get("inputs") or {}).get("resume_text", "")
     # Offline path surfaces the update in context / package copy.
     assert "React" in revised[15] or "React" in revised[7] or "attested" in revised[1].lower()
-    assert revised[13] == ""
+    # Decision guide returns to "ready" after the automatic re-analyze.
+    assert "Your decision" in revised[16] or "ready" in revised[16].lower() or "Prep bundle" in revised[16]
+    fb = revised[13]
+    if isinstance(fb, dict):
+        assert fb.get("value", "") == ""
+    else:
+        assert getattr(fb, "value", fb) in ("", None) or fb == ""
 
 
 def test_merge_revision_into_resume_appends_attested_block():

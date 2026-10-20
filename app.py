@@ -537,6 +537,69 @@ def _tracker_rows() -> list[list]:
     return rows
 
 
+def _review_guide_html(
+    phase: str = "idle", *, package_id: str = "", detail: str = ""
+) -> str:
+    """Step-by-step guide for the HITL decision dock.
+
+    ``phase``: idle | ready | working | approved | rejected
+    """
+    steps = [
+        (1, "Add resume + job description, then press Analyze match"),
+        (2, "Review Match report, Interview prep plan, and Screening answers"),
+        (3, "Decide below — approve, add missing experience, or reject"),
+    ]
+    if phase == "idle":
+        active = 1
+        blurb = (
+            "This panel unlocks after Analyze finishes. "
+            "Nothing here is submitted to an employer."
+        )
+    elif phase == "working":
+        active = 3
+        blurb = detail or (
+            "Applying your experience updates and re-running Analyze automatically…"
+        )
+    elif phase == "approved":
+        active = 3
+        blurb = (
+            f"Approved{f' — `{_esc(package_id)}`' if package_id else ''}. "
+            "Next: Interview prep plan, Mock interview, or Prep coach."
+        )
+    elif phase == "rejected":
+        active = 3
+        blurb = (
+            f"Rejected{f' — `{_esc(package_id)}`' if package_id else ''}. "
+            "Adjust inputs above and Analyze again if you want a new bundle."
+        )
+    else:  # ready
+        active = 3
+        blurb = (
+            f"Prep bundle ready{f' (`{_esc(package_id)}`)' if package_id else ''}. "
+            "Choose <strong>A</strong>, <strong>B</strong>, or <strong>C</strong> below."
+        )
+
+    rows: list[str] = []
+    for number, title in steps:
+        if number < active:
+            cls, pill = "done", "DONE"
+        elif number == active:
+            cls, pill = "active", "NOW"
+        else:
+            cls, pill = "", "NEXT"
+        rows.append(
+            f"<div class='cc-review-step {cls}'>"
+            f"<span class='cc-review-step-n'>{number}</span>"
+            f"<span class='cc-review-step-t'>{_esc(title)}</span>"
+            f"<span class='cc-review-step-pill'>{pill}</span></div>"
+        )
+    return (
+        "<div class='cc-panel-head'><h3>Step 3 · Your decision</h3>"
+        f"<p class='cc-hint'>{blurb}</p></div>"
+        f"<div class='cc-review-steps'>{''.join(rows)}</div>"
+    )
+
+
 def _empty_outputs() -> tuple:
     """The reset state shared by every early return in :func:`analyze`."""
     return (
@@ -553,9 +616,10 @@ def _empty_outputs() -> tuple:
         gr.update(interactive=False),  # reject_btn
         gr.update(interactive=False),  # revise_btn
         None,  # state
-        "",  # review_feedback
+        gr.update(value="", interactive=False),  # review_feedback
         _tracker_rows(),  # tracker_table
         None,  # context_state (JSON bundle for interview + coach tabs)
+        _review_guide_html("idle"),  # review_guide_html
     )
 
 
@@ -790,9 +854,10 @@ def analyze(
             10, gr.update(interactive=True),
             11, gr.update(interactive=True),
             12, result.package.model_dump(),
-            13, "",
+            13, gr.update(value="", interactive=True),
             14, _tracker_rows(),
             15, _serialize_result(result),
+            16, _review_guide_html("ready", package_id=result.package.package_id),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
@@ -816,9 +881,20 @@ def _current_status(package: ScreeningPrep) -> tuple[ReviewStatus, int]:
 
 
 def approve(state, feedback):
+    """Returns the shared decision-dock outputs (guide + three buttons + status…)."""
     package = _load_package(state)
     if package is None:
-        return gr.update(), "Nothing to approve.", None, gr.update(), _tracker_rows()
+        return (
+            _review_guide_html("idle"),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            "Nothing to approve — run Analyze first.",
+            None,
+            gr.update(),
+            _tracker_rows(),
+            gr.update(),
+        )
     status_now, revisions = _current_status(package)
     try:
         _REVIEW.apply_decision(
@@ -832,21 +908,45 @@ def approve(state, feedback):
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), f"Cannot approve: {exc}", state, gr.update(), _tracker_rows()
+        return (
+            _review_guide_html("ready", package_id=package.package_id),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            f"Cannot approve: {exc}",
+            state,
+            gr.update(),
+            _tracker_rows(),
+            gr.update(),
+        )
     return (
+        _review_guide_html("approved", package_id=package.package_id),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
         gr.update(interactive=False),
         f"Approved — prep bundle `{package.package_id}` is ready to use. "
         "Next: open **Interview prep plan**, **Mock interview**, or **Prep coach**.",
         package.model_dump(),
         _package_html(package, []),
         _tracker_rows(),
+        gr.update(value="", interactive=False),
     )
 
 
 def reject(state, feedback):
     package = _load_package(state)
     if package is None:
-        return gr.update(), "Nothing to reject.", None, gr.update(), _tracker_rows()
+        return (
+            _review_guide_html("idle"),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            "Nothing to reject — run Analyze first.",
+            None,
+            gr.update(),
+            _tracker_rows(),
+            gr.update(),
+        )
     status_now, revisions = _current_status(package)
     try:
         _REVIEW.apply_decision(
@@ -860,13 +960,27 @@ def reject(state, feedback):
             revisions,
         )
     except ReviewError as exc:
-        return gr.update(), f"Cannot reject: {exc}", state, gr.update(), _tracker_rows()
+        return (
+            _review_guide_html("ready", package_id=package.package_id),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            f"Cannot reject: {exc}",
+            state,
+            gr.update(),
+            _tracker_rows(),
+            gr.update(),
+        )
     return (
+        _review_guide_html("rejected", package_id=package.package_id),
+        gr.update(interactive=False),
+        gr.update(interactive=False),
         gr.update(interactive=False),
         f"Rejected — prep bundle `{package.package_id}` will not be used.",
         package.model_dump(),
         _package_html(package, []),
         _tracker_rows(),
+        gr.update(value="", interactive=False),
     )
 
 
@@ -912,18 +1026,24 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             outputs[pairs[position]] = pairs[position + 1]
         return tuple(outputs)
 
+    package = _load_package(state)
+
     def fail(message: str) -> tuple:
         return emit(
             0, _alert_html(message, kind="error"),
             1, "Revision could not finish — see the message above.",
             3, _stages_html(-1),
-            9, gr.update(interactive=True),
-            10, gr.update(interactive=True),
-            11, gr.update(interactive=True),
+            9, gr.update(interactive=bool(package)),
+            10, gr.update(interactive=bool(package)),
+            11, gr.update(interactive=bool(package)),
             12, state,
+            13, gr.update(interactive=bool(package)),
+            16, _review_guide_html(
+                "ready" if package else "idle",
+                package_id=package.package_id if package else "",
+            ),
         )
 
-    package = _load_package(state)
     if package is None:
         yield fail("Nothing to revise — run Analyze first.")
         return
@@ -995,7 +1115,12 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         10, gr.update(interactive=False),
         11, gr.update(interactive=False),
         12, state,
-        13, notes,
+        13, gr.update(value=notes, interactive=False),
+        16, _review_guide_html(
+            "working",
+            package_id=package.package_id,
+            detail="Analyze is running again with your experience updates…",
+        ),
     )
 
     stages: dict[str, object] = {"index": 1, "detail": "Applying your revision notes…"}
@@ -1075,9 +1200,10 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             10, gr.update(interactive=True),
             11, gr.update(interactive=True),
             12, result.package.model_dump(),
-            13, "",
+            13, gr.update(value="", interactive=True),
             14, _tracker_rows(),
             15, _serialize_result(result),
+            16, _review_guide_html("ready", package_id=result.package.package_id),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
@@ -1589,45 +1715,62 @@ def build_app() -> gr.Blocks:
                     package_json = gr.Code(label="Screening answers JSON", language="json")
 
         with gr.Group(elem_classes=["cc-review"]):
-            gr.HTML(
-                "<div class='cc-panel-head'><h3>Your decision</h3>"
-                "<p class='cc-hint'>Review the prep bundle. Use <strong>Request changes</strong> "
-                "to add experience that was missing from your resume (for example React years) "
-                "— we rebuild the match report from those updates. Nothing is submitted "
-                "until you approve.</p></div>"
-            )
-            feedback = gr.Textbox(
-                label="Experience updates / corrections (required for Request changes)",
-                placeholder="e.g. I have 5+ years of React experience building production SPAs.",
-                lines=3,
-                elem_classes=["cc-field"],
-                info=(
-                    "These notes are merged into your experience and Analyze runs again "
-                    "so coverage, prep plan, and rewrites update."
-                ),
-            )
-            with gr.Row(elem_classes=["cc-review-actions"]):
+            review_guide_html = gr.HTML(_review_guide_html("idle"))
+
+            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-a"]):
+                gr.HTML(
+                    "<div class='cc-choice-label'>"
+                    "<span class='cc-choice-n'>A</span>"
+                    "<div><strong>Approve</strong> — the prep bundle looks right. "
+                    "Nothing is sent to an employer; this only finalizes it here.</div></div>"
+                )
                 approve_btn = gr.Button(
                     "Approve prep bundle",
                     variant="primary",
                     interactive=False,
                     elem_classes=["cc-approve"],
                 )
+
+            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-b"]):
+                gr.HTML(
+                    "<div class='cc-choice-label'>"
+                    "<span class='cc-choice-n'>B</span>"
+                    "<div><strong>Add missing experience</strong> — e.g. the JD wants React "
+                    "but your resume doesn’t list it. Type the update, then press the button. "
+                    "<em>Analyze runs again automatically</em> and refreshes Match / Prep / Screening.</div></div>"
+                )
+                feedback = gr.Textbox(
+                    label="Your experience update",
+                    placeholder="e.g. I have 5+ years of React experience building production SPAs.",
+                    lines=3,
+                    interactive=False,
+                    elem_classes=["cc-field"],
+                )
                 revise_btn = gr.Button(
-                    "Request changes",
+                    "Apply updates & re-analyze",
                     interactive=False,
                     elem_classes=["cc-revise"],
                 )
-                reject_btn = gr.Button(
-                    "Reject",
-                    interactive=False,
-                    elem_classes=["cc-reject"],
+
+            with gr.Group(elem_classes=["cc-review-choice", "cc-review-choice-c"]):
+                gr.HTML(
+                    "<div class='cc-choice-label'>"
+                    "<span class='cc-choice-n'>C</span>"
+                    "<div><strong>Reject</strong> — discard this prep bundle "
+                    "(or refresh History).</div></div>"
                 )
-                refresh_btn = gr.Button(
-                    "Refresh history",
-                    size="sm",
-                    elem_classes=["cc-refresh"],
-                )
+                with gr.Row(elem_classes=["cc-review-actions"]):
+                    reject_btn = gr.Button(
+                        "Reject prep bundle",
+                        interactive=False,
+                        elem_classes=["cc-reject"],
+                    )
+                    refresh_btn = gr.Button(
+                        "Refresh history",
+                        size="sm",
+                        elem_classes=["cc-refresh"],
+                    )
+
             review_status = gr.Markdown("", elem_classes=["cc-review-status"])
 
         gr.HTML(
@@ -1638,22 +1781,35 @@ def build_app() -> gr.Blocks:
 
         # --- wiring --------------------------------------------------------- #
         analyze_outputs = [
-            error_box,       # 0
-            status,          # 1
-            banner,          # 2
-            stages_html,     # 3
-            trace_md,        # 4
-            insight_html,    # 5
-            prep_html,       # 6
-            package_md,      # 7
-            package_json,    # 8
-            approve_btn,     # 9
-            reject_btn,      # 10
-            revise_btn,      # 11
-            state,           # 12
-            feedback,        # 13
-            tracker_table,   # 14
-            ctx_state,       # 15
+            error_box,          # 0
+            status,             # 1
+            banner,             # 2
+            stages_html,        # 3
+            trace_md,           # 4
+            insight_html,       # 5
+            prep_html,          # 6
+            package_md,         # 7
+            package_json,       # 8
+            approve_btn,        # 9
+            reject_btn,         # 10
+            revise_btn,         # 11
+            state,              # 12
+            feedback,           # 13
+            tracker_table,      # 14
+            ctx_state,          # 15
+            review_guide_html,  # 16
+        ]
+
+        decision_outputs = [
+            review_guide_html,
+            approve_btn,
+            reject_btn,
+            revise_btn,
+            review_status,
+            state,
+            package_md,
+            tracker_table,
+            feedback,
         ]
 
         run_btn.click(
@@ -1723,12 +1879,12 @@ def build_app() -> gr.Blocks:
         approve_btn.click(
             approve,
             inputs=[state, feedback],
-            outputs=[approve_btn, review_status, state, package_md, tracker_table],
+            outputs=decision_outputs,
         )
         reject_btn.click(
             reject,
             inputs=[state, feedback],
-            outputs=[reject_btn, review_status, state, package_md, tracker_table],
+            outputs=decision_outputs,
         )
         revise_btn.click(
             request_revision,
