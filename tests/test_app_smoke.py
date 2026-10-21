@@ -50,16 +50,11 @@ def test_app_is_light_only_even_when_os_prefers_dark():
     assert "button.upload-container" in app.CUSTOM_CSS
 
 
-def test_screening_questions_come_from_verified_bank_not_a_textbox():
-    """The screening-question input was removed; the bank drives the questions."""
-    import app
-    from careercrew.document_tools import default_screening_questions
-
-    questions = default_screening_questions()
-    assert questions, "answer bank should expose verified questions"
-    assert all(q.strip() for q in questions)
-    # The Analyze callback no longer accepts a screening-questions argument.
+def test_analyze_takes_resume_and_job_inputs_only():
+    """Analyze match takes a resume and a job description, nothing else."""
     import inspect
+
+    import app
 
     params = list(inspect.signature(app.analyze).parameters)
     assert params == ["resume_file", "resume_text", "jd_file", "jd_text"]

@@ -3,11 +3,9 @@
 This module runs the whole analysis for one request:
 
 1. Validate input (input guardrails).
-2. Run the six-agent CrewAI crew (off the event loop so the UI stays responsive).
+2. Run the five-agent CrewAI crew (off the event loop so the UI stays responsive).
 3. Parse the agents' JSON into typed models, with bounded repair.
-4. If the crew output cannot be parsed, fall back to a deterministic path that
-   makes the **same** real MCP calls directly, so the run still yields grounded
-   screening answers (never fabricated) and is honest about what happened.
+4. If the crew does not finish, still return a grounded prep plan from the gaps.
 5. Validate the assembled outputs (output guardrails) - fail closed.
 
 Every step is recorded in an :class:`~careercrew.models.ExecutionTrace`.
@@ -33,8 +31,8 @@ from careercrew.document_tools import (
     read_resume,
     read_resume_text,
 )
-from careercrew.mcp_client import MCPToolClient
 from careercrew.models import (
+    ApplicationPackage,
     CandidateProfile,
     ExecutionTrace,
     FeedbackDraft,
@@ -43,8 +41,6 @@ from careercrew.models import (
     InterviewPrepPlan,
     JobRequirements,
     RewrittenBullet,
-    ScreeningAnswer,
-    ScreeningPrep,
     WorkExperience,
     infer_seniority_from_jd,
 )
@@ -67,7 +63,6 @@ class AnalysisRequest:
     resume_text: str | None = None
     jd_path: str | None = None
     jd_text: str | None = None
-    screening_questions: list[str] = field(default_factory=list)
     seniority: str = ""
     #: Human HITL notes from "Request changes" — empty on the first Analyze.
     revision_notes: str = ""
@@ -77,7 +72,7 @@ class AnalysisRequest:
 class PipelineResult:
     """Everything produced by one analysis run."""
 
-    package: ScreeningPrep
+    package: ApplicationPackage
     profile: CandidateProfile
     requirements: JobRequirements
     gaps: GapReport
@@ -96,7 +91,6 @@ CREW_STAGES = [
     "gaps",
     "feedback",
     "prep_plan",
-    "package",
 ]
 
 
@@ -144,63 +138,6 @@ def _coerce_model(model_cls, data: Any):
         except Exception:  # noqa: BLE001 - bounded repair, never crash
             return None
     return None
-
-
-# --------------------------------------------------------------------------- #
-# Deterministic MCP fallback
-# --------------------------------------------------------------------------- #
-def deterministic_package(
-    request: AnalysisRequest, trace: ExecutionTrace, mcp: MCPToolClient
-) -> ScreeningPrep:
-    """Assemble copy-ready screening answers with direct real MCP calls.
-
-    Used only when the crew output cannot be parsed. Every call is a genuine MCP
-    call and is recorded in the trace; unknown questions go to do_not_claim.
-    """
-    answers: list[ScreeningAnswer] = []
-    do_not_claim: list[str] = []
-    for question in request.screening_questions:
-        started = time.perf_counter()
-        payload = mcp.query_answer_bank(question)
-        trace.add(
-            "mcp.call.query_answer_bank",
-            "pipeline",
-            f"{question[:60]} -> {payload.get('status')}",
-            duration_ms=int((time.perf_counter() - started) * 1000),
-        )
-        if isinstance(payload, dict) and payload.get("found"):
-            answers.append(
-                ScreeningAnswer(
-                    question=question,
-                    answer=str(payload.get("answer", "")),
-                    source="answer_bank",
-                    verified=True,
-                )
-            )
-        else:
-            do_not_claim.append(question)
-
-    summary = (
-        "Copy-ready screening answers assembled from the verified answer bank. "
-        "Nothing is submitted on your behalf. Questions without a verified entry "
-        "are listed under do_not_claim."
-    )
-    notes = (request.revision_notes or "").strip()
-    if notes:
-        summary += f" Revision notes applied: {notes}"
-
-    return ScreeningPrep(
-        package_id=request.package_id,
-        role_title="",
-        company="",
-        screening_answers=answers,
-        package_summary=summary,
-        do_not_claim=do_not_claim,
-    )
-
-
-#: Backwards-compatible alias for the deterministic fallback.
-deterministic_screening_prep = deterministic_package
 
 
 def _apply_revision_experience(
@@ -290,37 +227,6 @@ def _apply_revision_experience(
     return profile, gaps, requirements
 
 
-def _parse_package(data: Any, package_id: str) -> ScreeningPrep | None:
-    """Map the screening-prep task JSON onto a ScreeningPrep with bounded repair."""
-    if not isinstance(data, dict):
-        return None
-    answers: list[ScreeningAnswer] = []
-    for item in _as_list(data.get("screening_answers")):
-        if not isinstance(item, dict):
-            continue
-        question = str(item.get("question") or "").strip()
-        answer = str(item.get("answer") or "").strip()
-        source = str(item.get("source") or "answer_bank").strip() or "answer_bank"
-        if not question or not answer:
-            continue
-        answers.append(
-            ScreeningAnswer(
-                question=question,
-                answer=answer,
-                source=source,
-                verified=bool(item.get("verified", True)),
-            )
-        )
-    return ScreeningPrep(
-        package_id=package_id,
-        role_title=str(data.get("role_title") or ""),
-        company=str(data.get("company") or ""),
-        screening_answers=answers,
-        package_summary=str(data.get("package_summary") or ""),
-        do_not_claim=[str(item) for item in _as_list(data.get("do_not_claim"))],
-    )
-
-
 # --------------------------------------------------------------------------- #
 # Crew execution
 # --------------------------------------------------------------------------- #
@@ -355,7 +261,6 @@ def _run_crew(
         resume_text=request.resume_text,
         jd_path=request.jd_path if not request.jd_text else None,
         jd_text=request.jd_text,
-        screening_questions="\n".join(request.screening_questions) or "(none provided)",
         seniority=(
             request.seniority
             or "the seniority / years of experience signaled in the job description"
@@ -369,7 +274,7 @@ def _run_crew(
     trace.add(
         "crew.kickoff",
         "crew",
-        "six agents completed",
+        "five agents completed",
         duration_ms=int((time.perf_counter() - started) * 1000),
     )
     return result
@@ -387,14 +292,12 @@ def _parse_crew_outputs(result: Any, request: AnalysisRequest, trace: ExecutionT
     gaps = _coerce_model(GapReport, parsed.get("gaps"))
     feedback = _coerce_model(FeedbackDraft, parsed.get("feedback"))
     prep_plan = _coerce_model(InterviewPrepPlan, parsed.get("prep_plan"))
-    package = _parse_package(parsed.get("package"), request.package_id)
     return {
         "profile": profile,
         "requirements": requirements,
         "gaps": gaps,
         "feedback": feedback,
         "prep_plan": prep_plan,
-        "package": package,
     }
 
 
@@ -431,7 +334,6 @@ def run_analysis(
         resume_text=request.resume_text,
         jd_path=request.jd_path,
         jd_text=request.jd_text,
-        screening_questions=request.screening_questions,
     )
     if not check.ok:
         trace.add("guardrail.input", "guardrails", "; ".join(check.errors), status="error")
@@ -482,11 +384,11 @@ def run_analysis(
     gaps: GapReport | None = None
     feedback: FeedbackDraft | None = None
     prep_plan: InterviewPrepPlan | None = None
-    package: ScreeningPrep | None = None
+    package: ApplicationPackage | None = None
     used_fallback = False
 
     if settings.has_llm:
-        notify("Running the six-agent crew (this can take a minute)...")
+        notify("Running the five-agent crew (this can take a minute)...")
         try:
             crew_result = _run_crew(request, trace, notify, on_task)
             parsed = _parse_crew_outputs(crew_result, request, trace)
@@ -495,24 +397,19 @@ def run_analysis(
             gaps = parsed["gaps"]
             feedback = parsed["feedback"]
             prep_plan = parsed["prep_plan"]
-            package = parsed["package"]
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the UI
             logger.warning("crew run failed: %s", exc)
             trace.add("crew.error", "crew", f"{type(exc).__name__}: {exc}", status="error")
-            warnings.append("The agent crew did not complete; using the MCP fallback.")
+            warnings.append("The agent crew did not complete; using the gap-based fallback.")
+            used_fallback = True
     else:
-        warnings.append("No OPENAI_API_KEY set; running the deterministic MCP fallback only.")
-
-    if package is None and allow_fallback:
+        warnings.append("No OPENAI_API_KEY set; running the gap-based fallback only.")
         used_fallback = True
-        notify("Crew output unavailable - preparing screening answers via direct MCP calls...")
-        mcp = MCPToolClient(timeout_s=settings.request_timeout_s)
-        try:
-            package = deterministic_package(request, trace, mcp)
-        except Exception as exc:  # noqa: BLE001
-            trace.add("mcp.error", "pipeline", f"{type(exc).__name__}: {exc}", status="error")
-            warnings.append("MCP fallback failed; no screening answers could be assembled.")
-            package = ScreeningPrep(package_id=request.package_id)
+
+    if package is None:
+        package = ApplicationPackage(package_id=request.package_id)
+        if not settings.has_llm:
+            used_fallback = True
 
     # Ensure the package carries the id and any do_not_claim from the feedback.
     assert package is not None
@@ -564,8 +461,8 @@ def run_analysis(
     warnings.extend(validation.warnings)
     if not validation.ok:
         trace.add("guardrail.output", "guardrails", "; ".join(validation.errors), status="error")
-        raise ValueError("Screening prep failed output guardrails: " + "; ".join(validation.errors))
-    trace.add("guardrail.output", "guardrails", "screening prep validated")
+        raise ValueError("Prep bundle failed output guardrails: " + "; ".join(validation.errors))
+    trace.add("guardrail.output", "guardrails", "prep bundle validated")
 
     plan_problems = guardrails.validate_prep_plan(prep_plan, gaps or GapReport(), requirements)
     if plan_problems:
@@ -577,7 +474,7 @@ def run_analysis(
         trace.add("guardrail.prep", "guardrails", "prep plan validated")
 
     if used_fallback:
-        warnings.append("Run used the deterministic MCP fallback instead of the agent crew.")
+        warnings.append("Run used the gap-based fallback instead of the agent crew.")
 
     return PipelineResult(
         package=package,

@@ -7,7 +7,6 @@
 #   3. Gap Analyst              - honest coverage scoring
 #   4. Feedback Writer          - cited resume rewrites + talking points
 #   5. Interview Prep Advisor   - seniority + gaps -> where to spend prep time
-#   6. Screening Prep Writer    - copy-ready answers from the verified answer bank
 
 profile_extractor:
   role: Profile Extractor
@@ -63,20 +62,5 @@ interview_prep_advisor:
     priority and a rough share of prep time, and you never advise the candidate
     to claim experience the resume does not support. Higher seniority bands are
     held to a higher bar: leadership, scope, and system-design depth matter more.
-  allow_delegation: false
-  verbose: true
-
-screening_prep_writer:
-  role: Screening Answer Prep Writer
-  goal: Draft copy-ready answers to employer screening questions using only verified answer-bank facts
-  backstory: >
-    You prepare honest, copy-ready answers the candidate can reuse in their own
-    application. For each employer screening question you call the
-    query_answer_bank tool and use ONLY the verified answer it returns. You
-    never invent work authorization, notice period, location, relocations, or
-    salary facts. If the answer bank has no verified entry for a question, you
-    do not guess: you list the question under do_not_claim and ask the
-    candidate to provide the fact. You never claim that anything was submitted
-    on the candidate's behalf - you only prepare answers.
   allow_delegation: false
   verbose: true

@@ -76,19 +76,3 @@ build_prep_plan:
     detected_years, confidence, rationale), focus_areas (area, priority,
     suggested_share_pct, why, evidence), question_themes, strengths, and
     risk_areas.
-
-prepare_screening_answers:
-  description: >
-    Prepare copy-ready answers (nothing is submitted on the candidate's behalf)
-    for EACH employer screening question listed in {screening_questions}. Call
-    the query_answer_bank tool and use only the verified answer it returns
-    (source must be answer_bank). If the answer bank has no verified entry, do
-    NOT guess: add the question to do_not_claim. Then write a short
-    package_summary that explains these are copy-ready answers the candidate
-    can paste into their own application. Carry forward the feedback draft's
-    do_not_claim items. Mention any human revision notes at {revision_notes}
-    in the package_summary when they are not empty.
-  expected_output: >
-    A ScreeningPrep JSON object: role_title, company, screening_answers
-    (question, answer, source=answer_bank, verified), package_summary, and
-    do_not_claim.

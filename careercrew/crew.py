@@ -3,12 +3,12 @@
 Roles and task text live in ``config/agents.yaml`` and ``config/tasks.yaml``;
 wiring (agents, MCP servers, knowledge, context, typed outputs) is explicit here
 so there is no magic to debug. Process is sequential: the pipeline is linear
-(extract -> analyze JD -> compare -> write -> prep plan -> screening prep), so
+(extract -> analyze JD -> compare -> write -> prep plan), so
 no manager agent is needed.
 
-The four tool-using agents are attached to the **real** CareerCrew MCP server
-over stdio (``careercrew.mcp_client.crewai_mcp_server``), so ``read_resume``,
-``read_job_description``, and ``query_answer_bank`` are genuine MCP calls.
+The tool-using agents are attached to the **real** CareerCrew MCP server
+over stdio (``careercrew.mcp_client.crewai_mcp_server``), so ``read_resume``
+and ``read_job_description`` are genuine MCP calls.
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ from careercrew.models import (
     GapReport,
     InterviewPrepPlan,
     JobRequirements,
-    ScreeningPrep,
 )
 
 logger = logging.getLogger("careercrew.crew")
@@ -62,10 +61,10 @@ def _guidelines_source(path: Path, name: str) -> StringKnowledgeSource:
 
 
 def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
-    """Assemble the six agents and six tasks as a sequential crew.
+    """Assemble the five agents and five tasks as a sequential crew.
 
     ``on_task`` / ``on_step`` are optional callbacks: ``on_task`` is called with
-    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the six
+    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the five
     tasks finishes, and ``on_step`` after each agent step. They power the live
     stage tracker in the UI and are never required.
     """
@@ -107,8 +106,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     interview_prep_advisor = _agent(
         "interview_prep_advisor", with_mcp=False, extra_knowledge=interview_knowledge
     )
-    screening_prep_writer = _agent("screening_prep_writer", with_mcp=True)
-
     extract_profile = Task(
         name="extract_profile",
         config=tasks_cfg["extract_profile"],
@@ -142,13 +139,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
         context=[extract_profile, analyze_jd, analyze_gaps],
         output_pydantic=InterviewPrepPlan,
     )
-    prepare_screening_answers = Task(
-        name="prepare_screening_answers",
-        config=tasks_cfg["prepare_screening_answers"],
-        agent=screening_prep_writer,
-        context=[write_feedback, analyze_jd],
-        output_pydantic=ScreeningPrep,
-    )
 
     return Crew(
         agents=[
@@ -157,7 +147,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             gap_analyst,
             feedback_writer,
             interview_prep_advisor,
-            screening_prep_writer,
         ],
         tasks=[
             extract_profile,
@@ -165,7 +154,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             analyze_gaps,
             write_feedback,
             build_prep_plan,
-            prepare_screening_answers,
         ],
         process=Process.sequential,
         memory=True,  # short-term memory within a session (see ARCHITECTURE.md)
@@ -181,7 +169,6 @@ def crew_inputs(
     resume_text: str | None = None,
     jd_path: str | None = None,
     jd_text: str | None = None,
-    screening_questions: str = "",
     seniority: str = "",
     revision_notes: str = "",
 ) -> dict:
@@ -199,7 +186,6 @@ def crew_inputs(
         "resume_text": resume_text or "(none; use the read_resume tool)",
         "jd_path": jd_path or "(none; use pasted jd_text)",
         "jd_text": jd_text or "(none; use the read_job_description tool)",
-        "screening_questions": screening_questions or "(none provided)",
         "seniority": seniority
         or "the seniority / years of experience signaled in the job description",
         "revision_notes": revision_notes

@@ -22,7 +22,6 @@ RESUME_GUIDELINES_PATH = KNOWLEDGE_DIR / "resume_guidelines.md"
 INTERVIEW_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
 COACHING_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
 DATA_DIR = PROJECT_ROOT / "data"
-ANSWER_BANK_PATH = DATA_DIR / "answer_bank.yaml"
 
 
 def _env_bool(name: str, default: bool = False) -> bool:

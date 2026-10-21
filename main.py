@@ -4,8 +4,8 @@
     python main.py --resume-text "..." --jd "We need a Python engineer."
     python main.py --resume samples/sample_resume.txt --jd-file posting.pdf
 
-Needs OPENAI_API_KEY for the full crew; without it the deterministic MCP
-fallback still runs. See .env.example.
+Needs OPENAI_API_KEY for the full crew; without it the gap-based fallback
+still runs. See .env.example.
 """
 
 from __future__ import annotations
@@ -37,12 +37,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "(2-3 years, 5-10 years, or 10+ years). "
             "When omitted, seniority is inferred from the job description."
         ),
-    )
-    parser.add_argument(
-        "--screening",
-        action="append",
-        default=[],
-        help="A screening question (repeat the flag for each question)",
     )
     return parser
 
@@ -87,7 +81,6 @@ def main() -> None:
         jd_path=jd_path,
         jd_text=jd_text,
         seniority=args.seniority,
-        screening_questions=args.screening,
     )
 
     result = run_analysis(request)

@@ -77,7 +77,7 @@ Resume + JD  →  ANALYZE (6 agents + MCP tools)
         ),
         (
             "markdown",
-            """## Six agents (Analyze)
+            """## Five agents (Analyze)
 
 | # | Role | Output |
 |---|------|--------|
@@ -86,10 +86,8 @@ Resume + JD  →  ANALYZE (6 agents + MCP tools)
 | 3 | Gap analyst | Coverage + gaps |
 | 4 | Rewrite coach | Cited bullet rewrites |
 | 5 | Prep advisor | Interview prep plan |
-| 6 | Screening drafter | Answers from answer bank only |
 
-Tools talk to an **MCP server** exposing `read_resume`, `read_job_description`,
-and `query_answer_bank`.
+Tools talk to an **MCP server** exposing `read_resume` and `read_job_description`.
 """,
         ),
         (
@@ -582,7 +580,7 @@ write(
             """# Analyze button — crew pipeline
 
 This notebook explains what happens when the user clicks **Analyze**: Gradio
-collects inputs, the pipeline builds a six-agent CrewAI crew with MCP tools,
+collects inputs, the pipeline builds a five-agent CrewAI crew with MCP tools,
 and a typed analysis package is produced (or a deterministic fallback).
 
 **Source files**
@@ -599,11 +597,11 @@ and a typed analysis package is produced (or a deterministic fallback).
 
 Analyze is the core of CareerCrew. Gradio gathers the resume and JD (upload or
 paste), runs input guardrails, then `pipeline.run_analysis` builds a CrewAI crew
-of six agents with MCP tools.
+of five agents with MCP tools.
 
-The crew produces a typed package: profile, requirements, gaps, rewrites, prep
-plan, and screening answers. If the LLM crew fails, CareerCrew still returns a
-**deterministic fallback package** so the demo keeps working. The result is
+The crew produces a typed package: profile, requirements, gaps, rewrites, and a
+prep plan. If the LLM crew fails, CareerCrew still returns a
+**gap-based fallback** so the demo keeps working. The result is
 submitted into HITL review and rendered across the UI tabs.
 """,
         ),
@@ -623,7 +621,7 @@ Gradio Analyze
          OR deterministic_package (fallback)
       review.submit_for_review
       session_store persist
-   render Match / Prep / Screening tabs
+   render Match / Prep tabs
 ```
 """,
         ),
@@ -637,9 +635,9 @@ Gradio Analyze
 | Task prompts | `config/tasks.yaml` |
 | Crew wiring | `careercrew/crew.py` → `build_crew` |
 | Shared tool logic | `careercrew/document_tools.py` |
-| MCP server | `mcp_server/server.py` — `read_resume`, `read_job_description`, `query_answer_bank` |
+| MCP server | `mcp_server/server.py` — `read_resume`, `read_job_description` |
 | Contracts | `careercrew/models.py` |
-| Honesty | `data/answer_bank.yaml` (`verified: true` only) |
+| Honesty | cited resume facts only; unsupported items go to `do_not_claim` |
 """,
         ),
         (
@@ -661,8 +659,8 @@ for name, out in STEPS:
 
 print()
 print("Fallback:")
-print("  crew fails / no key -> pipeline.deterministic_package(...)")
-print("  still grounded in gaps + answer bank retrieval")
+print("  crew fails / no key -> gap-based prep plan")
+print("  still grounded in the resume and the job description")
 """,
         ),
         (
@@ -670,8 +668,8 @@ print("  still grounded in gaps + answer bank retrieval")
             """## Guardrails
 
 - **Input:** file type/size, one resume source, one JD source, no raw job-board scrape.
-- **Tools:** upload confinement; answer bank returns only verified facts.
-- **Output:** Pydantic validation; prep advice stays grounded; screening never invents unverified claims.
+- **Tools:** upload confinement.
+- **Output:** Pydantic validation; prep advice stays grounded in real gaps.
 
 Implementation: `careercrew/guardrails.py`.
 """,

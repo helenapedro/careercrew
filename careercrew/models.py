@@ -65,37 +65,18 @@ class FeedbackDraft(BaseModel):
     do_not_claim: list[str] = Field(default_factory=list)
 
 
-class ScreeningAnswer(BaseModel):
-    """One answer to an employer screening question.
+class ApplicationPackage(BaseModel):
+    """The prep bundle a candidate reviews, approves, or revises.
 
-    ``source`` must be ``"answer_bank"``: the only permitted origin for a
-    screening fact. Unverified questions are routed to ``do_not_claim`` instead.
-    """
-
-    question: str
-    answer: str = ""
-    source: str = Field(default="answer_bank", description="must be 'answer_bank'")
-    verified: bool = True
-
-
-class ScreeningPrep(BaseModel):
-    """Copy-ready screening answers prepared for the candidate.
-
-    Nothing is submitted anywhere. This is a candidate-facing bundle of answers
-    drawn only from the verified answer bank, plus the questions that need the
-    candidate's own input.
+    Nothing is submitted anywhere. ``do_not_claim`` lists requirements the
+    resume does not support, so the candidate answers those themselves.
     """
 
     package_id: str = ""
     role_title: str = ""
     company: str = ""
-    screening_answers: list[ScreeningAnswer] = Field(default_factory=list)
     package_summary: str = ""
     do_not_claim: list[str] = Field(default_factory=list)
-
-
-# Backwards-compatible alias (older code/tests referenced the old name).
-ApplicationPackage = ScreeningPrep
 
 
 # --------------------------------------------------------------------------- #

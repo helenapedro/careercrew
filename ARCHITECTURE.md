@@ -12,15 +12,14 @@
 ## 1. System overview
 
 A user provides a resume (file or pasted text) and a job description (file or
-pasted text). Seniority is inferred from the JD, and the screening questions come
-from the verified answer bank. Six agents run in a fixed
+pasted text). Seniority is inferred from the JD. Five agents run in a fixed
 sequence and produce cited feedback plus a seniority-aware interview
-preparation plan and copy-ready screening answers. On top of that, a voice
+preparation plan. On top of that, a voice
 **mock interviewer** runs a practice interview with a live transcript and
 per-question feedback, and two **coaching chats** answer follow-up questions.
 
-Every claim in the output must trace to a resume fact or a verified
-answer-bank entry; the system says "do not claim" rather than invent facts.
+Every claim in the output must trace to a resume fact; the system says
+"do not claim" rather than invent facts.
 **Nothing is submitted anywhere** - CareerCrew prepares and practices; the
 candidate applies.
 
@@ -30,15 +29,15 @@ flowchart TD
     S2["2 · Entrypoints<br/>app.py — Gradio UI<br/>main.py — CLI"]
     S3["3 · Input guardrails<br/>validate_request · check_upload · redact_pii"]
     S4["4 · Pipeline<br/>normalize to text · build crew<br/>kickoff · parse · fallback"]
-    S5["5 · Analysis crew — six sequential agents<br/>1 Profile Extractor → 2 JD Analyzer → 3 Gap Analyst<br/>→ 4 Feedback Writer → 5 Interview Prep Advisor<br/>→ 6 Screening Prep Writer"]
+    S5["5 · Analysis crew — five sequential agents<br/>1 Profile Extractor → 2 JD Analyzer → 3 Gap Analyst<br/>→ 4 Feedback Writer → 5 Interview Prep Advisor"]
     S6["6 · Output guardrails<br/>validate_citations · validate_package · validate_prep_plan"]
     S7["7 · HITL review<br/>DRAFT → PENDING_REVIEW → APPROVED / REJECTED"]
-    S8["8 · Prep bundle<br/>bullets · talking points · prep plan · screening answers"]
+    S8["8 · Prep bundle<br/>bullets · talking points · prep plan"]
     S9["9 · Practice and coaching<br/>voice/text mock interview<br/>prep coach · post-interview coach"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
 
-    S5 <--> MCP["MCP server — stdio<br/>read_resume · read_job_description · query_answer_bank"]
+    S5 <--> MCP["MCP server — stdio<br/>read_resume · read_job_description"]
     S4 -.-> K["knowledge/<br/>resume_guidelines.md<br/>interview_guidelines.md"]
     S3 -.-> DB[("SQLite session store<br/>bundles · sessions · turns · chats")]
     S7 -.-> DB
@@ -53,10 +52,10 @@ flowchart TD
 | `S3` | `careercrew/guardrails.py` | Pre-LLM checks: exactly one resume/JD source, upload type and size, injection patterns, PII redaction. |
 | `S4` | `careercrew/pipeline.py` | Normalizes inputs to text, kicks off the crew, parses/validates outputs, and runs deterministic fallbacks. |
 | `S5` | `careercrew/crew.py` | Turns `config/*.yaml` into a running sequential crew with MCP tools and knowledge sources. |
-| `1`–`6` | `config/agents.yaml`, `config/tasks.yaml` | The six sequential agents and their tasks (details in `docs/engineering/agents-and-workflows.md`). |
-| `MCP` | `mcp_server/server.py` | Exposes the shared tool logic over stdio as three MCP tools. |
-| `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading, uploads-folder confinement, and the verified answer bank. |
-| `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, screening answers come from the answer bank, prep-plan focus areas cite real gaps. |
+| `1`–`5` | `config/agents.yaml`, `config/tasks.yaml` | The five sequential agents and their tasks (details in `docs/engineering/agents-and-workflows.md`). |
+| `MCP` | `mcp_server/server.py` | Exposes the shared tool logic over stdio as two MCP tools. |
+| `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading and uploads-folder confinement. |
+| `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
 | `S8` | `careercrew/models.py` | Approved prep bundle: bullets, talking points, prep plan, and copy-ready answers. Nothing is submitted. |
 | `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
@@ -95,12 +94,10 @@ prep bundle: nothing is ever submitted to an employer.
 3. **SQLite for memory.** Standard library only, survives restarts, no
    infrastructure. The crew also uses `memory=True` for short-term memory
    within a session.
-4. **Deterministic fallback.** The app works without `OPENAI_API_KEY`
-   (real MCP answer-bank retrieval plus a gap-based prep plan); the UI banner
-   says so.
+4. **Gap-based fallback.** The app works without `OPENAI_API_KEY`
+   (a prep plan derived from the gaps); the UI banner says so.
 5. **Evidence grounding.** Every factual claim traces to a supplied resume
-   fact or a verified answer-bank entry. Unsupported claims go to
-   `do_not_claim` instead of being invented.
+   fact. Unsupported claims go to `do_not_claim` instead of being invented.
 
 ## 5. Deployment
 
@@ -137,7 +134,7 @@ Verified 2026-10-16 against `dev`; one item remains open.
 1. `config/agents.yaml` + `config/tasks.yaml` (what the crew is)
 2. `careercrew/models.py` (the contracts between agents)
 3. `careercrew/crew.py` (how YAML becomes a running crew with MCP + knowledge)
-4. `careercrew/document_tools.py` (tools + guardrails + the answer bank)
+4. `careercrew/document_tools.py` (tools + guardrails)
 5. `careercrew/pipeline.py` (orchestration, parsing, fallback, validation)
 6. `careercrew/prep.py`, `careercrew/interview.py`, `careercrew/coach.py`
    (prep plan, mock interviewer, coaching chats)

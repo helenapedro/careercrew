@@ -28,7 +28,6 @@ import gradio as gr
 
 from careercrew import audio, coach, guardrails, interview, llm
 from careercrew.config import get_settings
-from careercrew.document_tools import default_screening_questions
 from careercrew.models import (
     AnswerEvaluation,
     CandidateProfile,
@@ -41,7 +40,7 @@ from careercrew.models import (
     ReviewAction,
     ReviewDecision,
     ReviewStatus,
-    ScreeningPrep,
+    ApplicationPackage,
 )
 from careercrew.pipeline import AnalysisRequest, make_package_id, run_analysis
 from careercrew.review import PackageReviewService, ReviewError
@@ -72,7 +71,6 @@ STAGES: list[tuple[int, str, str]] = [
     (4, "Score match", "Mark each requirement as covered, reframeable, or out of scope"),
     (5, "Draft rewrites", "Suggest stronger bullets backed by facts from your resume"),
     (6, "Prep plan", "Plan where to spend your interview preparation time"),
-    (7, "Screening + check", "Prepare copy-ready answers and verify honesty rules"),
 ]
 _TOTAL_STAGES = len(STAGES)
 _FINAL = _TOTAL_STAGES + 1  # sentinel: marks every stage complete
@@ -84,7 +82,6 @@ _AGENT_STAGE = {
     "Gap Analyst": 4,
     "Feedback Writer": 5,
     "Interview Prep Advisor": 6,
-    "Screening Answer Prep Writer": 7,
 }
 _TASK_STAGE = {
     "extract_profile": 2,
@@ -92,7 +89,6 @@ _TASK_STAGE = {
     "analyze_gaps": 4,
     "write_feedback": 5,
     "build_prep_plan": 6,
-    "prepare_screening_answers": 7,
 }
 
 # --------------------------------------------------------------------------- #
@@ -641,9 +637,6 @@ def analyze(
             )
             return
 
-        # Screening questions come from the verified answer bank, not from a
-        # text box: the app only answers what it can actually verify.
-        questions = default_screening_questions()
         # Seniority is inferred from the JD inside the pipeline (no UI picker).
         request = AnalysisRequest(
             package_id=make_package_id(),
@@ -652,7 +645,6 @@ def analyze(
             jd_path=jd_path,
             jd_text=pasted_jd,
             seniority="",
-            screening_questions=questions,
         )
 
         yield emit(
@@ -666,9 +658,9 @@ def analyze(
         def progress(message: str) -> None:
             """Bridge the pipeline's progress messages onto the stage tracker."""
             lowered = message.lower()
-            if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
-                stages["index"], stages["detail"] = 7, "Preparing screening answers from your verified bank…"
-            elif "six-agent crew" in lowered:
+            if "fallback" in lowered:
+                stages["index"], stages["detail"] = 6, "Building a prep plan from the gaps…"
+            elif "five-agent crew" in lowered:
                 stages["index"], stages["detail"] = 2, "Reading your resume…"
             else:
                 stages["detail"] = message
@@ -717,7 +709,6 @@ def analyze(
                 "jd_path": request.jd_path,
                 "jd_text": request.jd_text,
                 "seniority": request.seniority,
-                "screening_questions": request.screening_questions,
             },
             result.package,
             result.trace,
@@ -751,16 +742,16 @@ def analyze(
         yield fail(f"Unexpected error: {exc}")
 
 
-def _load_package(state) -> ScreeningPrep | None:
+def _load_package(state) -> ApplicationPackage | None:
     if not state:
         return None
     try:
-        return ScreeningPrep.model_validate(state)
+        return ApplicationPackage.model_validate(state)
     except Exception:  # noqa: BLE001
         return None
 
 
-def _current_status(package: ScreeningPrep) -> tuple[ReviewStatus, int]:
+def _current_status(package: ApplicationPackage) -> tuple[ReviewStatus, int]:
     stored = _STORE.get_package(package.package_id)
     if stored:
         return ReviewStatus(stored["status"]), int(stored["revision_count"])
@@ -977,7 +968,6 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         jd_path=jd_path,
         jd_text=jd_text,
         seniority=saved.get("seniority") or "",
-        screening_questions=list(saved.get("screening_questions") or []),
         revision_notes=notes,
     )
 
@@ -1006,9 +996,9 @@ def request_revision(state, feedback) -> Iterator[tuple]:
 
     def progress(message: str) -> None:
         lowered = message.lower()
-        if "crew output unavailable" in lowered or "direct mcp calls" in lowered:
-            stages["index"], stages["detail"] = 7, "Preparing screening answers…"
-        elif "six-agent crew" in lowered:
+        if "fallback" in lowered:
+            stages["index"], stages["detail"] = 6, "Building a prep plan from the gaps…"
+        elif "five-agent crew" in lowered:
             stages["index"], stages["detail"] = 2, "Re-reading your resume…"
         else:
             stages["detail"] = message
@@ -1052,7 +1042,6 @@ def request_revision(state, feedback) -> Iterator[tuple]:
                 "jd_path": request.jd_path,
                 "jd_text": request.jd_text,
                 "seniority": request.seniority,
-                "screening_questions": request.screening_questions,
             },
             result.package,
             result.trace,

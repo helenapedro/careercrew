@@ -17,8 +17,6 @@ from careercrew.models import (
     ReviewAction,
     ReviewStatus,
     RewrittenBullet,
-    ScreeningAnswer,
-    ScreeningPrep,
     SeniorityAssessment,
     SeniorityBand,
     TrackerEntry,
@@ -41,15 +39,9 @@ def test_gap_report_score_bounds():
     assert report.coverage_score == 100
 
 
-def test_screening_answer_defaults_to_answer_bank():
-    answer = ScreeningAnswer(question="q", answer="a")
-    assert answer.source == "answer_bank"
-    assert answer.verified is True
-
-
 def test_application_package_defaults():
     package = ApplicationPackage(package_id="pkg-1")
-    assert package.screening_answers == []
+    assert package.package_summary == ""
     assert package.do_not_claim == []
 
 
@@ -67,10 +59,6 @@ def test_review_enums_are_string_valued():
 def test_tracker_entry_roundtrip():
     entry = TrackerEntry(package_id="pkg-1", status=ReviewStatus.APPROVED)
     assert TrackerEntry.model_validate_json(entry.model_dump_json()).status is ReviewStatus.APPROVED
-
-
-def test_screening_prep_is_application_package_alias():
-    assert ScreeningPrep is ApplicationPackage
 
 
 def test_seniority_band_labels_and_parser():

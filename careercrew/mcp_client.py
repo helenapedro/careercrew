@@ -32,7 +32,7 @@ from careercrew.config import PROJECT_ROOT
 logger = logging.getLogger("careercrew.mcp_client")
 
 #: Tools exposed by our server that we expect to exist.
-EXPECTED_TOOLS = {"read_resume_tool", "read_job_description_tool", "query_answer_bank_tool"}
+EXPECTED_TOOLS = {"read_resume_tool", "read_job_description_tool"}
 
 
 def _server_env() -> dict[str, str]:
@@ -171,10 +171,6 @@ class MCPToolClient:
         """Call ``read_job_description_tool`` and return the JD text."""
         return _run(self._call("read_job_description_tool", {"source": source}))
 
-    def query_answer_bank(self, question: str) -> dict[str, Any]:
-        """Call ``query_answer_bank_tool`` and return the decoded payload."""
-        return _run(self._call("query_answer_bank_tool", {"question": question}))
-
     async def _call(self, name: str, arguments: dict[str, Any]) -> Any:
         async with self.session() as session:
             return await self.call_tool_async(name, arguments, session=session)
@@ -204,8 +200,3 @@ def mcp_read_resume(path: str) -> str:
 def mcp_read_job_description(source: str) -> str:
     """Perform a real MCP ``read_job_description_tool`` call in one shot."""
     return MCPToolClient().read_job_description(source)
-
-
-def mcp_query_answer_bank(question: str) -> dict[str, Any]:
-    """Perform a real MCP ``query_answer_bank_tool`` call in one shot."""
-    return MCPToolClient().query_answer_bank(question)
