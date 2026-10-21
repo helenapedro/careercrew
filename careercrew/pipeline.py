@@ -1,21 +1,12 @@
-"""CareerCrew - the analysis pipeline (orchestrator).
+"""Run one Analyze request from inputs to a validated prep bundle.
 
-This module runs the whole analysis for one request:
-
-1. Validate input (input guardrails).
-2. Run the six-agent CrewAI crew (off the event loop so the UI stays responsive).
-3. Parse the agents' JSON into typed models, with bounded repair.
-4. If the crew output cannot be parsed, fall back to a deterministic path that
-   makes the **same** real MCP calls directly, so the run still yields grounded
-   screening answers (never fabricated) and is honest about what happened.
-5. Validate the assembled outputs (output guardrails) - fail closed.
-
-Every step is recorded in an :class:`~careercrew.models.ExecutionTrace`.
+What it does: checks inputs, runs the five-agent crew, and checks the outputs.
+Who calls it: the progress runner (runner.py) and the CLI (main.py).
+What it returns: a PipelineResult, or raises ValueError when guardrails fail.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -33,16 +24,18 @@ from careercrew.document_tools import (
     read_resume,
     read_resume_text,
 )
-from careercrew.mcp_client import MCPToolClient
 from careercrew.models import (
+    ApplicationPackage,
     CandidateProfile,
     ExecutionTrace,
     FeedbackDraft,
     GapReport,
+    GapVerdict,
     InterviewPrepPlan,
     JobRequirements,
-    ScreeningAnswer,
-    ScreeningPrep,
+    RewrittenBullet,
+    WorkExperience,
+    infer_seniority_from_jd,
 )
 
 logger = logging.getLogger("careercrew.pipeline")
@@ -63,15 +56,16 @@ class AnalysisRequest:
     resume_text: str | None = None
     jd_path: str | None = None
     jd_text: str | None = None
-    screening_questions: list[str] = field(default_factory=list)
     seniority: str = ""
+    #: Human HITL notes from "Request changes" — empty on the first Analyze.
+    revision_notes: str = ""
 
 
 @dataclass
 class PipelineResult:
     """Everything produced by one analysis run."""
 
-    package: ScreeningPrep
+    package: ApplicationPackage
     profile: CandidateProfile
     requirements: JobRequirements
     gaps: GapReport
@@ -90,7 +84,6 @@ CREW_STAGES = [
     "gaps",
     "feedback",
     "prep_plan",
-    "package",
 ]
 
 
@@ -120,16 +113,6 @@ def extract_json(raw: str | None) -> Any | None:
     return None
 
 
-def _as_list(value: Any) -> list[Any]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    if isinstance(value, str):
-        return [part.strip() for part in value.split(",") if part.strip()]
-    return [value]
-
-
 def _coerce_model(model_cls, data: Any):
     """Validate model data, returning None when it cannot be coerced."""
     if isinstance(data, dict):
@@ -140,87 +123,91 @@ def _coerce_model(model_cls, data: Any):
     return None
 
 
-# --------------------------------------------------------------------------- #
-# Deterministic MCP fallback
-# --------------------------------------------------------------------------- #
-def deterministic_package(
-    request: AnalysisRequest, trace: ExecutionTrace, mcp: MCPToolClient
-) -> ScreeningPrep:
-    """Assemble copy-ready screening answers with direct real MCP calls.
+def _apply_revision_experience(
+    profile: CandidateProfile | None,
+    gaps: GapReport | None,
+    requirements: JobRequirements | None,
+    request: AnalysisRequest,
+) -> tuple[CandidateProfile, GapReport, JobRequirements]:
+    """Fold Request-changes notes into profile/gaps when the crew did not.
 
-    Used only when the crew output cannot be parsed. Every call is a genuine MCP
-    call and is recorded in the trace; unknown questions go to do_not_claim.
+    Used so offline / fallback runs still treat candidate-attested experience
+    (e.g. React years) as covering matching JD requirements.
     """
-    answers: list[ScreeningAnswer] = []
-    do_not_claim: list[str] = []
-    for question in request.screening_questions:
-        started = time.perf_counter()
-        payload = mcp.query_answer_bank(question)
-        trace.add(
-            "mcp.call.query_answer_bank",
-            "pipeline",
-            f"{question[:60]} -> {payload.get('status')}",
-            duration_ms=int((time.perf_counter() - started) * 1000),
+    profile = profile or CandidateProfile()
+    gaps = gaps or GapReport()
+    requirements = requirements or JobRequirements()
+    notes = (request.revision_notes or "").strip()
+    if not notes:
+        return profile, gaps, requirements
+
+    already = any(
+        "candidate-attested" in (role.company or "").lower()
+        or notes[:80] in " ".join(role.achievements)
+        for role in profile.experience
+    )
+    if not already:
+        profile.experience.append(
+            WorkExperience(
+                company="Candidate-attested update",
+                title="Additional experience (Request changes)",
+                achievements=[notes],
+            )
         )
-        if isinstance(payload, dict) and payload.get("found"):
-            answers.append(
-                ScreeningAnswer(
-                    question=question,
-                    answer=str(payload.get("answer", "")),
-                    source="answer_bank",
-                    verified=True,
+
+    notes_l = notes.lower()
+    # Promote out-of-scope / missing requirements that the notes clearly cover.
+    updated: list[GapVerdict] = []
+    seen_reqs: set[str] = set()
+    for verdict in gaps.verdicts:
+        seen_reqs.add(verdict.requirement.lower())
+        req_l = verdict.requirement.lower()
+        tokens = [t for t in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", req_l) if t not in {"and", "the", "with", "for"}]
+        if verdict.verdict == "out_of_scope" and any(tok in notes_l for tok in tokens):
+            updated.append(
+                GapVerdict(
+                    requirement=verdict.requirement,
+                    verdict="covered",
+                    supporting_fact=notes[:240],
                 )
             )
         else:
-            do_not_claim.append(question)
+            updated.append(verdict)
 
-    return ScreeningPrep(
-        package_id=request.package_id,
-        role_title="",
-        company="",
-        screening_answers=answers,
-        package_summary=(
-            "Copy-ready screening answers assembled from the verified answer bank. "
-            "Nothing is submitted on your behalf. Questions without a verified entry "
-            "are listed under do_not_claim."
-        ),
-        do_not_claim=do_not_claim,
-    )
+    skill_pool = list(requirements.required_skills) + list(requirements.keywords)
+    if not skill_pool and (request.jd_text or "").strip():
+        # Offline path often has no structured JD yet — pull tokens that appear
+        # in both the posting and the candidate's attested notes.
+        jd_l = request.jd_text.lower()
+        for tok in sorted(set(re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", notes_l)), key=len, reverse=True):
+            if len(tok) < 4 or tok in {"have", "years", "year", "with", "experience", "building"}:
+                continue
+            if tok in jd_l:
+                skill_pool.append(tok)
 
-
-#: Backwards-compatible alias for the deterministic fallback.
-deterministic_screening_prep = deterministic_package
-
-
-def _parse_package(data: Any, package_id: str) -> ScreeningPrep | None:
-    """Map the screening-prep task JSON onto a ScreeningPrep with bounded repair."""
-    if not isinstance(data, dict):
-        return None
-    answers: list[ScreeningAnswer] = []
-    for item in _as_list(data.get("screening_answers")):
-        if not isinstance(item, dict):
+    for skill in skill_pool:
+        key = (skill or "").strip()
+        if not key or key.lower() in seen_reqs:
             continue
-        question = str(item.get("question") or "").strip()
-        answer = str(item.get("answer") or "").strip()
-        source = str(item.get("source") or "answer_bank").strip() or "answer_bank"
-        if not question or not answer:
-            continue
-        answers.append(
-            ScreeningAnswer(
-                question=question,
-                answer=answer,
-                source=source,
-                verified=bool(item.get("verified", True)),
+        if key.lower() in notes_l:
+            updated.append(
+                GapVerdict(
+                    requirement=key,
+                    verdict="covered",
+                    supporting_fact=notes[:240],
+                )
             )
-        )
-    return ScreeningPrep(
-        package_id=package_id,
-        role_title=str(data.get("role_title") or ""),
-        company=str(data.get("company") or ""),
-        screening_answers=answers,
-        package_summary=str(data.get("package_summary") or ""),
-        do_not_claim=[str(item) for item in _as_list(data.get("do_not_claim"))],
-    )
+            seen_reqs.add(key.lower())
+            if key not in requirements.required_skills and key not in requirements.keywords:
+                requirements.keywords.append(key)
+
+    if updated:
+        gaps.verdicts = updated
+        covered = sum(1 for v in updated if (v.verdict or "").lower() == "covered")
+        if updated:
+            gaps.coverage_score = max(gaps.coverage_score, round(100 * covered / len(updated)))
+
+    return profile, gaps, requirements
 
 
 # --------------------------------------------------------------------------- #
@@ -257,16 +244,21 @@ def _run_crew(
         resume_text=request.resume_text,
         jd_path=request.jd_path if not request.jd_text else None,
         jd_text=request.jd_text,
-        screening_questions="\n".join(request.screening_questions) or "(none provided)",
-        seniority=request.seniority or "2-3 years",
+        seniority=(
+            request.seniority
+            or "the seniority / years of experience signaled in the job description"
+        ),
+        revision_notes=(request.revision_notes or "").strip()
+        or "(none — produce the initial package)",
     )
     started = time.perf_counter()
     crew = build_crew(verbose=False, on_task=on_task)
-    result = asyncio.run(asyncio.to_thread(crew.kickoff, inputs=inputs))
+    # Already on a worker thread. kickoff is synchronous; do not wrap it again.
+    result = crew.kickoff(inputs=inputs)
     trace.add(
         "crew.kickoff",
         "crew",
-        "six agents completed",
+        "five agents completed",
         duration_ms=int((time.perf_counter() - started) * 1000),
     )
     return result
@@ -284,14 +276,12 @@ def _parse_crew_outputs(result: Any, request: AnalysisRequest, trace: ExecutionT
     gaps = _coerce_model(GapReport, parsed.get("gaps"))
     feedback = _coerce_model(FeedbackDraft, parsed.get("feedback"))
     prep_plan = _coerce_model(InterviewPrepPlan, parsed.get("prep_plan"))
-    package = _parse_package(parsed.get("package"), request.package_id)
     return {
         "profile": profile,
         "requirements": requirements,
         "gaps": gaps,
         "feedback": feedback,
         "prep_plan": prep_plan,
-        "package": package,
     }
 
 
@@ -304,7 +294,6 @@ def run_analysis(
     settings: Settings | None = None,
     progress: ProgressFn | None = None,
     on_task: TaskCallback | None = None,
-    allow_fallback: bool = True,
 ) -> PipelineResult:
     """Run the full analysis for ``request`` and return a validated package.
 
@@ -322,13 +311,14 @@ def run_analysis(
             except Exception:  # pragma: no cover - progress must never break the run
                 logger.debug("progress callback failed", exc_info=True)
 
-    # 1. Input guardrails.
+    # ================================================================== #
+    # Phase 1. Validate the resume and the job description.
+    # ================================================================== #
     check = guardrails.validate_request(
         resume_path=request.resume_path,
         resume_text=request.resume_text,
         jd_path=request.jd_path,
         jd_text=request.jd_text,
-        screening_questions=request.screening_questions,
     )
     if not check.ok:
         trace.add("guardrail.input", "guardrails", "; ".join(check.errors), status="error")
@@ -350,7 +340,7 @@ def run_analysis(
     # document tool directly (not through MCP) so the original
     # JobDescriptionError message is preserved for the UI.
     try:
-        _prepare_jd_text(request)
+        jd_plain = _prepare_jd_text(request)
         trace.add("input.jd", "pipeline", "job description read")
     except JobDescriptionError as exc:
         trace.add("input.jd", "pipeline", str(exc), status="error")
@@ -362,17 +352,31 @@ def run_analysis(
             "or paste the job description text instead."
         ) from exc
 
-    # 2/3. Run the crew and parse typed outputs; fall back if needed.
+    # Seniority comes from the job description (not a UI picker). Optional
+    # request.seniority remains as a CLI override when explicitly provided.
+    if not (request.seniority or "").strip():
+        request.seniority = infer_seniority_from_jd(jd_plain)
+        if request.seniority:
+            trace.add(
+                "input.seniority",
+                "pipeline",
+                f"inferred from JD: {request.seniority}",
+            )
+
+    # ================================================================== #
+    # Phase 2. Run the five-agent crew.
+    # Phase 3. Parse each task into a typed model (or keep the gap fallback).
+    # ================================================================== #
     profile: CandidateProfile | None = None
     requirements: JobRequirements | None = None
     gaps: GapReport | None = None
     feedback: FeedbackDraft | None = None
     prep_plan: InterviewPrepPlan | None = None
-    package: ScreeningPrep | None = None
+    package: ApplicationPackage | None = None
     used_fallback = False
 
     if settings.has_llm:
-        notify("Running the six-agent crew (this can take a minute)...")
+        notify("Running the five-agent crew (this can take a minute)...")
         try:
             crew_result = _run_crew(request, trace, notify, on_task)
             parsed = _parse_crew_outputs(crew_result, request, trace)
@@ -381,24 +385,19 @@ def run_analysis(
             gaps = parsed["gaps"]
             feedback = parsed["feedback"]
             prep_plan = parsed["prep_plan"]
-            package = parsed["package"]
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the UI
             logger.warning("crew run failed: %s", exc)
             trace.add("crew.error", "crew", f"{type(exc).__name__}: {exc}", status="error")
-            warnings.append("The agent crew did not complete; using the MCP fallback.")
+            warnings.append("The agent crew did not complete; using the gap-based fallback.")
+            used_fallback = True
     else:
-        warnings.append("No OPENAI_API_KEY set; running the deterministic MCP fallback only.")
-
-    if package is None and allow_fallback:
+        warnings.append("No OPENAI_API_KEY set; running the gap-based fallback only.")
         used_fallback = True
-        notify("Crew output unavailable - preparing screening answers via direct MCP calls...")
-        mcp = MCPToolClient(timeout_s=settings.request_timeout_s)
-        try:
-            package = deterministic_package(request, trace, mcp)
-        except Exception as exc:  # noqa: BLE001
-            trace.add("mcp.error", "pipeline", f"{type(exc).__name__}: {exc}", status="error")
-            warnings.append("MCP fallback failed; no screening answers could be assembled.")
-            package = ScreeningPrep(package_id=request.package_id)
+
+    if package is None:
+        package = ApplicationPackage(package_id=request.package_id)
+        if not settings.has_llm:
+            used_fallback = True
 
     # Ensure the package carries the id and any do_not_claim from the feedback.
     assert package is not None
@@ -408,27 +407,52 @@ def run_analysis(
             if item not in package.do_not_claim:
                 package.do_not_claim.append(item)
 
+    # Candidate-attested Request-changes notes enrich profile/gaps (especially
+    # important on the offline fallback path where the crew did not re-score).
+    if (request.revision_notes or "").strip():
+        profile, gaps, requirements = _apply_revision_experience(
+            profile, gaps, requirements, request
+        )
+        if feedback is None:
+            feedback = FeedbackDraft(
+                rewritten_bullets=[
+                    RewrittenBullet(
+                        text=f"Highlight attested experience: {(request.revision_notes or '')[:180]}",
+                        cited_fact=(request.revision_notes or "")[:240],
+                    )
+                ],
+                talking_points=[
+                    f"Be ready to discuss: {(request.revision_notes or '')[:160]}",
+                ],
+            )
+        warnings.append("Candidate-attested Request changes updates were applied to experience.")
+
     # Build a deterministic prep plan when the crew did not produce one, so the
     # Interview Prep tab always has grounded, gap-derived guidance.
     if prep_plan is None:
         from careercrew.prep import build_fallback_plan
 
+        # Prefer JD-extracted requirements.seniority when the crew produced it.
+        reqs = requirements or JobRequirements()
+        effective_seniority = (reqs.seniority or request.seniority or "").strip()
         prep_plan = build_fallback_plan(
             profile or CandidateProfile(),
-            requirements or JobRequirements(),
+            reqs,
             gaps or GapReport(),
-            request.seniority,
+            effective_seniority,
         )
         if settings.has_llm:
             warnings.append("Interview prep plan used the deterministic gap-based fallback.")
 
-    # 4. Output guardrails (fail closed).
+    # ================================================================== #
+    # Phase 4. Validate outputs. Fail closed: a bad bundle is not shown.
+    # ================================================================== #
     validation = guardrails.validate_package(package, feedback, profile)
     warnings.extend(validation.warnings)
     if not validation.ok:
         trace.add("guardrail.output", "guardrails", "; ".join(validation.errors), status="error")
-        raise ValueError("Screening prep failed output guardrails: " + "; ".join(validation.errors))
-    trace.add("guardrail.output", "guardrails", "screening prep validated")
+        raise ValueError("Prep bundle failed output guardrails: " + "; ".join(validation.errors))
+    trace.add("guardrail.output", "guardrails", "prep bundle validated")
 
     plan_problems = guardrails.validate_prep_plan(prep_plan, gaps or GapReport(), requirements)
     if plan_problems:
@@ -440,7 +464,7 @@ def run_analysis(
         trace.add("guardrail.prep", "guardrails", "prep plan validated")
 
     if used_fallback:
-        warnings.append("Run used the deterministic MCP fallback instead of the agent crew.")
+        warnings.append("Run used the gap-based fallback instead of the agent crew.")
 
     return PipelineResult(
         package=package,

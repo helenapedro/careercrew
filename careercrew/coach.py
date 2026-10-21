@@ -1,16 +1,8 @@
-"""CareerCrew - full-memory coaching chats.
+"""Two chats: one for prep, one for after the mock interview.
 
-Two candidate-facing chat channels, both grounded in everything the pipeline
-already produced:
-
-* **prep_coach_reply** - resume improvement and interview preparation.
-* **post_coach_reply** - post-interview performance and follow-up, with the
-  mock interview transcript, per-question evaluations, and overall score in
-  context.
-
-The context builder is bounded (character-capped) so prompts stay a reasonable
-size, and every reply is checked by ``careercrew.guardrails.validate_coaching_reply``.
-Both channels degrade to a deterministic, still-useful reply without an LLM key.
+What it does: answers follow-up questions using the analysis already on screen.
+Who calls it: the prep-coach and post-interview-coach send buttons.
+What it returns: a reply string, plus any guardrail warnings.
 """
 
 from __future__ import annotations

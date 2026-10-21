@@ -1,16 +1,8 @@
-"""CareerCrew - Virtual Mock Interviewer.
+"""Practice interview: questions, per-answer scores, and an overall score.
 
-Pure logic for the mock interview (the Gradio wiring lives in ``app.py``):
-
-* ``generate_questions`` - interviewer questions grounded in the JD, resume,
-  gaps, and prep plan.
-* ``evaluate_answer``    - real-time per-answer critique: what the interviewer
-  wanted, what worked, what to improve, and a model answer outline.
-* ``overall_evaluation`` - a session summary and overall score.
-
-Every function has a deterministic fallback so a session still works without an
-LLM key, and every output is validated by ``careercrew.guardrails`` before it is
-shown. Nothing here submits anything; it is practice only.
+What it does: writes questions from the gaps and scores the candidate's answers.
+Who calls it: the mock-interview callbacks in callbacks_interview.py.
+What it returns: questions, an evaluation, and a session score. Practice only.
 """
 
 from __future__ import annotations
@@ -34,24 +26,6 @@ logger = logging.getLogger("careercrew.interview")
 
 def make_session_id() -> str:
     return f"int-{uuid.uuid4().hex[:8]}"
-
-
-def _keywords(*texts: str, limit: int = 40) -> list[str]:
-    stop = {
-        "with", "that", "this", "from", "have", "your", "will", "would", "about",
-        "their", "them", "they", "into", "over", "under", "role", "work", "team",
-        "years", "year", "experience", "using", "need", "must", "plus", "nice",
-    }
-    seen: list[str] = []
-    for text in texts:
-        for token in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]{2,}", text or ""):
-            key = token.strip(".,;:")
-            low = key.lower()
-            if low and low not in stop and low not in [s.lower() for s in seen]:
-                seen.append(key)
-            if len(seen) >= limit:
-                return seen
-    return seen
 
 
 def generate_questions(

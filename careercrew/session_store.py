@@ -1,11 +1,8 @@
-"""CareerCrew - SQLite session and review persistence.
+"""Save prep bundles, interviews, and coach chats in SQLite.
 
-A tiny repository over SQLite (standard library only). It persists each
-application package: the request inputs, the package, the review decision, and
-the revision count, so the human-in-the-loop workflow survives across UI
-interactions and app restarts.
-
-Nothing sensitive is stored beyond what the user asked to prepare.
+What it does: stores one row per bundle so a refresh does not lose the review.
+Who calls it: the review service and the interview and coach callbacks.
+What it returns: the saved row, or None when the id is unknown.
 """
 
 from __future__ import annotations
@@ -201,29 +198,15 @@ class SessionStore:
             ).fetchone()
         if row is None:
             return None
+        import json
+
         data = dict(row)
         data["package"] = ApplicationPackage.model_validate_json(data["package_json"])
+        try:
+            data["inputs"] = json.loads(data.get("inputs_json") or "{}")
+        except (TypeError, ValueError):
+            data["inputs"] = {}
         return data
-
-    def get_decisions(self, package_id: str) -> list[ReviewDecision]:
-        """Return the review decision history for a package, oldest first."""
-        from careercrew.models import ReviewAction
-
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT decision, feedback, decided_at FROM decisions "
-                "WHERE package_id = ? ORDER BY id ASC",
-                (package_id,),
-            ).fetchall()
-        return [
-            ReviewDecision(
-                package_id=package_id,
-                decision=ReviewAction(row["decision"]),
-                reviewer_feedback=row["feedback"],
-                decided_at=datetime.fromisoformat(row["decided_at"]),
-            )
-            for row in rows
-        ]
 
     def list_packages(self, limit: int = 50) -> list[TrackerEntry]:
         """Return recent packages (most recently updated first) for the tracker."""
@@ -298,19 +281,6 @@ class SessionStore:
                     ),
                 )
 
-    def get_interview(self, session_id: str):
-        """Return a stored mock interview session, or None."""
-        from careercrew.models import MockInterviewSession
-
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT session_json FROM interview_sessions WHERE session_id = ?",
-                (session_id,),
-            ).fetchone()
-        if row is None:
-            return None
-        return MockInterviewSession.model_validate_json(row["session_json"])
-
     def latest_interview(self):
         """Return the most recently updated mock interview session, or None."""
         from careercrew.models import MockInterviewSession
@@ -334,13 +304,3 @@ class SessionStore:
                 "VALUES (?, ?, ?, ?, ?)",
                 (session_id, channel, role, content, _now()),
             )
-
-    def get_chat_history(self, session_id: str, channel: str) -> list[dict]:
-        """Return the persisted chat history (oldest first) for a channel."""
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT role, content FROM chat_messages "
-                "WHERE session_id = ? AND channel = ? ORDER BY id ASC",
-                (session_id, channel),
-            ).fetchall()
-        return [{"role": row["role"], "content": row["content"]} for row in rows]

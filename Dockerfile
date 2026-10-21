@@ -31,7 +31,6 @@ RUN python -m pip install --upgrade pip && pip install -r requirements.txt
 COPY pyproject.toml README.md ./
 COPY careercrew ./careercrew
 COPY config ./config
-COPY data ./data
 COPY knowledge ./knowledge
 COPY mcp_server ./mcp_server
 COPY app.py main.py ./

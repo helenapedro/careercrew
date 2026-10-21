@@ -15,7 +15,7 @@ gradio==6.30.0
 # Typed task outputs (careercrew/models.py)
 pydantic==2.12.5
 
-# YAML config loading (agents.yaml / tasks.yaml / answer_bank.yaml)
+# YAML config loading (agents.yaml / tasks.yaml)
 PyYAML>=6.0
 
 # PDF text extraction (document_tools read_resume)

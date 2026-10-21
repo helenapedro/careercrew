@@ -1,17 +1,8 @@
-"""CareerCrew - real MCP client.
+"""Call the document tools over MCP, and hand the same server to CrewAI.
 
-This module speaks the actual Model Context Protocol over the official ``mcp``
-Python SDK. It is used in two ways:
-
-1. :class:`MCPToolClient` opens a stdio session to :mod:`mcp_server.server`,
-   lists the tools, and calls them. This is what the tests exercise to prove a
-   real client/server round trip, and what the deterministic pipeline fallback
-   uses.
-2. :func:`crewai_mcp_server` returns a CrewAI ``MCPServerStdio`` configuration so
-   the agents can call the same tools natively through CrewAI.
-
-Both paths hit the *same* server, so no matter which one an agent uses, the call
-is a genuine MCP call.
+What it does: opens the stdio MCP server and calls read_resume / read_job_description.
+Who calls it: the crew (for agents) and the MCP integration tests.
+What it returns: tool text, or a CrewAI MCPServerStdio config.
 """
 
 from __future__ import annotations
@@ -32,7 +23,7 @@ from careercrew.config import PROJECT_ROOT
 logger = logging.getLogger("careercrew.mcp_client")
 
 #: Tools exposed by our server that we expect to exist.
-EXPECTED_TOOLS = {"read_resume_tool", "read_job_description_tool", "query_answer_bank_tool"}
+EXPECTED_TOOLS = {"read_resume_tool", "read_job_description_tool"}
 
 
 def _server_env() -> dict[str, str]:
@@ -171,10 +162,6 @@ class MCPToolClient:
         """Call ``read_job_description_tool`` and return the JD text."""
         return _run(self._call("read_job_description_tool", {"source": source}))
 
-    def query_answer_bank(self, question: str) -> dict[str, Any]:
-        """Call ``query_answer_bank_tool`` and return the decoded payload."""
-        return _run(self._call("query_answer_bank_tool", {"question": question}))
-
     async def _call(self, name: str, arguments: dict[str, Any]) -> Any:
         async with self.session() as session:
             return await self.call_tool_async(name, arguments, session=session)
@@ -204,8 +191,3 @@ def mcp_read_resume(path: str) -> str:
 def mcp_read_job_description(source: str) -> str:
     """Perform a real MCP ``read_job_description_tool`` call in one shot."""
     return MCPToolClient().read_job_description(source)
-
-
-def mcp_query_answer_bank(question: str) -> dict[str, Any]:
-    """Perform a real MCP ``query_answer_bank_tool`` call in one shot."""
-    return MCPToolClient().query_answer_bank(question)

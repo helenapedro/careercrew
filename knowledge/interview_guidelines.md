@@ -9,7 +9,7 @@ practice honest and useful.
 - Every preparation recommendation must trace to a specific job requirement and
   the gap verdict for it (covered, reframeable, or out_of_scope).
 - Never advise the candidate to claim experience, skills, tools, or achievements
-  that do not appear in the resume or the verified answer bank.
+  that do not appear in the resume.
 - If the resume has no supporting fact for a requirement, label it a risk area
   and suggest how to *discuss* it honestly (for example, adjacent experience,
   a concrete learning plan), not how to fake it.

@@ -9,7 +9,6 @@ The roles below represent the proposed analysis workflow. Their exact prompts, c
 | 3. Gap Analyst | Candidate profile and job requirements | Assess coverage, strengths, gaps, and honest reframing opportunities | `GapReport` or equivalent | Distinguish demonstrated experience from missing or uncertain experience |
 | 4. Feedback Writer | Candidate profile, job description, gap report | Draft tailored resume feedback, bullet suggestions, and talking points | `FeedbackDraft` or equivalent | Tie factual suggestions to candidate evidence |
 | 5. Interview Prep Advisor | Candidate profile, role requirements, gaps, target experience level | Prioritize topics and create a preparation plan | `InterviewPrepPlan` or equivalent | Focus on role-specific gaps; do not imply unverified experience |
-| 6. Screening Answer Prep Writer | Screening questions and verified answer bank or candidate evidence | Draft supported screening answers and flag unknowns | `ScreeningPrep` or equivalent | Never invent personal facts or submit answers |
 
 ### Supporting workflows (not necessarily separate CrewAI agents)
 

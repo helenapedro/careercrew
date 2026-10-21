@@ -1,14 +1,8 @@
-"""CareerCrew - Human-in-the-Loop package review.
+"""Human approval of a prep bundle: approve, reject, or request changes.
 
-Implements the real backend state transitions for an application package:
-
-    DRAFT -> PENDING_REVIEW -> APPROVED
-                            -> REJECTED
-                            -> (REVISE) -> DRAFT (a new bounded revision)
-
-A revision is a targeted re-run driven by reviewer feedback, limited to
-``max_revisions`` cycles. There is no silent auto-approval: a package only
-becomes APPROVED when a human explicitly approves it.
+What it does: moves a bundle through DRAFT, pending review, approved, or rejected.
+Who calls it: the Approve, Reject, and Request changes buttons.
+What it returns: the new review status, or ReviewError when the move is not allowed.
 """
 
 from __future__ import annotations
@@ -135,7 +129,10 @@ class PackageReviewService:
         self._store.update_status(package.package_id, ReviewStatus.DRAFT, next_count)
         return ReviewOutcome(
             status=ReviewStatus.DRAFT,
-            message=f"Revision {next_count} requested; re-running targeted packaging.",
+            message=(
+                f"Revision {next_count} requested; merging candidate experience "
+                "updates and re-analyzing."
+            ),
             revision_count=next_count,
             needs_revision=True,
         )
@@ -149,8 +146,3 @@ class PackageReviewService:
     ) -> None:
         self._store.record_decision(decision)
         self._store.update_status(package.package_id, status, revision_count)
-
-    # -- helpers ---------------------------------------------------------------
-    def can_revise(self, revision_count: int) -> bool:
-        """Whether another revision is still permitted."""
-        return revision_count < self._max_revisions

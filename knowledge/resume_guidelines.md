@@ -1,8 +1,8 @@
 # Resume Writing Guidelines
 
 These guidelines are provided to the CareerCrew agents as reference knowledge.
-They define how resume bullets are written, how gaps are described, and how
-screening answers are grounded. Follow them exactly.
+They define how resume bullets are written and how gaps are described. Follow
+them exactly.
 
 ## 1. Honesty rules (non-negotiable)
 
@@ -44,22 +44,13 @@ Use exactly three verdicts for each requirement:
 The coverage score is a heuristic signal for prioritization, not an official
 ATS score, and must never be presented as one.
 
-## 4. Screening-question answers
-
-- Screening answers (work authorization, notice period, location, relocation,
-  remote preference, salary) must come **only** from the verified answer bank
-  retrieved through the MCP `query_answer_bank` tool.
-- If the answer bank has no verified entry for a question, do not guess. Add the
-  question to `do_not_claim` and ask the candidate to supply the fact.
-- Every screening answer must record the source as `answer_bank`.
-
-## 5. Interview talking points
+## 4. Interview talking points
 
 - Three talking points grounded in documented experience.
 - Each point should connect a real achievement to what the target role values.
 - No rehearsed claims that are not supported by the profile.
 
-## 6. Tone
+## 5. Tone
 
 - Professional, specific, and confident without exaggeration.
 - Prefer concrete evidence over adjectives ("expert", "world-class").

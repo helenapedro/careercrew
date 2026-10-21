@@ -1,4 +1,4 @@
-"""Tests for the analysis pipeline (deterministic MCP fallback, no LLM key)."""
+"""Tests for the analysis pipeline (gap-based fallback, no LLM key)."""
 
 from __future__ import annotations
 
@@ -7,8 +7,6 @@ import pytest
 from careercrew.models import JobRequirements
 from careercrew.pipeline import (
     AnalysisRequest,
-    _parse_package,
-    deterministic_package,
     make_package_id,
     run_analysis,
 )
@@ -22,11 +20,6 @@ def _request(**overrides) -> AnalysisRequest:
             "Built REST APIs serving 2M requests per day."
         ),
         jd_text="We need a Python backend engineer with FastAPI and AWS experience.",
-        screening_questions=[
-            "Are you authorized to work in the US?",
-            "What is your notice period?",
-            "Do you hold a PhD in astrophysics?",
-        ],
         seniority="5-10 years",
     )
     base.update(overrides)
@@ -40,17 +33,8 @@ def test_run_analysis_falls_back_without_key(monkeypatch):
     config.reset_settings_cache()
     result = run_analysis(_request())
     assert result.used_fallback is True
-    assert len(result.package.screening_answers) == 2
-    assert result.package.do_not_claim == ["Do you hold a PhD in astrophysics?"]
-
-
-def test_run_analysis_all_answers_from_answer_bank(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    from careercrew import config
-
-    config.reset_settings_cache()
-    result = run_analysis(_request())
-    assert all(a.source == "answer_bank" for a in result.package.screening_answers)
+    assert result.package.package_id == "pkg-test"
+    assert result.prep_plan is not None
 
 
 def test_run_analysis_produces_prep_plan(monkeypatch):
@@ -60,6 +44,52 @@ def test_run_analysis_produces_prep_plan(monkeypatch):
     config.reset_settings_cache()
     result = run_analysis(_request())
     # Even without an LLM, the prep plan is derived from the gaps.
+    assert result.prep_plan.seniority.band.value == "mid"
+    assert result.prep_plan.seniority.target_years == "5-10 years"
+
+
+def test_apply_revision_experience_covers_matching_requirement():
+    from careercrew.models import GapReport, GapVerdict, JobRequirements
+    from careercrew.pipeline import AnalysisRequest, _apply_revision_experience
+
+    request = AnalysisRequest(
+        package_id="pkg-rev",
+        resume_text="Python engineer",
+        jd_text="Need React and Python. 5 years React required.",
+        revision_notes="I have 5+ years of React experience building SPAs.",
+    )
+    profile, gaps, reqs = _apply_revision_experience(
+        None,
+        GapReport(
+            coverage_score=20,
+            verdicts=[
+                GapVerdict(requirement="React", verdict="out_of_scope", supporting_fact=""),
+                GapVerdict(requirement="Python", verdict="covered", supporting_fact="resume"),
+            ],
+        ),
+        JobRequirements(required_skills=["React", "Python"]),
+        request,
+    )
+    assert any("Candidate-attested" in r.company for r in profile.experience)
+    react = next(v for v in gaps.verdicts if v.requirement == "React")
+    assert react.verdict == "covered"
+    assert "React" in react.supporting_fact
+
+
+def test_run_analysis_infers_seniority_from_jd(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    result = run_analysis(
+        _request(
+            seniority="",
+            jd_text=(
+                "Senior Backend Engineer. Required: 5+ years building backend "
+                "services in Python."
+            ),
+        )
+    )
     assert result.prep_plan.seniority.band.value == "mid"
     assert result.prep_plan.seniority.target_years == "5-10 years"
 
@@ -76,41 +106,6 @@ def test_run_analysis_rejects_jd_url(monkeypatch):
     config.reset_settings_cache()
     with pytest.raises(document_tools.JobDescriptionError):
         run_analysis(_request(jd_text="https://example.com/job"))
-
-
-def test_deterministic_package_marks_unknown_as_do_not_claim():
-    from careercrew.mcp_client import MCPToolClient
-    from careercrew.models import ExecutionTrace
-
-    trace = ExecutionTrace()
-    request = _request(
-        screening_questions=["Are you willing to relocate?", "What is your spirit animal?"]
-    )
-    package = deterministic_package(request, trace, MCPToolClient())
-    assert len(package.screening_answers) == 1
-    assert package.do_not_claim == ["What is your spirit animal?"]
-
-
-def test_parse_package_repairs_and_skips_empty_answers():
-    data = {
-        "role_title": "Backend Engineer",
-        "company": "Acme",
-        "screening_answers": [
-            {"question": "q1", "answer": "a1"},
-            {"question": "q2", "answer": ""},  # skipped
-            "junk",  # skipped
-        ],
-        "do_not_claim": "q3",
-    }
-    package = _parse_package(data, "pkg-1")
-    assert package.role_title == "Backend Engineer"
-    assert len(package.screening_answers) == 1
-    assert package.screening_answers[0].source == "answer_bank"
-    assert package.do_not_claim == ["q3"]
-
-
-def test_parse_package_returns_none_on_junk():
-    assert _parse_package("not a dict", "pkg-1") is None
 
 
 def test_make_package_id_is_unique():

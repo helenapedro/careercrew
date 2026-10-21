@@ -1,14 +1,8 @@
-"""CareerCrew assembly.
+"""Build the five-agent crew from the YAML role and task files.
 
-Roles and task text live in ``config/agents.yaml`` and ``config/tasks.yaml``;
-wiring (agents, MCP servers, knowledge, context, typed outputs) is explicit here
-so there is no magic to debug. Process is sequential: the pipeline is linear
-(extract -> analyze JD -> compare -> write -> prep plan -> screening prep), so
-no manager agent is needed.
-
-The four tool-using agents are attached to the **real** CareerCrew MCP server
-over stdio (``careercrew.mcp_client.crewai_mcp_server``), so ``read_resume``,
-``read_job_description``, and ``query_answer_bank`` are genuine MCP calls.
+What it does: creates the agents and tasks and connects the MCP document tools.
+Who calls it: pipeline._run_crew, once per Analyze click.
+What it returns: a sequential CrewAI crew, plus the kickoff input dict.
 """
 
 from __future__ import annotations
@@ -33,7 +27,6 @@ from careercrew.models import (
     GapReport,
     InterviewPrepPlan,
     JobRequirements,
-    ScreeningPrep,
 )
 
 logger = logging.getLogger("careercrew.crew")
@@ -62,10 +55,10 @@ def _guidelines_source(path: Path, name: str) -> StringKnowledgeSource:
 
 
 def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
-    """Assemble the six agents and six tasks as a sequential crew.
+    """Assemble the five agents and five tasks as a sequential crew.
 
     ``on_task`` / ``on_step`` are optional callbacks: ``on_task`` is called with
-    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the six
+    the :class:`~crewai.tasks.task_output.TaskOutput` after each of the five
     tasks finishes, and ``on_step`` after each agent step. They power the live
     stage tracker in the UI and are never required.
     """
@@ -84,15 +77,13 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
         INTERVIEW_GUIDELINES_PATH, "interview_guidelines"
     )
 
-    def _agent(name: str, *, with_mcp: bool, extra_knowledge=None) -> Agent:
-        sources = [knowledge]
-        if extra_knowledge is not None:
-            sources.append(extra_knowledge)
+    def _agent(name: str, *, with_mcp: bool, max_iter: int) -> Agent:
         kwargs = {
             "config": agents_cfg[name],
-            "knowledge_sources": sources,
             "verbose": verbose,
             "allow_delegation": False,
+            # A stuck tool call must not spin the default 25 times.
+            "max_iter": max_iter,
         }
         if with_mcp:
             kwargs["mcps"] = [mcp_server]
@@ -100,15 +91,15 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             kwargs["step_callback"] = on_step
         return Agent(**kwargs)
 
-    profile_extractor = _agent("profile_extractor", with_mcp=True)
-    jd_analyzer = _agent("jd_analyzer", with_mcp=True)
-    gap_analyst = _agent("gap_analyst", with_mcp=False)
-    feedback_writer = _agent("feedback_writer", with_mcp=False)
+    # Readers need a couple of tool rounds (call MCP, then answer).
+    # The other three only write from the previous task, so they stop sooner.
+    profile_extractor = _agent("profile_extractor", with_mcp=True, max_iter=6)
+    jd_analyzer = _agent("jd_analyzer", with_mcp=True, max_iter=6)
+    gap_analyst = _agent("gap_analyst", with_mcp=False, max_iter=4)
+    feedback_writer = _agent("feedback_writer", with_mcp=False, max_iter=4)
     interview_prep_advisor = _agent(
-        "interview_prep_advisor", with_mcp=False, extra_knowledge=interview_knowledge
+        "interview_prep_advisor", with_mcp=False, max_iter=4
     )
-    screening_prep_writer = _agent("screening_prep_writer", with_mcp=True)
-
     extract_profile = Task(
         name="extract_profile",
         config=tasks_cfg["extract_profile"],
@@ -142,13 +133,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
         context=[extract_profile, analyze_jd, analyze_gaps],
         output_pydantic=InterviewPrepPlan,
     )
-    prepare_screening_answers = Task(
-        name="prepare_screening_answers",
-        config=tasks_cfg["prepare_screening_answers"],
-        agent=screening_prep_writer,
-        context=[write_feedback, analyze_jd],
-        output_pydantic=ScreeningPrep,
-    )
 
     return Crew(
         agents=[
@@ -157,7 +141,6 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             gap_analyst,
             feedback_writer,
             interview_prep_advisor,
-            screening_prep_writer,
         ],
         tasks=[
             extract_profile,
@@ -165,10 +148,13 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             analyze_gaps,
             write_feedback,
             build_prep_plan,
-            prepare_screening_answers,
         ],
         process=Process.sequential,
-        memory=True,  # short-term memory within a session (see ARCHITECTURE.md)
+        # Task context already hands each result to the next agent. Crew memory
+        # would run another model call after every agent just to store that.
+        memory=False,
+        # One shared copy of the guidelines, embedded once per click.
+        knowledge_sources=[knowledge, interview_knowledge],
         verbose=verbose,
         task_callback=on_task,
         step_callback=on_step,
@@ -181,8 +167,8 @@ def crew_inputs(
     resume_text: str | None = None,
     jd_path: str | None = None,
     jd_text: str | None = None,
-    screening_questions: str = "",
     seniority: str = "",
+    revision_notes: str = "",
 ) -> dict:
     """Build the inputs mapping used by ``Crew.kickoff``.
 
@@ -198,14 +184,10 @@ def crew_inputs(
         "resume_text": resume_text or "(none; use the read_resume tool)",
         "jd_path": jd_path or "(none; use pasted jd_text)",
         "jd_text": jd_text or "(none; use the read_job_description tool)",
-        "screening_questions": screening_questions or "(none provided)",
-        "seniority": seniority or "2-3 years",
+        "seniority": seniority
+        or "the seniority / years of experience signaled in the job description",
+        "revision_notes": revision_notes
+        or "(none — produce the initial package)",
     }
 
 
-# Backwards-compatible alias: the original scaffold exposed ``CareerCrew().crew()``.
-class CareerCrew:
-    """Thin wrapper keeping the original ``CareerCrew().crew()`` entrypoint."""
-
-    def crew(self, *, verbose: bool = True) -> Crew:
-        return build_crew(verbose=verbose)

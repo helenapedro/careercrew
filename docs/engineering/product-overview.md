@@ -4,7 +4,7 @@
 
 CareerCrew is an AI-powered career preparation platform that helps job seekers tailor their application materials and prepare for interviews based on their actual experience and a target job description.
 
-Users provide a resume, a job description, a target experience level, and optionally employer screening questions. CareerCrew analyzes the candidate profile against role requirements, identifies strengths and gaps, generates evidence-supported resume feedback and talking points, and develops a personalized interview-preparation plan. The broader preparation workflow can also support screening-answer preparation, voice or text mock interviews, and contextual coaching.
+Users provide a resume and a job description; seniority is inferred from the JD. CareerCrew analyzes the candidate profile against role requirements, identifies strengths and gaps, generates evidence-supported resume feedback and talking points, and develops a personalized interview-preparation plan. On top of that workflow it supports voice or text mock interviews and contextual coaching.
 
 The system is intended to coordinate a sequential multi-agent workflow, structured data models, document tools, and output validation, with human review before users rely on generated material. Recommendations should be grounded in verifiable candidate information; unsupported claims should be flagged rather than invented. CareerCrew assists with preparation and practice and does not submit job applications on the user's behalf.
 
@@ -27,14 +27,13 @@ These groups have different needs: individual job seekers want help with a speci
 - Evidence-based assessment of strengths, gaps, and requirement coverage.
 - Tailored resume feedback and talking points.
 - Interview-preparation plans based on the role and identified gaps.
-- Preparation for employer screening questions using verified candidate information.
 - Mock interview practice and feedback through supported text and/or voice workflows.
 - Preparation and post-interview coaching where implemented.
 - Review, validation, and persistence of preparation artifacts where implemented.
 
 ### Out of scope
 
-- Submitting applications or screening answers to employers on the user's behalf.
+- Submitting applications to employers on the user's behalf.
 - Inventing candidate experience, qualifications, employment history, work authorization, or other personal facts.
 - Treating generated output as verified without validation and user review.
 - Claiming production reliability, efficacy, adoption, or product-market fit without supporting evidence.
@@ -64,10 +63,9 @@ These are proposed goals. Quantitative targets should be set after a baseline is
 2. **Candidate and role analysis** — extract candidate facts and job requirements into structured representations.
 3. **Evidence-based fit and gap analysis** — classify requirement coverage, highlight strengths and gaps, and provide supporting evidence.
 4. **Application-preparation package** — provide tailored resume feedback, talking points, and a prioritized preparation plan.
-5. **Screening-answer preparation** — draft answers from verified candidate information and flag unknowns.
-6. **Mock interview and evaluation** — generate role-relevant practice questions and provide feedback through supported text and/or voice workflows.
-7. **Contextual coaching** — support preparation and post-interview reflection where implemented.
-8. **Review and trust controls** — validate outputs, flag unsupported claims, and let the user approve, revise, or reject suggestions.
-9. **Persistence and continuity** — store and retrieve relevant preparation artifacts and practice history where implemented.
-10. **Failure handling and fallbacks** — provide understandable status and errors, with bounded retries and documented fallbacks.
+5. **Mock interview and evaluation** — generate role-relevant practice questions and provide feedback through supported text and/or voice workflows.
+6. **Contextual coaching** — support preparation and post-interview reflection where implemented.
+7. **Review and trust controls** — validate outputs, flag unsupported claims, and let the user approve, revise, or reject suggestions.
+8. **Persistence and continuity** — store and retrieve relevant preparation artifacts and practice history where implemented.
+9. **Failure handling and fallbacks** — provide understandable status and errors, with bounded retries and documented fallbacks.
 

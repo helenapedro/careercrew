@@ -29,7 +29,7 @@ Key variables (see `.env.example` for the full list):
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | No | Full agent crew and voice interview. Without it the app runs a deterministic MCP fallback and says so in the UI banner |
+| `OPENAI_API_KEY` | No | Full agent crew and voice interview. Without it the crew is skipped and a deterministic gap-based prep plan is used; the UI banner says so |
 | `CAREERCREW_UPLOAD_DIR` | No | Folder for resume/JD uploads (created automatically) |
 | `CAREERCREW_DB_PATH` | No | SQLite database for the session tracker, review history, interviews, and chats |
 | `CAREERCREW_MAX_REVISIONS` | No | Bounded revision limit for the HITL review loop (default 2) |
@@ -40,10 +40,11 @@ Key variables (see `.env.example` for the full list):
 CLI on the fictional samples:
 
 ```bash
-python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt \
-  --seniority "5-10 years" \
-  --screening "Are you authorized to work in the US?"
+python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt
 ```
+
+Seniority for the prep plan is inferred from the JD. Optional CLI override:
+`--seniority "5-10 years"`.
 
 Web UI:
 

@@ -26,7 +26,6 @@ from careercrew.models import (
     JobRequirements,
     PrepFocus,
     RewrittenBullet,
-    ScreeningAnswer,
     TranscriptTurn,
 )
 
@@ -139,25 +138,23 @@ def test_validate_citations_accepts_traceable_fact():
     assert validate_citations(draft, profile) == []
 
 
-def test_validate_package_rejects_non_answer_bank_source():
-    package = ApplicationPackage(
-        package_id="pkg-1",
-        screening_answers=[
-            ScreeningAnswer(question="q", answer="a", source="invented")
-        ],
+def test_validate_package_rejects_uncited_bullets():
+    package = ApplicationPackage(package_id="pkg-1", package_summary="ready")
+    draft = FeedbackDraft(
+        rewritten_bullets=[RewrittenBullet(text="Led a team of 20", cited_fact="team of 20")]
     )
-    result = validate_package(package)
+    profile = CandidateProfile(summary="Python backend engineer")
+    result = validate_package(package, draft, profile)
     assert result.ok is False
 
 
-def test_validate_package_accepts_answer_bank():
-    package = ApplicationPackage(
-        package_id="pkg-1",
-        screening_answers=[
-            ScreeningAnswer(question="q", answer="a", source="answer_bank")
-        ],
+def test_validate_package_accepts_cited_bullets():
+    package = ApplicationPackage(package_id="pkg-1", package_summary="ready")
+    draft = FeedbackDraft(
+        rewritten_bullets=[RewrittenBullet(text="Built APIs", cited_fact="FastAPI APIs")]
     )
-    assert validate_package(package).ok is True
+    profile = CandidateProfile(summary="Built FastAPI APIs serving millions of requests")
+    assert validate_package(package, draft, profile).ok is True
 
 
 # --------------------------------------------------------------------------- #

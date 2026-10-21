@@ -1,15 +1,8 @@
-"""CareerCrew - input, tool, and output guardrails.
+"""Checks that run before and after the crew so invented claims never ship.
 
-Guardrails are the safety and integrity checks around the whole workflow:
-
-* **Input**  - validate the resume/JD inputs, redact PII, and bound sizes.
-* **Tool**   - confined uploads folder, https-only fetch (in ``document_tools``).
-* **Output** - prove the package is honestly grounded: every bullet cites a
-  real profile fact and every screening answer came from the answer bank. Fail
-  closed: if the package cannot be validated, it is not handed to the human.
-
-A keyword filter alone is *not* treated as a guarantee of safety; the real
-protections are the structural and reference checks below.
+What it does: validates inputs, citations, and the prep plan.
+Who calls it: the pipeline, the interview callbacks, and the coaching callbacks.
+What it returns: a pass/fail result, or a list of problems. Fail closed.
 """
 
 from __future__ import annotations
@@ -75,7 +68,6 @@ def validate_request(
     resume_text: str | None = None,
     jd_path: str | None = None,
     jd_text: str | None = None,
-    screening_questions: list[str] | None = None,
 ) -> InputValidationResult:
     """Validate the resume and JD inputs before any work begins.
 
@@ -287,30 +279,15 @@ def validate_package(
     """Prove the package is honestly grounded. Fail closed.
 
     Rules:
-    - Every screening answer must have ``source == "answer_bank"`` and a
-      non-empty answer; no invented screening facts are allowed.
     - Every rewritten bullet (when feedback is supplied) must cite a profile
       fact (see :func:`validate_citations`).
-    - A package with no content at all is an error, not a silent pass.
     """
     errors: list[str] = []
     warnings: list[str] = []
 
-    for index, answer in enumerate(package.screening_answers):
-        if answer.source != "answer_bank":
-            errors.append(
-                f"screening answer {index} has source '{answer.source}', "
-                "but only 'answer_bank' is allowed"
-            )
-        if not answer.answer.strip():
-            errors.append(f"screening answer {index} is empty")
-
     if feedback_draft is not None and profile is not None:
         for problem in validate_citations(feedback_draft, profile):
             errors.append(problem)
-
-    if not package.screening_answers and not package.package_summary.strip():
-        errors.append("The package contains no screening answers and no summary.")
 
     if package.do_not_claim:
         warnings.append(

@@ -1,11 +1,8 @@
-"""CLI entrypoint.
+"""Run an analysis from the command line.
 
-    python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt
-    python main.py --resume-text "..." --jd "We need a Python engineer."
-    python main.py --resume samples/sample_resume.txt --jd-file posting.pdf
-
-Needs OPENAI_API_KEY for the full crew; without it the deterministic MCP
-fallback still runs. See .env.example.
+What it does: reads a resume and a job description, then runs the pipeline.
+Who calls it: `python main.py` during a demo without the browser.
+What it returns: prints the prep bundle and the prep plan as JSON.
 """
 
 from __future__ import annotations
@@ -31,14 +28,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--seniority",
-        default="2-3 years",
-        help="Target experience band (2-3 years, 5-10 years, or 10+ years)",
-    )
-    parser.add_argument(
-        "--screening",
-        action="append",
-        default=[],
-        help="A screening question (repeat the flag for each question)",
+        default="",
+        help=(
+            "Optional override for the target experience band "
+            "(2-3 years, 5-10 years, or 10+ years). "
+            "When omitted, seniority is inferred from the job description."
+        ),
     )
     return parser
 
@@ -83,7 +78,6 @@ def main() -> None:
         jd_path=jd_path,
         jd_text=jd_text,
         seniority=args.seniority,
-        screening_questions=args.screening,
     )
 
     result = run_analysis(request)
