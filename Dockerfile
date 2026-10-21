@@ -1,7 +1,7 @@
 # CareerCrew - production container image.
 #
-# Works locally and on Hugging Face Spaces (Docker SDK), which expects the app
-# to listen on 0.0.0.0:7860. The MCP server is launched by the app over stdio,
+# Works locally and on a small AWS EC2 instance. The app listens on
+# 0.0.0.0:7860. The MCP server is launched by the app over stdio,
 # so no second long-running service is required in the container.
 #
 # Build:  docker build -t careercrew .
@@ -34,6 +34,7 @@ COPY config ./config
 COPY knowledge ./knowledge
 COPY mcp_server ./mcp_server
 COPY app.py main.py ./
+COPY samples ./samples
 
 # Run as a non-root user with a writable data dir for the SQLite store.
 RUN useradd --create-home --uid 1000 appuser \

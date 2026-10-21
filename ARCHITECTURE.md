@@ -102,23 +102,22 @@ prep bundle: nothing is ever submitted to an employer.
 
 ## 5. Deployment
 
-> **Deployment target decided:** Heroku (as used for the MarketMind project). This section still documents Hugging Face Spaces and will be updated with the Heroku deployment instructions.
+> **Demo target:** one AWS EC2 instance (`t3.medium`, about $1.20 for 24 hours). A Hugging Face Docker Space needs a paid Pro plan before its free CPU can be used, so Spaces is the alternative, not the demo path. Steps: [`docs/engineering/aws-ec2.md`](docs/engineering/aws-ec2.md).
 
 ```mermaid
 flowchart LR
     USER["Candidate<br/>(browser)"] --> APP["app.py — Gradio UI<br/>listens on 0.0.0.0:7860"]
-    subgraph SPACE["Hugging Face Space — Docker container"]
+    subgraph EC2["AWS EC2 t3.medium — Docker"]
         APP <--> MCPD["mcp_server<br/>stdio, in-process<br/>no second service"]
         APP --> DBD[("SQLite — /data<br/>careercrew.db + uploads")]
     end
-    SEC["Space Secrets<br/>OPENAI_API_KEY"] -.-> APP
+    SEC[".env on the instance<br/>OPENAI_API_KEY"] -.-> APP
 ```
 
-`Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app,
-runs as non-root `appuser` with a writable `/data` volume, healthchecks the
-Gradio root, `CMD ["python", "app.py"]`. Secrets go in the Space settings, never
-in the repo. Step-by-step deploy and the free-vs-paid rules are in
-[`docs/engineering/huggingface-spaces.md`](docs/engineering/huggingface-spaces.md).
+`Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app
+and `samples/`, runs as non-root `appuser` with a writable `/data` directory,
+healthchecks the Gradio root, `CMD ["python", "app.py"]`. The OpenAI key stays
+in `.env` on the instance, never in the repo.
 
 ## 6. Architecture verification checklist
 

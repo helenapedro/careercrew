@@ -1,5 +1,9 @@
 # Deploy CareerCrew to Hugging Face Spaces
 
+> The demo path is AWS, not Spaces. A Docker Space needs a paid Hugging Face
+> plan before the free CPU Basic machine can be created. Use
+> [aws-ec2.md](aws-ec2.md). This page stays as the Spaces alternative.
+
 CareerCrew is a Gradio app (`app.py`) that already listens on `0.0.0.0:7860`.
 The `Dockerfile` in the repo root is written for a **Docker Space**: it installs
 `requirements.txt`, starts `python app.py`, and keeps SQLite and uploads under
@@ -47,13 +51,7 @@ dashboard during the demo.
 - `CMD ["python", "app.py"]`. `app.py` calls `launch(server_name="0.0.0.0", server_port=...)`.
 - The MCP server is started by the app over stdio. There is no second process to deploy.
 
-One gap: the image does **not** copy `samples/`. The buttons **Try a sample resume**
-and **Try a sample job** fail until you add this line to the `Dockerfile`, next
-to the other `COPY` lines, **before** the `USER appuser` line:
-
-```dockerfile
-COPY samples ./samples
-```
+The image copies `samples/`, so **Try a sample resume** and **Try a sample job** work inside the container.
 
 ---
 
@@ -126,7 +124,7 @@ First boot installs CrewAI and the rest of `requirements.txt`, so the build can 
 
 1. Open the Space URL.
 2. The top bar says **Ready** when `OPENAI_API_KEY` is set, and **Limited mode** when it is not.
-3. Paste a resume and a job description, or use the sample buttons after the `COPY samples` line is in the image.
+3. Paste a resume and a job description, or use the sample buttons.
 4. Press **Analyze match**. The five-agent run calls OpenAI, so it takes the same time as it does locally.
 5. Open **Mock interview** only if you want speech. Whisper and TTS also use the same OpenAI key.
 
@@ -166,7 +164,7 @@ The Space rebuilds from the new commit. Secrets stay in place.
 |-------------|----------------|
 | App exits immediately, or "port" errors | `app.py` must keep `server_name="0.0.0.0"` and `server_port` from `PORT` (already the case). |
 | `ModuleNotFoundError` | The missing package must be in `requirements.txt`. The image installs that file, not `pyproject.toml` optional extras. |
-| Sample buttons say the file is missing | Add `COPY samples ./samples` to the Dockerfile and push again. |
+| Sample buttons say the file is missing | Confirm `COPY samples ./samples` is still in the Dockerfile, then rebuild. |
 | Page opens in **Limited mode** | `OPENAI_API_KEY` is missing or the Space was not rebooted after the secret was saved. |
 | Build runs out of memory | Stay on CPU Basic (16 GB). Do not switch to a GPU for this app. |
 | HTTP 402 when creating the Space | The account cannot create Docker Spaces yet. That is the plan limit in the cost table, not a bug in this repo. |

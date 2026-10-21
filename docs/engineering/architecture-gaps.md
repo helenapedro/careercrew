@@ -25,8 +25,8 @@ Comparison between intended behavior (README, `ARCHITECTURE.md`, `docs/engineeri
 | Nothing is submitted | CareerCrew never applies on the user's behalf | Design + `agents.yaml` header comment; no submission code paths found | Verified |
 | Input guardrails | Type/size/source validation, injection patterns | `guardrails.validate_request`, `check_upload`; 23 guardrail tests | Verified |
 | Output guardrails | Citations, package, prep-plan validation; fail closed | `validate_citations`/`validate_package`/`validate_prep_plan`; fail-closed raise in pipeline | Verified |
-| Deployment (HF Spaces) | Dockerfile → Spaces (Docker SDK) | `Dockerfile` exists (py3.12-slim, :7860, non-root, /data); not deployed | Partial |
-| Deployment target decision | Heroku under evaluation | Note in `ARCHITECTURE.md` §5 (helena/work) | Unknown (pending decision) |
+| Deployment (AWS EC2) | Dockerfile on one `t3.medium` | `docs/engineering/aws-ec2.md`; image listens on :7860; not launched yet | Partial |
+| Deployment (HF Spaces) | Dockerfile → Spaces (Docker SDK) | Guide in `huggingface-spaces.md`; not the demo path, because creating a Docker Space needs a paid Hugging Face plan | Alternative |
 
 ## Unknowns (need evidence)
 
