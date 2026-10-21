@@ -1,11 +1,8 @@
-"""CareerCrew - SQLite session and review persistence.
+"""Save prep bundles, interviews, and coach chats in SQLite.
 
-A tiny repository over SQLite (standard library only). It persists each
-application package: the request inputs, the package, the review decision, and
-the revision count, so the human-in-the-loop workflow survives across UI
-interactions and app restarts.
-
-Nothing sensitive is stored beyond what the user asked to prepare.
+What it does: stores one row per bundle so a refresh does not lose the review.
+Who calls it: the review service and the interview and coach callbacks.
+What it returns: the saved row, or None when the id is unknown.
 """
 
 from __future__ import annotations

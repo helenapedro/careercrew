@@ -1,11 +1,8 @@
-"""CareerCrew - a tiny LLM helper.
+"""One small helper for calling the chat model outside the crew.
 
-The interview, prep, and coaching modules take an optional ``llm`` callable so
-they stay testable and dependency-free. This module provides the real callable
-backed by the OpenAI chat API, used by the UI when an API key is configured.
-
-``available()`` reports whether a key exists; ``chat_completion`` never raises
-(it returns ``""`` on failure) so callers fall back to their deterministic path.
+What it does: sends a prompt when OPENAI_API_KEY is set.
+Who calls it: the interview, prep, and coaching modules.
+What it returns: the model text, or an empty string when the call fails.
 """
 
 from __future__ import annotations

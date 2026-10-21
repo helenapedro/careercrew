@@ -1,8 +1,8 @@
-"""Pydantic output contracts for every crew task.
+"""Typed results passed between agents, the review step, and the UI.
 
-Typed outputs are the backbone of the honesty guarantee: downstream agents
-and guardrails consume these models, not free text, so a missing fact is a
-missing field instead of an invented sentence.
+What it does: defines the profile, gaps, prep plan, and the prep bundle.
+Who calls it: the crew, the pipeline, guardrails, and the review store.
+What it returns: Pydantic models. A missing fact is a missing field.
 """
 
 from __future__ import annotations

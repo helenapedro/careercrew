@@ -1,15 +1,8 @@
-"""CareerCrew - Human-in-the-Loop package review.
+"""Human approval of a prep bundle: approve, reject, or request changes.
 
-Implements the real backend state transitions for an application package:
-
-    DRAFT -> PENDING_REVIEW -> APPROVED
-                            -> REJECTED
-                            -> (REVISE) -> DRAFT (a new bounded revision)
-
-A revision lets the candidate attest missing experience (or corrections),
-then re-runs analysis with those notes folded into the resume. Limited to
-``max_revisions`` cycles. There is no silent auto-approval: a package only
-becomes APPROVED when a human explicitly approves it.
+What it does: moves a bundle through DRAFT, pending review, approved, or rejected.
+Who calls it: the Approve, Reject, and Request changes buttons.
+What it returns: the new review status, or ReviewError when the move is not allowed.
 """
 
 from __future__ import annotations

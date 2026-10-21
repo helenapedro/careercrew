@@ -1,14 +1,8 @@
-"""CareerCrew - the analysis pipeline (orchestrator).
+"""Run one Analyze request from inputs to a validated prep bundle.
 
-This module runs the whole analysis for one request:
-
-1. Validate input (input guardrails).
-2. Run the five-agent CrewAI crew (off the event loop so the UI stays responsive).
-3. Parse the agents' JSON into typed models, with bounded repair.
-4. If the crew does not finish, still return a grounded prep plan from the gaps.
-5. Validate the assembled outputs (output guardrails) - fail closed.
-
-Every step is recorded in an :class:`~careercrew.models.ExecutionTrace`.
+What it does: checks inputs, runs the five-agent crew, and checks the outputs.
+Who calls it: the progress runner (runner.py) and the CLI (main.py).
+What it returns: a PipelineResult, or raises ValueError when guardrails fail.
 """
 
 from __future__ import annotations
@@ -328,7 +322,9 @@ def run_analysis(
             except Exception:  # pragma: no cover - progress must never break the run
                 logger.debug("progress callback failed", exc_info=True)
 
-    # 1. Input guardrails.
+    # ================================================================== #
+    # Phase 1. Validate the resume and the job description.
+    # ================================================================== #
     check = guardrails.validate_request(
         resume_path=request.resume_path,
         resume_text=request.resume_text,
@@ -378,7 +374,10 @@ def run_analysis(
                 f"inferred from JD: {request.seniority}",
             )
 
-    # 2/3. Run the crew and parse typed outputs; fall back if needed.
+    # ================================================================== #
+    # Phase 2. Run the five-agent crew.
+    # Phase 3. Parse each task into a typed model (or keep the gap fallback).
+    # ================================================================== #
     profile: CandidateProfile | None = None
     requirements: JobRequirements | None = None
     gaps: GapReport | None = None
@@ -456,7 +455,9 @@ def run_analysis(
         if settings.has_llm:
             warnings.append("Interview prep plan used the deterministic gap-based fallback.")
 
-    # 4. Output guardrails (fail closed).
+    # ================================================================== #
+    # Phase 4. Validate outputs. Fail closed: a bad bundle is not shown.
+    # ================================================================== #
     validation = guardrails.validate_package(package, feedback, profile)
     warnings.extend(validation.warnings)
     if not validation.ok:

@@ -1,11 +1,8 @@
-"""CLI entrypoint.
+"""Run an analysis from the command line.
 
-    python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt
-    python main.py --resume-text "..." --jd "We need a Python engineer."
-    python main.py --resume samples/sample_resume.txt --jd-file posting.pdf
-
-Needs OPENAI_API_KEY for the full crew; without it the gap-based fallback
-still runs. See .env.example.
+What it does: reads a resume and a job description, then runs the pipeline.
+Who calls it: `python main.py` during a demo without the browser.
+What it returns: prints the prep bundle and the prep plan as JSON.
 """
 
 from __future__ import annotations

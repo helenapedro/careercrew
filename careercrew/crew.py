@@ -1,14 +1,8 @@
-"""CareerCrew assembly.
+"""Build the five-agent crew from the YAML role and task files.
 
-Roles and task text live in ``config/agents.yaml`` and ``config/tasks.yaml``;
-wiring (agents, MCP servers, knowledge, context, typed outputs) is explicit here
-so there is no magic to debug. Process is sequential: the pipeline is linear
-(extract -> analyze JD -> compare -> write -> prep plan), so
-no manager agent is needed.
-
-The tool-using agents are attached to the **real** CareerCrew MCP server
-over stdio (``careercrew.mcp_client.crewai_mcp_server``), so ``read_resume``
-and ``read_job_description`` are genuine MCP calls.
+What it does: creates the agents and tasks and connects the MCP document tools.
+Who calls it: pipeline._run_crew, once per Analyze click.
+What it returns: a sequential CrewAI crew, plus the kickoff input dict.
 """
 
 from __future__ import annotations

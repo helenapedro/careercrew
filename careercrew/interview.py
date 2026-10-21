@@ -1,16 +1,8 @@
-"""CareerCrew - Virtual Mock Interviewer.
+"""Practice interview: questions, per-answer scores, and an overall score.
 
-Pure logic for the mock interview (the Gradio wiring lives in ``app.py``):
-
-* ``generate_questions`` - interviewer questions grounded in the JD, resume,
-  gaps, and prep plan.
-* ``evaluate_answer``    - real-time per-answer critique: what the interviewer
-  wanted, what worked, what to improve, and a model answer outline.
-* ``overall_evaluation`` - a session summary and overall score.
-
-Every function has a deterministic fallback so a session still works without an
-LLM key, and every output is validated by ``careercrew.guardrails`` before it is
-shown. Nothing here submits anything; it is practice only.
+What it does: writes questions from the gaps and scores the candidate's answers.
+Who calls it: the mock-interview callbacks in callbacks_interview.py.
+What it returns: questions, an evaluation, and a session score. Practice only.
 """
 
 from __future__ import annotations

@@ -1,15 +1,8 @@
-"""CareerCrew - Interview Preparation Advisor.
+"""Turn gaps into a seniority-aware interview prep plan.
 
-Turns the honest gap analysis into a seniority-aware study plan: which areas
-deserve the most preparation time, why, and what to practice. Works in two
-modes:
-
-* ``build_prep_plan`` runs the Interview Prep Advisor agent (used by the crew).
-* ``build_fallback_plan`` derives the same structure deterministically from the
-  gap verdicts, so the Prep tab is always populated even without an LLM key.
-
-Both modes follow the same rule: priorities come from the gap verdicts, and
-every focus area cites the requirement it is based on.
+What it does: ranks where to spend prep time, from the gap verdicts.
+Who calls it: the prep-advisor agent, and the pipeline when the crew is offline.
+What it returns: an InterviewPrepPlan. Every focus area cites a real gap.
 """
 
 from __future__ import annotations

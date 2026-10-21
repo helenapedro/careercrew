@@ -1,7 +1,8 @@
-"""CareerCrew - central configuration.
+"""Read settings from the environment. No secrets are hard-coded.
 
-All settings are read from environment variables so the same code runs locally,
-in tests, and in Docker. Secrets are never hard-coded and never logged.
+What it does: loads API keys, model names, and folder paths.
+Who calls it: every module that needs a setting, via get_settings().
+What it returns: one frozen Settings object for the process.
 """
 
 from __future__ import annotations

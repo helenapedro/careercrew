@@ -1,15 +1,8 @@
-"""CareerCrew - input, tool, and output guardrails.
+"""Checks that run before and after the crew so invented claims never ship.
 
-Guardrails are the safety and integrity checks around the whole workflow:
-
-* **Input**  - validate the resume/JD inputs, redact PII, and bound sizes.
-* **Tool**   - confined uploads folder, https-only fetch (in ``document_tools``).
-* **Output** - prove the package is honestly grounded: every bullet cites a
-  real profile fact. Fail closed: if the package cannot be validated, it is
-  not handed to the human.
-
-A keyword filter alone is *not* treated as a guarantee of safety; the real
-protections are the structural and reference checks below.
+What it does: validates inputs, citations, and the prep plan.
+Who calls it: the pipeline, the interview callbacks, and the coaching callbacks.
+What it returns: a pass/fail result, or a list of problems. Fail closed.
 """
 
 from __future__ import annotations

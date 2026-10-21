@@ -1,19 +1,8 @@
-"""Shared document-access logic (single source of truth).
+"""Read a resume or job description into plain text.
 
-This module is the one place where input is turned into plain text, whether it
-arrived as an uploaded file or as pasted text:
-
-- ``read_resume`` reads a PDF / DOCX / TXT file confined to the uploads folder.
-- ``read_resume_text`` normalizes pasted resume text into the same clean form.
-- ``read_job_description`` returns pasted JD text, or reads an uploaded
-  PDF / DOCX / TXT job description from the uploads folder.
-
-The same logic backs the CrewAI tools, the FastMCP server, and the stdio MCP
-client, so the three paths can never diverge.
-
-Tool guardrails live here, next to the code they protect: uploaded files are
-confined to the uploads folder (no path traversal) and pasted URLs are rejected
-with a clear message instead of being stored as junk "job description" text.
+What it does: reads an uploaded PDF/DOCX/TXT file, or accepts pasted text.
+Who calls it: the pipeline, the MCP server, and the Request-changes callback.
+What it returns: cleaned text, or a clear error for a bad path or a URL.
 """
 
 from __future__ import annotations

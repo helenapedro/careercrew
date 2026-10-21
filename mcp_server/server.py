@@ -1,17 +1,8 @@
-"""CareerCrew MCP server.
+"""MCP server that exposes the resume and job-description readers.
 
-Exposes the shared document-access logic over the Model Context Protocol:
-permission-scoped, auditable tools that any MCP client can call, not just this
-crew. The two tools are:
-
-1. ``read_resume``             - read an uploaded resume file (PDF/DOCX/TXT).
-2. ``read_job_description``    - read an uploaded JD file (PDF/DOCX/TXT) or text.
-
-The server is transport-agnostic; the crew launches it over **stdio** via
-``careercrew.mcp_client``.
-
-Run standalone to test:
-    python -m mcp_server.server
+What it does: serves read_resume and read_job_description over stdio.
+Who calls it: CrewAI agents, and the MCP client in tests.
+What it returns: the file text for one tool call.
 """
 
 from mcp.server.fastmcp import FastMCP

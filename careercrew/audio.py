@@ -1,13 +1,8 @@
-"""CareerCrew - audio for the virtual mock interview.
+"""Speech-to-text and text-to-speech for the mock interview.
 
-Thin, failure-tolerant wrappers over the OpenAI audio API:
-
-* ``transcribe`` - speech-to-text (``whisper-1``) for the candidate's answer.
-* ``speak``      - text-to-speech (``tts-1``) for the interviewer's question.
-
-Both never raise into the UI. They return ``None`` (or ``""``) and log when
-audio is unavailable, so the interview can degrade to a text-only session.
-``audio_available()`` reports whether audio can be attempted at all.
+What it does: transcribes an answer and speaks the interviewer's question.
+Who calls it: the interview callbacks, only when an API key is set.
+What it returns: text or an audio file path, or empty when audio is unavailable.
 """
 
 from __future__ import annotations

@@ -1,17 +1,8 @@
-"""CareerCrew - real MCP client.
+"""Call the document tools over MCP, and hand the same server to CrewAI.
 
-This module speaks the actual Model Context Protocol over the official ``mcp``
-Python SDK. It is used in two ways:
-
-1. :class:`MCPToolClient` opens a stdio session to :mod:`mcp_server.server`,
-   lists the tools, and calls them. This is what the tests exercise to prove a
-   real client/server round trip, and what the deterministic pipeline fallback
-   uses.
-2. :func:`crewai_mcp_server` returns a CrewAI ``MCPServerStdio`` configuration so
-   the agents can call the same tools natively through CrewAI.
-
-Both paths hit the *same* server, so no matter which one an agent uses, the call
-is a genuine MCP call.
+What it does: opens the stdio MCP server and calls read_resume / read_job_description.
+Who calls it: the crew (for agents) and the MCP integration tests.
+What it returns: tool text, or a CrewAI MCPServerStdio config.
 """
 
 from __future__ import annotations
