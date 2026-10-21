@@ -103,7 +103,7 @@ Wiring: [`careercrew/crew.py`](../careercrew/crew.py) `build_crew()`.
 - Prep plan receives profile + JD + gaps  
 - Screening receives feedback + JD  
 
-**Process:** `Process.sequential`, `memory=True` (short-term within the kickoff).
+**Process:** `Process.sequential`. Each task receives the previous task output. Crew memory is off so Analyze does not pay an extra model call per agent.
 
 **Kickoff inputs** (`crew_inputs`): `resume_path`, `resume_text`, `jd_path`, `jd_text`, `screening_questions`, `seniority`.
 

@@ -7,7 +7,6 @@ What it returns: a PipelineResult, or raises ValueError when guardrails fail.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -264,7 +263,8 @@ def _run_crew(
     )
     started = time.perf_counter()
     crew = build_crew(verbose=False, on_task=on_task)
-    result = asyncio.run(asyncio.to_thread(crew.kickoff, inputs=inputs))
+    # Already on a worker thread. kickoff is synchronous; do not wrap it again.
+    result = crew.kickoff(inputs=inputs)
     trace.add(
         "crew.kickoff",
         "crew",

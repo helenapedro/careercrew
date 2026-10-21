@@ -92,8 +92,8 @@ prep bundle: nothing is ever submitted to an employer.
    (`document_tools.py`) serves the agents, the deterministic fallback, and
    the tests. No second service to deploy or keep alive.
 3. **SQLite for memory.** Standard library only, survives restarts, no
-   infrastructure. The crew also uses `memory=True` for short-term memory
-   within a session.
+   infrastructure. Each agent already receives the previous task's output,
+   so the crew does not also store a separate short-term memory.
 4. **Gap-based fallback.** The app works without `OPENAI_API_KEY`
    (a prep plan derived from the gaps); the UI banner says so.
 5. **Evidence grounding.** Every factual claim traces to a supplied resume

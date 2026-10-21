@@ -51,7 +51,7 @@
    - If `with_mcp`: attach MCP server  
 5. Instantiate five agents (MCP on: profile and JD; off: gap, feedback, prep)  
 6. Instantiate six tasks with `output_pydantic` and `context=[...]` dependencies  
-7. Return `Crew(..., process=Process.sequential, memory=True, task_callback=on_task)`
+7. Return `Crew(..., process=Process.sequential, memory=False, task_callback=on_task)`
 
 **Agent ↔ MCP map:**
 
@@ -72,7 +72,7 @@
 - screening ← feedback + JD  
 
 **Why sequential / no manager:** Pipeline is linear; a manager adds latency/cost with no branching decision.  
-**Why memory=True:** Short-term memory within one kickoff session.  
+**Why memory=False:** Each task already receives the previous task's output through `context`. CrewAI memory would add another model call after every agent.  
 **I/O:** YAML + knowledge files; later kickoff hits OpenAI + MCP.  
 **Say this:** “YAML is personality and prompts; this file is the wiring diagram.”
 

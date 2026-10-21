@@ -77,15 +77,13 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
         INTERVIEW_GUIDELINES_PATH, "interview_guidelines"
     )
 
-    def _agent(name: str, *, with_mcp: bool, extra_knowledge=None) -> Agent:
-        sources = [knowledge]
-        if extra_knowledge is not None:
-            sources.append(extra_knowledge)
+    def _agent(name: str, *, with_mcp: bool, max_iter: int) -> Agent:
         kwargs = {
             "config": agents_cfg[name],
-            "knowledge_sources": sources,
             "verbose": verbose,
             "allow_delegation": False,
+            # A stuck tool call must not spin the default 25 times.
+            "max_iter": max_iter,
         }
         if with_mcp:
             kwargs["mcps"] = [mcp_server]
@@ -93,12 +91,14 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             kwargs["step_callback"] = on_step
         return Agent(**kwargs)
 
-    profile_extractor = _agent("profile_extractor", with_mcp=True)
-    jd_analyzer = _agent("jd_analyzer", with_mcp=True)
-    gap_analyst = _agent("gap_analyst", with_mcp=False)
-    feedback_writer = _agent("feedback_writer", with_mcp=False)
+    # Readers need a couple of tool rounds (call MCP, then answer).
+    # The other three only write from the previous task, so they stop sooner.
+    profile_extractor = _agent("profile_extractor", with_mcp=True, max_iter=6)
+    jd_analyzer = _agent("jd_analyzer", with_mcp=True, max_iter=6)
+    gap_analyst = _agent("gap_analyst", with_mcp=False, max_iter=4)
+    feedback_writer = _agent("feedback_writer", with_mcp=False, max_iter=4)
     interview_prep_advisor = _agent(
-        "interview_prep_advisor", with_mcp=False, extra_knowledge=interview_knowledge
+        "interview_prep_advisor", with_mcp=False, max_iter=4
     )
     extract_profile = Task(
         name="extract_profile",
@@ -150,7 +150,11 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
             build_prep_plan,
         ],
         process=Process.sequential,
-        memory=True,  # short-term memory within a session (see ARCHITECTURE.md)
+        # Task context already hands each result to the next agent. Crew memory
+        # would run another model call after every agent just to store that.
+        memory=False,
+        # One shared copy of the guidelines, embedded once per click.
+        knowledge_sources=[knowledge, interview_knowledge],
         verbose=verbose,
         task_callback=on_task,
         step_callback=on_step,
