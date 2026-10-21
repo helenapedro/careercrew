@@ -33,7 +33,22 @@ def test_custom_theme_and_css_exist():
 
     assert "cc-hero" in app.CUSTOM_CSS
     assert "cc-stage" in app.CUSTOM_CSS
+    assert "repeat(6, minmax(0, 1fr))" in app.CUSTOM_CSS
+    assert "repeat(7, minmax(0, 1fr))" not in app.CUSTOM_CSS
     assert app.theme() is not None
+
+
+def test_streaming_runs_hide_gradio_progress_chrome():
+    """Gradio's default progress border stacks a blue rule on every output."""
+    import app
+
+    demo = app.build_app()
+    streaming = {
+        fn.show_progress
+        for fn in demo.fns.values()
+        if fn.fn in (app.analyze, app.request_revision)
+    }
+    assert streaming == {"hidden"}
 
 
 def test_app_is_light_only_even_when_os_prefers_dark():

@@ -393,10 +393,15 @@ def build_app() -> gr.Blocks:
             feedback,
         ]
 
+        # show_progress="hidden": Gradio's default "full" mode draws an accent
+        # border around every output for the whole run. This generator updates
+        # 14 outputs, so those borders stack into stray blue rules. The stage
+        # tracker below is the progress UI.
         run_btn.click(
             analyze,
             inputs=[resume_file, resume_text, jd_file, jd_text],
             outputs=analyze_outputs,
+            show_progress="hidden",
         )
 
         clear_btn.click(
@@ -479,6 +484,7 @@ def build_app() -> gr.Blocks:
             request_revision,
             inputs=[state, feedback],
             outputs=analyze_outputs,
+            show_progress="hidden",
         )
 
     return demo

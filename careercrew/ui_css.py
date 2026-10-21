@@ -190,14 +190,13 @@ button.cc-clear:hover {
 .cc-progress-top .cc-progress-label { font-size: 13px; color: var(--cc-muted); }
 .cc-progress-top .cc-progress-count { font-size: 13px; font-weight: 650; color: var(--cc-ink); }
 .cc-stages {
-  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0;
   position: relative;
 }
-@media (max-width: 980px) {
-  .cc-stages { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-}
-@media (max-width: 640px) {
-  .cc-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 720px) {
+  .cc-stages { gap: 14px 0; }
+  .cc-stage::before { display: none; }
+  .cc-stage .cc-ttl { font-size: 11px; }
 }
 .cc-stage { position: relative; padding: 0 6px; text-align: center; }
 .cc-stage::before {
