@@ -136,7 +136,8 @@ See `ARCHITECTURE.md` for the full walkthrough.
 
 **Flow narrative (what happens after each button):**
 
-- [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end
+- [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md) — **step-by-step Analyze trace with exact line numbers** (start here for the presentation)
+- [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end (diagram version)
 - [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
 - [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + package `pkg-…`
 - [`docs/CODE_PATH_MOCK_INTERVIEW.md`](docs/CODE_PATH_MOCK_INTERVIEW.md) — voice/text mock interviewer

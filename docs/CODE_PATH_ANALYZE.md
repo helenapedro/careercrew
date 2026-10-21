@@ -174,7 +174,7 @@ Defined in [`careercrew/models.py`](../careercrew/models.py):
 
 ## 9. UI stage mapping
 
-`careercrew/runner.py` owns the stepper: a `Stage` enum (`CHECK_INPUTS`, `RESUME`,
+`careercrew/runner.py` owns the stepper: a `Stage` enum (`CHECK`, `RESUME`,
 `ROLE`, `MATCH`, `REWRITES`, `PREP`), `STAGES`, and the `AGENT_STAGE` /
 `TASK_STAGE` maps from CrewAI names onto those steps. `on_task` advances the
 stepper after each of the five tasks; the first yield marks stage 1 before the

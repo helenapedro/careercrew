@@ -2,6 +2,8 @@
 
 Open the **`.py` / `.yaml` on the left** and this guide (or the linked page) on the right.
 Flow narrative (what happens after Analyze) lives in [`../CODE_PATH_*.md`](../CODE_PATH_ANALYZE.md).
+For a single-click trace with verified line numbers, start with
+[`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md).
 This folder answers: **what does each function/block do and why?**
 
 ## How to use
