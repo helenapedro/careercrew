@@ -23,6 +23,174 @@ The whole thing is **one generator function**: `analyze` in
 
 ---
 
+## 0a. Where the resume and job description go, and how agents pass results
+
+Read this section first if the question is "which agent gets the resume, and
+how does agent 1's result reach the next agent?"
+
+**Agent 2 does not receive agent 1's result.** The Profile Extractor reads the
+resume. The JD Analyzer reads the job description. They do not share output.
+The first handoff is into agent 3, the Gap Analyst, which receives both.
+
+There is no Python line that copies one agent's text into the next function
+call. CrewAI does it because later tasks list earlier tasks in `context=`.
+
+### Where the four UI values come from
+
+The button passes four Gradio values, in this order (`app.py:396-401`):
+
+| Argument | Widget | Becomes |
+|----------|--------|---------|
+| `resume_file` | uploaded PDF/DOCX/TXT | a file name inside `uploads/`, or `None` |
+| `resume_text` | pasted resume | a string, or `None` |
+| `jd_file` | uploaded posting | a file name inside `uploads/`, or `None` |
+| `jd_text` | pasted posting | a string, or `None` |
+
+`analyze` (`callbacks_analyze.py:135`) turns those into one request:
+
+| Line | Call | Result |
+|------|------|--------|
+| **166** | `_resolve_resume(resume_file, resume_text)` | `(resume_path, pasted_resume)` |
+| **179** | `_resolve_upload(jd_file, jd_text, "job description")` | `(jd_path, pasted_jd)` |
+| **192** | `AnalysisRequest(...)` | the object the pipeline runs |
+
+`_resolve_upload` (`callbacks_analyze.py:107`) is shared by both documents:
+
+- **122-129** — an upload is checked, copied into `uploads/`, and only the **file name** is returned. Agents never see a full disk path.
+- **130-131** — pasted text is kept as a string after `guardrails.redact_pii`.
+
+Exactly one side of each pair is set. A file upload leaves the text argument `None`, and pasted text leaves the path `None`.
+
+### The dict the crew actually receives
+
+`_run_crew` (`pipeline.py:234`) builds that dict and starts the crew:
+
+```startLine:242:257:careercrew/pipeline.py
+    inputs = crew_inputs(
+        resume_path=request.resume_path if not request.resume_text else None,
+        resume_text=request.resume_text,
+        jd_path=request.jd_path if not request.jd_text else None,
+        jd_text=request.jd_text,
+        seniority=(
+            request.seniority
+            or "the seniority / years of experience signaled in the job description"
+        ),
+        revision_notes=(request.revision_notes or "").strip()
+        or "(none — produce the initial package)",
+    )
+    started = time.perf_counter()
+    crew = build_crew(verbose=False, on_task=on_task)
+    # Already on a worker thread. kickoff is synchronous; do not wrap it again.
+    result = crew.kickoff(inputs=inputs)
+```
+
+`crew_inputs` (`crew.py:164-191`) fills any missing key with a sentence such as
+`"(none; use pasted resume_text)"`, so the task text can tell the agent which
+source to use. `crew.kickoff(inputs=inputs)` at **line 257** is the moment the
+resume and job description enter CrewAI. CrewAI substitutes `{resume_path}`,
+`{resume_text}`, `{jd_path}`, and `{jd_text}` into `config/tasks.yaml`.
+
+### Which agent receives which document
+
+Only the first two agents have tools (`crew.py:96-97`, `with_mcp=True`). The
+tools are `read_resume_tool` (`mcp_server/server.py:25`) and
+`read_job_description_tool` (`mcp_server/server.py:34`). They call
+`document_tools.read_resume` (`document_tools.py:97`) and
+`read_job_description` (`document_tools.py:120`), which open the file inside
+`uploads/`.
+
+| Order | Agent | Task | Code | Given | Returns |
+|------:|-------|------|------|-------|---------|
+| 1 | Profile Extractor | `extract_profile` | `crew.py:103-108` | `{resume_path}` or `{resume_text}` (`tasks.yaml:5-16`) | `CandidateProfile` |
+| 2 | JD Analyzer | `analyze_jd` | `crew.py:109-114` | `{jd_path}` or `{jd_text}` (`tasks.yaml:22-31`) | `JobRequirements` |
+| 3 | Gap Analyst | `analyze_gaps` | `crew.py:115-121` | outputs of tasks 1 and 2 | `GapReport` |
+| 4 | Feedback Writer | `write_feedback` | `crew.py:122-128` | output of task 3 | `FeedbackDraft` |
+| 5 | Interview Prep Advisor | `build_prep_plan` | `crew.py:129-135` | outputs of tasks 1, 2, and 3 | `InterviewPrepPlan` |
+
+Task 2 has **no** `context=` argument (`crew.py:109-114`). It does not see the
+profile. The two readers run one after the other only because the crew is
+`Process.sequential` (`crew.py:152`).
+
+### The handoff: `context=` on the later tasks
+
+This is the entire pipe between agents:
+
+```startLine:115:135:careercrew/crew.py
+    analyze_gaps = Task(
+        name="analyze_gaps",
+        config=tasks_cfg["analyze_gaps"],
+        agent=gap_analyst,
+        context=[extract_profile, analyze_jd],
+        output_pydantic=GapReport,
+    )
+    write_feedback = Task(
+        name="write_feedback",
+        config=tasks_cfg["write_feedback"],
+        agent=feedback_writer,
+        context=[analyze_gaps],
+        output_pydantic=FeedbackDraft,
+    )
+    build_prep_plan = Task(
+        name="build_prep_plan",
+        config=tasks_cfg["build_prep_plan"],
+        agent=interview_prep_advisor,
+        context=[extract_profile, analyze_jd, analyze_gaps],
+        output_pydantic=InterviewPrepPlan,
+    )
+```
+
+When `kickoff` finishes a task, CrewAI keeps that task's output. When it starts
+a later task, it appends every task listed in `context` to that agent's prompt.
+
+| Line | `context=` | What the agent is shown |
+|------|------------|-------------------------|
+| **119** | `[extract_profile, analyze_jd]` | the profile and the job requirements |
+| **126** | `[analyze_gaps]` | the gap report only |
+| **133** | `[extract_profile, analyze_jd, analyze_gaps]` | profile, requirements, and gaps. Not the feedback bullets. |
+
+`memory=False` (`crew.py:155`) means nothing else is stored. These three lists
+are the only way one agent's result reaches another.
+
+```
+resume file or paste ──> Agent 1 Profile Extractor ── CandidateProfile ──┐
+                                                                         ├──> Agent 3 Gap Analyst ── GapReport ──> Agent 4 Feedback Writer
+job file or paste    ──> Agent 2 JD Analyzer       ── JobRequirements ──┘                │
+                                         Agent 1 + Agent 2 + Agent 3 ────────────────────┴──> Agent 5 Prep Advisor
+```
+
+### How the five results come back to the app
+
+`kickoff` returns them in task order on `result.tasks_output`.
+`_parse_crew_outputs` (`pipeline.py:267`) zips that list with `CREW_STAGES`
+(`pipeline.py:81-87`):
+
+| Index | Stage name | Model |
+|------:|------------|-------|
+| 0 | `profile` | `CandidateProfile` |
+| 1 | `requirements` | `JobRequirements` |
+| 2 | `gaps` | `GapReport` |
+| 3 | `feedback` | `FeedbackDraft` |
+| 4 | `prep_plan` | `InterviewPrepPlan` |
+
+```startLine:270:278:careercrew/pipeline.py
+    for stage, output in zip(CREW_STAGES, outputs, strict=False):
+        parsed[stage] = extract_json(getattr(output, "raw", None))
+    trace.add("crew.parsed", "pipeline", f"{len(outputs)} task outputs parsed")
+
+    profile = _coerce_model(CandidateProfile, parsed.get("profile"))
+    requirements = _coerce_model(JobRequirements, parsed.get("requirements"))
+    gaps = _coerce_model(GapReport, parsed.get("gaps"))
+    feedback = _coerce_model(FeedbackDraft, parsed.get("feedback"))
+    prep_plan = _coerce_model(InterviewPrepPlan, parsed.get("prep_plan"))
+```
+
+`run_analysis` returns that bundle as a `PipelineResult` (`pipeline.py:469`).
+The UI reads it from `StopIteration.value` at `callbacks_analyze.py:212-213`.
+The last yield (`callbacks_analyze.py:240-255`) draws the match report from the
+gap and feedback models and the prep tab from the prep plan.
+
+---
+
 ## 1. The wiring (where the click is bound)
 
 | Step | File | Line | What it does |
@@ -462,7 +630,8 @@ task's output). This stops a stuck tool call from spinning 25 times.
 each result forward, so enabling Crew memory would add one embedding/model call
 per agent for data that is already handed over.
 
-**Context edges** (lines **126, 128, 133**) are what make the order meaningful:
+**Context edges** (lines **119, 126, 133**) are what make the order meaningful.
+Section 0a is the full handoff. The picture:
 ```
 extract_profile ─┬─> analyze_gaps ─> write_feedback
 analyze_jd ──────┘         │
