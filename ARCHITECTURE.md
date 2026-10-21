@@ -117,7 +117,8 @@ flowchart LR
 `Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app,
 runs as non-root `appuser` with a writable `/data` volume, healthchecks the
 Gradio root, `CMD ["python", "app.py"]`. Secrets go in the Space settings, never
-in the repo. The Space URL is the demo link for the final presentation.
+in the repo. Step-by-step deploy and the free-vs-paid rules are in
+[`docs/engineering/huggingface-spaces.md`](docs/engineering/huggingface-spaces.md).
 
 ## 6. Architecture verification checklist
 

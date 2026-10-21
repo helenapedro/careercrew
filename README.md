@@ -87,6 +87,7 @@ says so. Add a key for the full crew and the voice interview.
   - `functional-nonfunctional-requirements.md` — requirements with
     implementation evidence
   - `setup.md` — install, configuration, run instructions
+  - `huggingface-spaces.md` — deploy the Docker Space, and what is free vs paid
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
   - `careercrew-product-draft-v0.1.md` — product draft with verification notes
