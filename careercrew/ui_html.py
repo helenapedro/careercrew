@@ -52,8 +52,8 @@ def _hero() -> str:
         "<div class='cc-hero'>"
         "<h1>Match your resume to the role</h1>"
         "<p class='cc-sub'>Use the tabs below in order: run <strong>Analyze match</strong>, "
-        "then practice the mock interview, then chat with a coach. Progress and decisions stay "
-        "inside Analyze — they won’t clutter the other steps.</p></div>"
+        "then the prep coach, then the mock interview, then the post-interview coach. "
+        "Progress and decisions stay inside Analyze — they won’t clutter the other steps.</p></div>"
     )
 
 
@@ -360,7 +360,7 @@ def _review_guide_html(
         active = 3
         blurb = (
             f"Approved{f' — `{_esc(package_id)}`' if package_id else ''}. "
-            "Next: Interview prep plan, Mock interview, or Prep coach."
+            "Next: Interview prep plan, Prep coach, or Mock interview."
         )
     elif phase == "rejected":
         active = 3

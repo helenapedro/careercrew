@@ -305,7 +305,7 @@ def approve(state, feedback):
         gr.update(interactive=False),
         gr.update(interactive=False),
         f"Approved — prep bundle `{package.package_id}` is ready to use. "
-        "Next: open **Interview prep plan**, **Mock interview**, or **Prep coach**.",
+        "Next: open **Interview prep plan**, **Prep coach**, or **Mock interview**.",
         package.model_dump(),
         gr.update(value="", interactive=False),
     )

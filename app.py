@@ -242,9 +242,35 @@ def build_app() -> gr.Blocks:
                     review_status = gr.Markdown("", elem_classes=["cc-review-status"])
 
             # ------------------------------------------------------------------ #
-            # Tab 2 — Mock interview
+            # Tab 2 — Prep coach
             # ------------------------------------------------------------------ #
-            with gr.Tab("2 · Mock interview"):
+            with gr.Tab("2 · Prep coach"):
+                gr.HTML(
+                    "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
+                    "<p class='cc-hint'>Ask anything about improving your resume or preparing "
+                    "for this role. Uses your Analyze context when available.</p></div>"
+                )
+                prep_chat = gr.Chatbot(label="Chat", height=380, show_label=False)
+                with gr.Row(equal_height=True):
+                    prep_msg = gr.Textbox(
+                        label="Your question",
+                        placeholder="How should I talk about the AWS gap?",
+                        lines=2,
+                        scale=4,
+                        elem_classes=["cc-field"],
+                    )
+                    prep_send_btn = gr.Button(
+                        "Send",
+                        variant="primary",
+                        elem_classes=["cc-run"],
+                        scale=0,
+                        min_width=100,
+                    )
+
+            # ------------------------------------------------------------------ #
+            # Tab 3 — Mock interview
+            # ------------------------------------------------------------------ #
+            with gr.Tab("3 · Mock interview"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Voice mock interview</h3>"
                     "<p class='cc-hint'>Requires a finished Analyze first. The interviewer asks "
@@ -305,32 +331,6 @@ def build_app() -> gr.Blocks:
                         )
                 iv_feedback_html = gr.HTML("")
                 iv_overall_html = gr.HTML("")
-
-            # ------------------------------------------------------------------ #
-            # Tab 3 — Prep coach
-            # ------------------------------------------------------------------ #
-            with gr.Tab("3 · Prep coach"):
-                gr.HTML(
-                    "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
-                    "<p class='cc-hint'>Ask anything about improving your resume or preparing "
-                    "for this role. Uses your Analyze context when available.</p></div>"
-                )
-                prep_chat = gr.Chatbot(label="Chat", height=380, show_label=False)
-                with gr.Row(equal_height=True):
-                    prep_msg = gr.Textbox(
-                        label="Your question",
-                        placeholder="How should I talk about the AWS gap?",
-                        lines=2,
-                        scale=4,
-                        elem_classes=["cc-field"],
-                    )
-                    prep_send_btn = gr.Button(
-                        "Send",
-                        variant="primary",
-                        elem_classes=["cc-run"],
-                        scale=0,
-                        min_width=100,
-                    )
 
             # ------------------------------------------------------------------ #
             # Tab 4 — Post-interview coach
