@@ -1,4 +1,7 @@
-"""CareerCrew Gradio custom CSS — clean light theme."""
+"""Styling only. Not part of the logic; skip during the code talk.
+
+CareerCrew Gradio custom CSS — clean light theme.
+"""
 
 CUSTOM_CSS = """
 /* Always light, calm, minimal */
