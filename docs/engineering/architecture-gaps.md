@@ -1,4 +1,4 @@
-# CareerCrew — Architecture Gaps
+# CareerCrew: Architecture Gaps
 
 **Status:** In progress
 **Assessed commit:** `ee1f2fc6` (dev; same code on main)

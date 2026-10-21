@@ -1,4 +1,4 @@
-# CareerCrew — Request Lifecycle
+# CareerCrew: Request Lifecycle
 
 **Status:** In progress
 **Assessed commit:** `ee1f2fc6` (dev; same code on main)
@@ -36,7 +36,7 @@ Describe the actual execution path for one representative user request: resume +
 
 Observed runtime output (abridged): `ScreeningPrep` with one answer (`source: "answer_bank"`, `verified: true`, `do_not_claim: []`); `InterviewPrepPlan` with `seniority.band: "mid"` and generic `question_themes`, empty `focus_areas`/`strengths`/`risk_areas`; warnings: "No OPENAI_API_KEY set; running the deterministic MCP fallback only."
 
-## 3b. Execution trace — Scenario B: UI full-crew run (runtime observed)
+## 3b. Execution trace: Scenario B: UI full-crew run (runtime observed)
 
 On 2026-10-16 Helena ran the Gradio UI (`python app.py`, `localhost:7860`) with an API key set: uploaded her real resume PDF (`Helena.Pedro-Resume.pdf`, 158.7 KB), pasted a job description, selected seniority "5-10 years". All 7 progress steps completed (Check inputs → Read resume → Understand role → Score match → Draft rewrites → Prep plan → Screening).
 
@@ -84,7 +84,7 @@ Not exercised in this run: voice mock interview, coaching chats (tabs visible bu
 
 ## 7. Open questions
 
-- [x] Runtime-trace the six-agent crew path with an API key — done 2026-10-16 via the UI run above (Helena's key, her machine).
+- [x] Runtime-trace the six-agent crew path with an API key: done 2026-10-16 via the UI run above (Helena's key, her machine).
 - [ ] Confirm whether `read_resume`/`read_job_description` redact PII for file uploads.
 - [ ] Trace the Gradio UI path (`app.py`): HITL transitions, interview turns, chat persistence to SQLite.
 - [ ] Trace the standalone MCP server path (`python -m mcp_server.server`).
