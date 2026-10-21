@@ -1,10 +1,9 @@
 # CareerCrew
 
 Multi-agent resume, interview, and job-application coach built with CrewAI and
-MCP (CS529 Project Work 2). Six specialized agents turn a resume and a job
+MCP (CS529 Project Work 2). Five specialized agents turn a resume and a job
 description into honest, cited guidance: coverage scoring, gap analysis, tailored
-bullet rewrites, a seniority-aware **interview preparation plan**, and
-copy-ready screening answers that come **only** from a verified answer bank.
+bullet rewrites, and a seniority-aware **interview preparation plan**.
 
 On top of the analysis, CareerCrew adds a **voice virtual mock interviewer**
 (spoken questions, live synchronized transcript, per-question feedback) and two
@@ -25,9 +24,7 @@ cp .env.example .env   # then put your OPENAI_API_KEY in .env
 Run the pipeline on the samples (fictional test data):
 
 ```bash
-python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt \
-  --screening "Are you authorized to work in the US?" \
-  --screening "What is your notice period?"
+python main.py --resume samples/sample_resume.txt --jd samples/sample_jd.txt
 ```
 
 Pasted text and an uploaded JD file also work:
@@ -49,9 +46,9 @@ Run the MCP server standalone (for a manual smoke test):
 python -m mcp_server.server
 ```
 
-The app runs without an `OPENAI_API_KEY`: it falls back to real MCP
-screening-answer retrieval and a deterministic gap-based prep plan, and says so
-in the UI banner. Add a key for the full crew and the voice interview.
+The app runs without an `OPENAI_API_KEY`: the crew is skipped, the match report
+stays empty, and a deterministic gap-based prep plan is produced. The UI banner
+says so. Add a key for the full crew and the voice interview.
 
 ## Input rules
 
@@ -69,8 +66,6 @@ in the UI banner. Add a key for the full crew and the voice interview.
   Reframeable / Out of Scope), cited resume rewrites, and talking points.
 - **Interview prep plan** — where to spend the most preparation time, derived
   from the gaps and the target seniority band.
-- **Copy-ready screening answers** — drafted only from the verified answer bank;
-  unverified questions are surfaced under "needs your input".
 - **Voice mock interview** — the interviewer asks questions from the application,
   the candidate answers by voice or text, and each answer gets real-time feedback
   (what the interviewer wanted, what to improve). Speech-to-text and
@@ -102,7 +97,7 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - `config/agents.yaml`, `config/tasks.yaml` - agent roles and task text
 - `careercrew/models.py` - Pydantic contracts (analysis, prep, interview, review)
 - `careercrew/crew.py` - crew assembly: agents, MCP servers, knowledge, typed outputs
-- `careercrew/document_tools.py` - shared input logic + tool guardrails + answer bank
+- `careercrew/document_tools.py` - shared input logic + tool guardrails
 - `careercrew/mcp_client.py` - real MCP stdio client + CrewAI `MCPServerStdio`
 - `careercrew/pipeline.py` - orchestrator: run crew, parse, fallback, validate
 - `careercrew/prep.py` - Interview Preparation Advisor (seniority + gap driven)
@@ -115,7 +110,13 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - `careercrew/guardrails.py` - input, tool, and per-agent output checks
 - `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description
 - `knowledge/resume_guidelines.md`, `knowledge/interview_guidelines.md` - agent knowledge
-- `app.py` - Gradio UI; `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
+- `app.py` - Gradio layout and wiring
+- `careercrew/callbacks_analyze.py` - Analyze, Approve, Reject, Request changes
+- `careercrew/callbacks_interview.py` - mock interview + both coach chats
+- `careercrew/runner.py` - runs the pipeline on a worker thread, reports the stage
+- `careercrew/ui_html.py` - HTML renderers; `careercrew/ui_state.py` - named UI outputs
+- `careercrew/services.py` - settings, database, and review service shared by the UI
+- `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
 - `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
@@ -137,7 +138,7 @@ See `ARCHITECTURE.md` for the full walkthrough.
 
 - [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end
 - [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
-- [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + History `pkg-…`
+- [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + package `pkg-…`
 - [`docs/CODE_PATH_MOCK_INTERVIEW.md`](docs/CODE_PATH_MOCK_INTERVIEW.md) — voice/text mock interviewer
 - [`docs/CODE_PATH_COACH.md`](docs/CODE_PATH_COACH.md) — Prep coach + Post-interview coach
 

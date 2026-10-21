@@ -1,7 +1,7 @@
 """Named outputs for the Analyze and Request-changes callbacks.
 
 What it does: holds the 14 Gradio outputs as fields instead of a magic-index tuple.
-Who calls it: app.py (analyze, request_revision, and build_app wiring).
+Who calls it: callbacks_analyze.py (analyze, request_revision) and the app.py wiring.
 What it returns: AnalyzeOutputs, plus as_tuple() for Gradio's ordered output list.
 """
 

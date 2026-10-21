@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/session_store.py`
 
-**File purpose:** SQLite persistence for prep bundles, HITL decisions, mock interviews, and coaching chats. Standard library only; survives restarts.
+**File purpose:** SQLite persistence for prep bundles, HITL decisions, mock interviews, and coaching chats. Standard library only; rows survive restarts.
 
 ---
 
@@ -34,30 +34,28 @@ Commit on success; shared vs per-call connection.
 | `record_decision` | INSERT decision |
 | `update_status` | UPDATE status (± revision_count) |
 | `get_package` | Row + parsed `ApplicationPackage` |
-| `get_decisions` | Oldest-first decisions |
-| `list_packages` | History table (updated_at DESC) |
+| `list_packages` | Package history, newest first (used by scripts/tests; no History tab) |
 | `count_revisions` | Count REVISE rows |
 
-**Say this:** “History tab is `list_packages` — that’s where `pkg-…` lives.”
+**Say this:** “`list_packages` is the package history — that’s where `pkg-…` lives, even though the UI has no History tab.”
 
 ### Interview APIs
 
 | Method | What |
 |--------|------|
 | `save_interview` | UPSERT session JSON; DELETE+reINSERT turns (no duplicates) |
-| `get_interview` / `latest_interview` | Load session model |
+| `latest_interview` | Load the most recent session model |
 
 ### Chat APIs
 
 | Method | What |
 |--------|------|
-| `add_chat_message` | Append one turn |
-| `get_chat_history` | Oldest-first for a channel |
+| `add_chat_message` | Append one turn (history is not read back by the UI) |
 
 ---
 
 ## How it connects
 
 - HITL: [review.md](review.md)  
-- Interview: `app._ask_question` / `interview_submit`  
+- Interview: `callbacks_interview._ask_question` / `interview_submit`  
 - Coaches: `_render_*_chat`  

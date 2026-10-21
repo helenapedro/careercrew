@@ -21,6 +21,13 @@ def _drain(result):
     return result
 
 
+def _out(updates, name):
+    """Read one named output instead of relying on a positional index."""
+    from careercrew.ui_state import OUTPUT_ORDER
+
+    return updates[OUTPUT_ORDER.index(name)]
+
+
 def test_app_builds():
     import app
 
@@ -90,32 +97,33 @@ def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
     # them so the user is never stuck with a dead Analyze button.
     gen = app.analyze(None, "", None, "A real job description here.")
     first = next(gen)
-    assert first[12]["interactive"] is False, "run button must disable immediately"
-    assert first[13]["interactive"] is False, "clear button must disable too"
+    assert _out(first, "run_button")["interactive"] is False, "run button must disable immediately"
+    assert _out(first, "clear_button")["interactive"] is False, "clear button must disable too"
 
     last = first
-    for last in gen:
+    for last in gen:  # noqa: B007 - keep the final yielded update
         pass
-    assert last[12]["interactive"] is True, "run button must come back after a failure"
-    assert last[13]["interactive"] is True
+    assert _out(last, "run_button")["interactive"] is True, "run button must come back after a failure"
+    assert _out(last, "clear_button")["interactive"] is True
 
     # The reset state used by Clear also leaves both buttons usable.
     reset = app._empty_outputs().as_tuple()
-    assert reset[12]["interactive"] is True
-    assert reset[13]["interactive"] is True
+    assert _out(reset, "run_button")["interactive"] is True
+    assert _out(reset, "clear_button")["interactive"] is True
 
 
 def test_stage_tracker_reflects_progress():
-    import app
+    from careercrew.runner import FINAL_STAGE
+    from careercrew.ui_html import _stages_html
 
-    idle = app._stages_html(-1)
+    idle = _stages_html(-1)
     assert "READY" in idle
     assert "Read resume" in idle
-    running = app._stages_html(3, "Understanding the role…")
+    running = _stages_html(3, "Understanding the role…")
     assert "RUNNING" in running
     assert "DONE" in running  # stages 1 and 2 finished
     assert "Understanding the role…" in running
-    done = app._stages_html(app._FINAL, "complete")
+    done = _stages_html(FINAL_STAGE, "complete")
     assert "RUNNING" not in done
 
 
@@ -146,7 +154,7 @@ def test_analyze_missing_resume_returns_error(monkeypatch, tmp_path):
     import app
 
     outputs = _drain(app.analyze(None, "", None, "A real job description here."))
-    error_box = outputs[0]
+    error_box = _out(outputs, "error")
     assert "resume" in str(error_box).lower()
     assert "cc-alert" in str(error_box).lower() or "something went wrong" in str(error_box).lower()
 
@@ -167,7 +175,7 @@ def test_analyze_missing_jd_returns_error(monkeypatch, tmp_path):
             "",
         )
     )
-    assert "job description" in str(outputs[0]).lower()
+    assert "job description" in str(_out(outputs, "error")).lower()
 
 
 def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
@@ -192,10 +200,12 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
             "We need a Python backend engineer with FastAPI and AWS.",
         )
     )
-    # stages · match · prep · screening · … · ctx
-    assert "RUNNING" not in outputs[2]
-    assert "Interview prep plan" in outputs[4] or "prep" in outputs[4].lower()
-    assert "prep_plan" in str(outputs[10])
+    # stages · match · prep · … · ctx
+    assert "RUNNING" not in _out(outputs, "stages")
+    assert "Interview prep plan" in _out(outputs, "prep_plan") or "prep" in _out(
+        outputs, "prep_plan"
+    ).lower()
+    assert "prep_plan" in str(_out(outputs, "context"))
 
 
 def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
@@ -226,9 +236,9 @@ def test_analyze_file_upload_end_to_end(monkeypatch, tmp_path):
             "We need a Python backend engineer with FastAPI and AWS.",
         )
     )
-    assert "answer_bank" in outputs[4] or "prep" in outputs[1].lower()
-    assert "invalid resume path" not in str(outputs[0]).lower()
-    assert "Resume rejected" not in outputs[1]
+    assert "prep" in _out(outputs, "prep_plan").lower()
+    assert "invalid resume path" not in str(_out(outputs, "error")).lower()
+    assert "Resume rejected" not in _out(outputs, "status")
 
 
 def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
@@ -258,8 +268,8 @@ def test_analyze_jd_file_upload_end_to_end(monkeypatch, tmp_path):
             "",
         )
     )
-    assert "Job description rejected" not in outputs[1]
-    assert "prep" in outputs[4].lower()
+    assert "Job description rejected" not in _out(outputs, "status")
+    assert "prep" in _out(outputs, "prep_plan").lower()
 
 
 def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
@@ -284,24 +294,25 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
             "We need a Python backend engineer with React and FastAPI. 5+ years experience.",
         )
     )
-    package_state = analyzed[8]
+    package_state = _out(analyzed, "package")
     assert package_state is not None
 
     notes = "I have 5+ years of React experience building production SPAs."
     revised = _drain(app.request_revision(package_state, notes))
-    assert "revision" in str(revised[1]).lower()
-    assert "ready" in str(revised[1]).lower()
-    assert revised[8] is not None
+    status = _out(revised, "status")
+    assert "revision" in str(status).lower()
+    assert "ready" in str(status).lower()
+    assert _out(revised, "package") is not None
     # Saved inputs now include the attested experience for further revisions.
-    stored = app._STORE.get_package(revised[8]["package_id"])
+    stored = app._STORE.get_package(_out(revised, "package")["package_id"])
     assert stored is not None
     assert "React" in (stored.get("inputs") or {}).get("resume_text", "")
     assert "CANDIDATE-ATTESTED" in (stored.get("inputs") or {}).get("resume_text", "")
-    # Offline path surfaces the update in context / package copy.
-    assert "React" in revised[11] or "React" in revised[5] or "attested" in revised[1].lower()
+    # Offline path surfaces the update in the match report (the rewrite cites it).
+    assert "React" in _out(revised, "match_report")
     # Decision guide returns to "ready" after the automatic re-analyze.
-    assert "Your decision" in revised[12] or "ready" in revised[12].lower() or "Prep bundle" in revised[12]
-    fb = revised[10]
+    assert "Your decision" in _out(revised, "review_guide")
+    fb = _out(revised, "notes")
     if isinstance(fb, dict):
         assert fb.get("value", "") == ""
     else:
@@ -309,9 +320,9 @@ def test_request_revision_reruns_analysis(monkeypatch, tmp_path):
 
 
 def test_merge_revision_into_resume_appends_attested_block():
-    import app
+    from careercrew.callbacks_analyze import _merge_revision_into_resume
 
-    merged = app._merge_revision_into_resume(
+    merged = _merge_revision_into_resume(
         None,
         "ALEX RIVERA. Skills: Python.",
         "I have 5+ years of React experience.",
@@ -319,3 +330,45 @@ def test_merge_revision_into_resume_appends_attested_block():
     assert "Python" in merged
     assert "CANDIDATE-ATTESTED UPDATE" in merged
     assert "5+ years of React" in merged
+
+
+def test_context_round_trip_and_interview_start_work_offline(monkeypatch, tmp_path):
+    """Regression: the interview tab crashed on missing model imports."""
+    monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    import importlib
+
+    import app
+
+    importlib.reload(app)
+
+    outputs = _drain(
+        app.analyze(
+            None,
+            "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale.",
+            None,
+            "We need a Python backend engineer with FastAPI and AWS.",
+        )
+    )
+    context = _out(outputs, "context")
+    assert context is not None
+
+    # Rebuilding typed models from the serialized context must not raise.
+    from careercrew.callbacks_analyze import _context_models
+    from careercrew.models import CandidateProfile, GapReport, InterviewPrepPlan, JobRequirements
+
+    models = _context_models(__import__("json").loads(context))
+    assert models["package_id"]
+    assert isinstance(models["profile"], CandidateProfile)
+    assert isinstance(models["requirements"], JobRequirements)
+    assert isinstance(models["gaps"], GapReport)
+    assert isinstance(models["prep_plan"], InterviewPrepPlan)
+
+    # Starting the interview produces grounded questions without any API key.
+    started = app.interview_start(context, 3)
+    assert started[1], "an interviewer question must render"
+    assert started[6], "the session must be serialized for the next turn"

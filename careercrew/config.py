@@ -22,14 +22,6 @@ KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge"
 RESUME_GUIDELINES_PATH = KNOWLEDGE_DIR / "resume_guidelines.md"
 INTERVIEW_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
 COACHING_GUIDELINES_PATH = KNOWLEDGE_DIR / "interview_guidelines.md"
-DATA_DIR = PROJECT_ROOT / "data"
-
-
-def _env_bool(name: str, default: bool = False) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _env_int(name: str, default: int) -> int:

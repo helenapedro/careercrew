@@ -59,4 +59,4 @@ flowchart LR
 4. Feedback Writer — bullet rewrites that cite a resume fact.
 5. Interview Prep Advisor — where to spend prep time.
 
-There is no sixth agent. Screening answers and the answer bank were removed because the page no longer collects or shows them.
+There is no sixth agent. Screening answers and the answer bank were removed because the page no longer collects or shows them, so `ApplicationPackage` is just the reviewable bundle (role, company, summary, do-not-claim list).

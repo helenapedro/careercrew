@@ -31,11 +31,11 @@ Map label → band; detect role count; confidence heuristic; build `SeniorityAss
 2. For each gap verdict → `PrepFocus` with priority/share/why/evidence  
 3. Sort high → low  
 4. Normalize shares to ~100  
-5. Themes = band emphasis + “Tell me about…” for top gaps  
+5. Themes = band emphasis + “Tell me about…” for the first five gaps  
 6. Return `InterviewPrepPlan`  
 
 **Why:** Prep tab never empty without inventing experience.  
-**Called by:** `pipeline.run_analysis` when crew plan missing.  
+**Called by:** `pipeline.run_analysis` when the crew plan is missing (always, with no key).  
 **Say this:** “Gaps drive prep time — out_of_scope first.”
 
 ---

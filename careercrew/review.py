@@ -146,8 +146,3 @@ class PackageReviewService:
     ) -> None:
         self._store.record_decision(decision)
         self._store.update_status(package.package_id, status, revision_count)
-
-    # -- helpers ---------------------------------------------------------------
-    def can_revise(self, revision_count: int) -> bool:
-        """Whether another revision is still permitted."""
-        return revision_count < self._max_revisions

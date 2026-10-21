@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/crew.py`
 
-**File purpose:** Turns YAML roles/tasks into a **sequential** CrewAI crew of five agents, wires MCP + knowledge, and builds kickoff inputs. No manager agent. No screening agent.
+**File purpose:** Turns YAML roles/tasks into a **sequential** CrewAI crew of five agents, wires MCP + knowledge, and builds kickoff inputs. No manager agent.
 
 **Flow doc:** [CODE_PATH_ANALYZE.md](../CODE_PATH_ANALYZE.md) §4
 
@@ -50,7 +50,7 @@
    - `allow_delegation=False` (no peer handoff)  
    - If `with_mcp`: attach MCP server  
 5. Instantiate five agents (MCP on: profile and JD; off: gap, feedback, prep)  
-6. Instantiate six tasks with `output_pydantic` and `context=[...]` dependencies  
+6. Instantiate five tasks with `output_pydantic` and `context=[...]` dependencies  
 7. Return `Crew(..., process=Process.sequential, memory=False, task_callback=on_task)`
 
 **Agent ↔ MCP map:**
@@ -62,14 +62,12 @@
 | Gap Analyst | No | resume |
 | Feedback Writer | No | resume |
 | Interview Prep Advisor | No | resume + interview |
-| Screening Prep Writer | Yes | resume |
 
 **Task context edges:**
 
 - gaps ← profile + JD  
 - feedback ← gaps  
 - prep plan ← profile + JD + gaps  
-- screening ← feedback + JD  
 
 **Why sequential / no manager:** Pipeline is linear; a manager adds latency/cost with no branching decision.  
 **Why memory=False:** Each task already receives the previous task's output through `context`. CrewAI memory would add another model call after every agent.  

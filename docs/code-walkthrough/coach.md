@@ -55,4 +55,4 @@ Deterministic guidance for gap / score / resume keywords, else generic prep-plan
 
 ## How it connects
 
-`app._render_prep_chat` / `_render_post_chat` + SQLite `chat_messages`.
+`callbacks_interview._render_prep_chat` / `_render_post_chat` + SQLite `chat_messages`.

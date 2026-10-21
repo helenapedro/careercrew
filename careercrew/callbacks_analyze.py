@@ -16,8 +16,18 @@ from collections.abc import Iterator
 import gradio as gr
 
 from careercrew import guardrails
-from careercrew.models import ApplicationPackage, ReviewAction, ReviewDecision, ReviewStatus
+from careercrew.models import (
+    ApplicationPackage,
+    CandidateProfile,
+    GapReport,
+    InterviewPrepPlan,
+    JobRequirements,
+    ReviewAction,
+    ReviewDecision,
+    ReviewStatus,
+)
 from careercrew.pipeline import AnalysisRequest, make_package_id
+from careercrew.review import ReviewError
 from careercrew.runner import FINAL_STAGE as _FINAL
 from careercrew.runner import stream_with_progress
 from careercrew.services import REVIEW as _REVIEW
@@ -546,4 +556,3 @@ def request_revision(state, feedback) -> Iterator[tuple]:
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
         yield fail(f"Unexpected error: {exc}")
-

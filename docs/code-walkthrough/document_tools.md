@@ -73,34 +73,8 @@ Helper for the bare-filename branch.
 
 ---
 
-## Answer bank
-
-### `_tokenize` / `_STOPWORDS`
-
-Tokenize for matching; ignore common words so “are you” alone cannot match.
-
-### Removed: answer bank
-
-`query_answer_bank`, `_load_answer_bank`, and `data/answer_bank.yaml` are gone. The page no longer prepares screening answers.
-
-### `query_answer_bank(question)`
-
-**What:**
-
-1. Empty → error payload  
-2. Load bank; skip entries without `verified: true`  
-3. Score overlap of question tokens vs entry key/labels (+ bonus for phrase hit)  
-4. Best score < 1 → `found: false`  
-5. Else return `found: true`, `answer`, `source: answer_bank`  
-
-**Why:** Unknown questions become `do_not_claim`, never invented facts.  
-**I/O:** Read `data/answer_bank.yaml`.  
-**Say this:** “Only verified bank rows can answer screening questions.”
-
----
-
 ## How it connects
 
-- MCP server thin-wraps these three functions  
-- Pipeline calls resume/JD helpers before the crew  
-- Fallback calls `query_answer_bank` via MCP client (same logic)
+- MCP server thin-wraps the two read functions
+- Pipeline calls resume/JD helpers before the crew (fail-fast validation)
+- Crew agents call the same functions through MCP

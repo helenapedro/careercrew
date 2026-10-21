@@ -40,11 +40,11 @@
 | `ReviewStatus` | DRAFT → PENDING_REVIEW → APPROVED / REJECTED |
 | `ReviewAction` | APPROVE / REJECT / REVISE |
 | `ReviewDecision` | package_id, decision, feedback, decided_at |
-| `TrackerEntry` | History row fields |
+| `TrackerEntry` | Row shape returned by `SessionStore.list_packages()` (no History tab in the UI anymore) |
 | `TraceEvent` | step, actor, detail, status, duration_ms |
 | `ExecutionTrace` | list of events; `.add(...)` appends one |
 
-**Say this:** “Trace is the Advanced-tab audit trail of one run.”
+**Say this:** “Trace is the audit trail of one run.”
 
 ---
 

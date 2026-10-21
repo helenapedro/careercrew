@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/guardrails.py`
 
-**File purpose:** Input, output, and interactive-path checks. Keyword filters alone are not “safety”; structural checks (citations, answer_bank source, share totals) are.
+**File purpose:** Input, output, and interactive-path checks. Keyword filters alone are not “safety”; structural checks (citations, grounded prep evidence, share totals) are.
 
 **Tool confinement** (uploads folder) lives next to the tools in `document_tools.py`, not only here.
 
@@ -42,7 +42,7 @@
 
 - Resume: exactly one of file / paste; paste long enough; file extension OK  
 - JD: exactly one of file / paste; extension OK; paste length; injection pattern on JD text  
-- Screening questions: each line checked against `_DISALLOWED_INPUT`  
+- Resume/JD text: disallowed instruction patterns
 
 **Why:** Refuse ambiguous or malicious input before the crew.  
 **Say this:** “One resume source, one JD source — never both, never neither.”
@@ -90,11 +90,11 @@
 
 **What:**
 
-- Every screening answer: `source == "answer_bank"` and verified  
 - Optionally run citation checks on feedback/profile  
+- Turn any `do_not_claim` items into a warning  
 - Build `OutputValidationResult`  
 
-**Why:** Package must never ship invented screening facts.  
+**Why:** Package validation must fail closed on invented bullets.  
 **Say this:** “If validation fails, Analyze raises — we do not hand a bad package to HITL.”
 
 ---

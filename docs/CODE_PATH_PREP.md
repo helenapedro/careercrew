@@ -54,7 +54,7 @@ Open [`careercrew/prep.py`](../careercrew/prep.py).
 | 5 | `_BAND_EMPHASIS` | Add seniority-specific themes (fundamentals vs ownership vs system design) |
 | 6 | Return `InterviewPrepPlan` | focus_areas, question_themes, strengths, risk_areas |
 
-Called from `pipeline.run_analysis` when `prep_plan is None` after the crew/fallback screening path.
+Called from `pipeline.run_analysis` after the crew path when `prep_plan is None`.
 
 ---
 
@@ -72,7 +72,7 @@ Called from `pipeline.run_analysis` when `prep_plan is None` after the crew/fall
 | Piece | Location |
 |-------|----------|
 | Tab | Gradio **Interview prep plan** |
-| Renderer | `app.py` `_prep_html(plan)` |
+| Renderer | `careercrew/ui_html.py` `_prep_html(plan)` |
 | Shows | Seniority chips, focus cards (priority badge + % + why + “Grounded in” cite), themes, strengths, risk note |
 
 Empty state: `_empty_card("Interview prep plan", ...)` until Analyze completes.

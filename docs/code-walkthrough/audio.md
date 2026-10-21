@@ -38,4 +38,4 @@ Best-effort delete of temp audio.
 
 ## How it connects
 
-Called from `app._ask_question` (speak) and `app.interview_submit` (transcribe).
+Called from `callbacks_interview._ask_question` (speak) and `callbacks_interview.interview_submit` (transcribe).

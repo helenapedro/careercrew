@@ -13,7 +13,7 @@ is submitted.**
 
 | Module | Role |
 |--------|------|
-| [`app.py`](../app.py) `interview_start`, `interview_submit`, `_ask_question` | Gradio wiring |
+| [`careercrew/callbacks_interview.py`](../careercrew/callbacks_interview.py) `interview_start`, `interview_submit`, `_ask_question` | Gradio handlers |
 | [`careercrew/interview.py`](../careercrew/interview.py) | Questions, evaluate, overall score, turns |
 | [`careercrew/audio.py`](../careercrew/audio.py) | `whisper-1` STT, `tts-1` TTS |
 | [`careercrew/llm.py`](../careercrew/llm.py) | Chat completions for Q/eval (optional) |

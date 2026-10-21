@@ -12,27 +12,24 @@ import os
 
 import gradio as gr
 
+from careercrew import callbacks_analyze, callbacks_interview, services
 from careercrew.callbacks_analyze import (
     _IDLE_STATUS,
     _empty_outputs,
-    _merge_revision_into_resume,
     analyze,
     approve,
     reject,
     request_revision,
 )
 from careercrew.callbacks_interview import (
-    _audio_status,
     _question_html,
     _render_post_chat,
     _render_prep_chat,
     interview_start,
     interview_submit,
 )
-from careercrew import callbacks_analyze, callbacks_interview, services
 from careercrew.config import get_settings
 from careercrew.review import PackageReviewService
-from careercrew.runner import FINAL_STAGE as _FINAL
 from careercrew.session_store import SessionStore
 from careercrew.ui_css import CUSTOM_CSS, LIGHT_MODE_JS
 from careercrew.ui_html import (
@@ -83,11 +80,10 @@ def _read_sample(name: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-
-# --------------------------------------------------------------------------- #
 # Layout
 # --------------------------------------------------------------------------- #
 def build_app() -> gr.Blocks:
+    """Build the Gradio page and wire every button to its callback."""
     with gr.Blocks(title="CareerCrew — Match your resume to the role") as demo:
         state = gr.State(None)
         ctx_state = gr.State(None)

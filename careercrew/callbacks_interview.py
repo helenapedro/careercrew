@@ -15,8 +15,10 @@ from careercrew.models import (
     InterviewTurnRole,
     MockInterviewSession,
 )
+from careercrew.services import SETTINGS as _SETTINGS
 from careercrew.services import STORE as _STORE
 from careercrew.ui_html import _alert_html, _esc
+
 
 def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
     """Convert the transcript to Gradio chatbot messages (interviewer = assistant)."""
@@ -325,4 +327,3 @@ def _render_post_chat(history, message: str, ctx_state, iv_state):
     _STORE.add_chat_message(session_id, "post", "user", prompt)
     _STORE.add_chat_message(session_id, "post", "assistant", reply)
     return history, ""
-

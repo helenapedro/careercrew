@@ -52,12 +52,12 @@ Defaults `max_revisions` from settings (`CAREERCREW_MAX_REVISIONS`, default 2).
 
 **Say this:** “Revise without notes is illegal; max two revision cycles by default.”
 
-### `_persist` / `can_revise`
+### `_persist`
 
-Write decision row + status; helper for UI enablement.
+Write decision row + status.
 
 ---
 
 ## How it connects
 
-`app.approve` / `reject` / `request_revision` → this service → [session_store.md](session_store.md).
+`callbacks_analyze.approve` / `reject` / `request_revision` → this service → [session_store.md](session_store.md).

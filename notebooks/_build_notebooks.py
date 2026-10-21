@@ -47,10 +47,9 @@ write(
             """# CareerCrew — system overview
 
 CareerCrew is a multi-agent preparation system built with CrewAI and MCP.
-Six specialized agents analyze a resume against a job description, produce an
-honest interview prep plan, and draft screening answers **only** from a verified
-answer bank. The product also includes a **voice mock interviewer** and two
-coaching chats.
+Five specialized agents analyze a resume against a job description and produce
+an honest interview prep plan. The product also includes a **voice mock
+interviewer** and two coaching chats.
 
 **Nothing is submitted to a job board.** CareerCrew prepares and practices;
 the candidate applies themselves.
@@ -63,9 +62,9 @@ Related docs: `ARCHITECTURE.md`, `README.md`
             """## End-to-end flow
 
 ```
-Resume + JD  →  ANALYZE (6 agents + MCP tools)
+Resume + JD  →  ANALYZE (5 agents + MCP tools)
                     ↓
-              Prep plan + gaps + screening answers
+              Prep plan + gaps + resume feedback
                     ↓
          HITL: approve / revise / reject  (SQLite history)
                     ↓
@@ -87,7 +86,8 @@ Resume + JD  →  ANALYZE (6 agents + MCP tools)
 | 4 | Rewrite coach | Cited bullet rewrites |
 | 5 | Prep advisor | Interview prep plan |
 
-Tools talk to an **MCP server** exposing `read_resume` and `read_job_description`.
+Tools talk to an **MCP server** exposing `read_resume_tool` and
+`read_job_description_tool`.
 """,
         ),
         (
@@ -131,7 +131,8 @@ This notebook explains how the mock interviewer **speaks**, how the candidate
 **answers by voice or text**, and how the **live transcript** stays synchronized.
 
 **Source files**
-- `app.py` — `iv_audio`, `iv_answer_audio`, `_ask_question`, `interview_submit`, `_turns_to_messages`
+- `app.py` — widget layout and event wiring (`iv_audio`, `iv_answer_audio`, `iv_chatbot`)
+- `careercrew/callbacks_interview.py` — `interview_start`, `_ask_question`, `interview_submit`, `_turns_to_messages`
 - `careercrew/audio.py` — `speak`, `transcribe`
 """,
         ),
@@ -176,7 +177,7 @@ Chat LLM / evaluate_answer sees TEXT ONLY — never the audio bytes.
             "markdown",
             """## 1. Gradio UI widgets
 
-Defined in `app.py` (Mock interview tab, ~1363–1378):
+Defined in `app.py` (Mock interview tab widgets, wired to `callbacks_interview`):
 
 | Widget | Role |
 |--------|------|
@@ -219,7 +220,7 @@ for name, cfg in ui.items():
             "markdown",
             """## 2. Agent speaks = TTS + transcript turn
 
-`_ask_question` in `app.py` (~1043–1060):
+`_ask_question` in `careercrew/callbacks_interview.py`:
 
 1. `audio.speak(question.text)` → temporary `.mp3` (or `None` if no API key)
 2. `interview.append_turn(..., INTERVIEWER, question.text)`
@@ -255,7 +256,7 @@ print("turns      ->", turns)
             "markdown",
             """## 3. Candidate answers = mic filepath → Whisper → text
 
-`interview_submit` in `app.py` (~1092–1094):
+`interview_submit` in `careercrew/callbacks_interview.py`:
 
 ```python
 transcript = audio.transcribe(answer_audio) if answer_audio else ""
@@ -292,7 +293,7 @@ print("note: chat model never sees", answer_audio)
             "markdown",
             """## 4. Live transcript sync
 
-`_turns_to_messages` (`app.py` ~926–932) maps session turns to Gradio Chatbot messages:
+`_turns_to_messages` (`careercrew/callbacks_interview.py`) maps session turns to Gradio Chatbot messages:
 
 | Session role | Chatbot role |
 |--------------|--------------|
@@ -305,7 +306,7 @@ synchronized with the spoken dialogue.
         ),
         (
             "code",
-            """# Same mapping as app._turns_to_messages
+            """# Same mapping as callbacks_interview._turns_to_messages
 
 def turns_to_messages(turns):
     messages = []
@@ -347,9 +348,9 @@ never crash the UI.
 | Step | File | Symbol |
 |------|------|--------|
 | Mic + speaker UI | `app.py` | `iv_answer_audio`, `iv_audio`, `iv_chatbot` |
-| Ask (TTS + turn) | `app.py` | `_ask_question` |
-| Submit (STT + eval) | `app.py` | `interview_submit` |
-| Transcript map | `app.py` | `_turns_to_messages` |
+| Ask (TTS + turn) | `callbacks_interview.py` | `_ask_question` |
+| Submit (STT + eval) | `callbacks_interview.py` | `interview_submit` |
+| Transcript map | `callbacks_interview.py` | `_turns_to_messages` |
 | Whisper / TTS | `careercrew/audio.py` | `transcribe`, `speak` |
 | Persist text | `session_store.py` | `save_interview` |
 
@@ -371,7 +372,7 @@ questions, ask, evaluate each answer, then move to the next question or compute
 an overall score.
 
 **Source files**
-- `app.py` — `interview_start`, `_ask_question`, `interview_submit`
+- `careercrew/callbacks_interview.py` — `interview_start`, `_ask_question`, `interview_submit`
 - `careercrew/interview.py` — `generate_questions`, `evaluate_answer`, `append_turn`, `overall_evaluation`
 - Detail doc: `docs/CODE_PATH_MOCK_INTERVIEW.md`
 """,
@@ -559,9 +560,9 @@ Audio paths may be referenced temporarily; **durable content is text**.
 
 | Concern | File | Symbol |
 |---------|------|--------|
-| Start | `app.py` | `interview_start` |
-| Ask | `app.py` | `_ask_question` |
-| Submit | `app.py` | `interview_submit` |
+| Start | `callbacks_interview.py` | `interview_start` |
+| Ask | `callbacks_interview.py` | `_ask_question` |
+| Submit | `callbacks_interview.py` | `interview_submit` |
 | Questions / eval | `interview.py` | `generate_questions`, `evaluate_answer`, `overall_evaluation` |
 | Turns | `interview.py` | `append_turn` |
 | Guardrails | `guardrails.py` | `validate_interview_answer`, `validate_evaluation` |
@@ -584,7 +585,8 @@ collects inputs, the pipeline builds a five-agent CrewAI crew with MCP tools,
 and a typed analysis package is produced (or a deterministic fallback).
 
 **Source files**
-- `app.py` — `analyze`
+- `app.py` — button wiring to the analyze callback
+- `careercrew/callbacks_analyze.py` — `analyze`, `approve`, `reject`, `request_revision`
 - `careercrew/pipeline.py` — `run_analysis`
 - `careercrew/crew.py` — `build_crew`
 - `config/agents.yaml`, `config/tasks.yaml`
@@ -611,14 +613,14 @@ submitted into HITL review and rendered across the UI tabs.
 
 ```
 Gradio Analyze
-   app.analyze
+   callbacks_analyze.analyze
       resolve uploads / paste
       guardrails.validate_request
       pipeline.run_analysis
          build_crew (agents.yaml + tasks.yaml + MCP)
          crew.kickoff
          parse → Pydantic models
-         OR deterministic_package (fallback)
+         OR gap-based fallback (prep.build_fallback_plan)
       review.submit_for_review
       session_store persist
    render Match / Prep tabs
@@ -635,14 +637,14 @@ Gradio Analyze
 | Task prompts | `config/tasks.yaml` |
 | Crew wiring | `careercrew/crew.py` → `build_crew` |
 | Shared tool logic | `careercrew/document_tools.py` |
-| MCP server | `mcp_server/server.py` — `read_resume`, `read_job_description` |
+| MCP server | `mcp_server/server.py` — `read_resume_tool`, `read_job_description_tool` |
 | Contracts | `careercrew/models.py` |
 | Honesty | cited resume facts only; unsupported items go to `do_not_claim` |
 """,
         ),
         (
             "code",
-            """# Six-step Analyze crew sequence
+            """# Five-step Analyze crew sequence
 
 STEPS = [
     ("1 Resume reader", "Structured CandidateProfile"),
@@ -650,7 +652,6 @@ STEPS = [
     ("3 Gap analyst", "Coverage score + GapReport"),
     ("4 Rewrite coach", "Cited resume rewrites"),
     ("5 Prep advisor", "InterviewPrepPlan (seniority-aware)"),
-    ("6 Screening drafter", "Answers ONLY from verified answer bank"),
 ]
 
 print("Analyze crew sequence")
@@ -680,10 +681,10 @@ Implementation: `careercrew/guardrails.py`.
 
 | Step | File | Symbol |
 |------|------|--------|
-| UI | `app.py` | `analyze` |
-| Orchestrator | `pipeline.py` | `run_analysis`, `deterministic_package` |
+| UI | `callbacks_analyze.py` | `analyze` |
+| Orchestrator | `pipeline.py` | `run_analysis`, `build_fallback_plan` |
 | Crew | `crew.py` | `build_crew` |
-| MCP | `mcp_server/server.py` | three tools |
+| MCP | `mcp_server/server.py` | two tools |
 | HITL handoff | `review.py` | `submit_for_review` |
 
 Continue with `04_hitl_and_coaches.ipynb`.
@@ -706,7 +707,8 @@ package history (`pkg-…`), and the two coaching chats.
 - `careercrew/review.py`
 - `careercrew/session_store.py`
 - `careercrew/coach.py`
-- `app.py` — approve / reject / coach handlers
+- `careercrew/callbacks_analyze.py` — approve / reject / revise handlers
+- `careercrew/callbacks_interview.py` — prep and post-interview coach handlers
 - Detail docs: `docs/CODE_PATH_HITL.md`, `docs/CODE_PATH_COACH.md`
 """,
         ),
@@ -793,7 +795,7 @@ they do not auto-apply.
 | Prep coach | Profile, gaps, rewrites, prep plan |
 | Post-interview coach | Same + interview turns + evaluations + overall score |
 
-Implementation: `careercrew/coach.py` + Gradio handlers in `app.py`.
+Implementation: `careercrew/coach.py` + Gradio handlers in `callbacks_interview.py`.
 Chats persist via `session_store.py`.
 """,
         ),
@@ -827,7 +829,7 @@ for k, v in post_interview_context.items():
 | Concern | File | Symbol |
 |---------|------|--------|
 | State machine | `review.py` | approve / revise / reject helpers |
-| History UI | `app.py` | History tab + `_tracker_rows` |
+| History data | `session_store.py` | `list_packages`; rows built in `ui_state.py` |
 | SQLite | `session_store.py` | packages, chats, interviews |
 | Coaches | `coach.py` | prep + post-interview reply builders |
 

@@ -8,9 +8,7 @@
 
 ## IDs / helpers
 
-- `make_session_id()` → `int-{8 hex}`  
-- `_keywords(*texts)` → skill-ish tokens for fallback questions  
-
+- `make_session_id()` → `int-{8 hex}`
 ---
 
 ## `generate_questions(profile, requirements, gaps, plan, count, llm=None)`
@@ -53,4 +51,4 @@ Same pattern as questions: try LLM, repair JSON, else deterministic.
 
 ## How it connects
 
-`app.interview_start` / `interview_submit` + `audio` + `llm.callable_or_none()`.
+`callbacks_interview.interview_start` / `interview_submit` + `audio` + `llm.callable_or_none()`.

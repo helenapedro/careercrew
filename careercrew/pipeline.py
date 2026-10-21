@@ -113,16 +113,6 @@ def extract_json(raw: str | None) -> Any | None:
     return None
 
 
-def _as_list(value: Any) -> list[Any]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    if isinstance(value, str):
-        return [part.strip() for part in value.split(",") if part.strip()]
-    return [value]
-
-
 def _coerce_model(model_cls, data: Any):
     """Validate model data, returning None when it cannot be coerced."""
     if isinstance(data, dict):
@@ -304,7 +294,6 @@ def run_analysis(
     settings: Settings | None = None,
     progress: ProgressFn | None = None,
     on_task: TaskCallback | None = None,
-    allow_fallback: bool = True,
 ) -> PipelineResult:
     """Run the full analysis for ``request`` and return a validated package.
 

@@ -6,7 +6,7 @@
 
 ## `_build_parser()`
 
-Defines flags: `--resume`, `--resume-text`, `--jd`, `--jd-file`, `--seniority`, repeatable `--screening`.
+Defines flags: `--resume`, `--resume-text`, `--jd`, `--jd-file`, `--seniority`.
 
 ---
 

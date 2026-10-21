@@ -1,8 +1,8 @@
 # Resume Writing Guidelines
 
 These guidelines are provided to the CareerCrew agents as reference knowledge.
-They define how resume bullets are written, how gaps are described, and how
-screening answers are grounded. Follow them exactly.
+They define how resume bullets are written and how gaps are described. Follow
+them exactly.
 
 ## 1. Honesty rules (non-negotiable)
 

@@ -28,24 +28,6 @@ def make_session_id() -> str:
     return f"int-{uuid.uuid4().hex[:8]}"
 
 
-def _keywords(*texts: str, limit: int = 40) -> list[str]:
-    stop = {
-        "with", "that", "this", "from", "have", "your", "will", "would", "about",
-        "their", "them", "they", "into", "over", "under", "role", "work", "team",
-        "years", "year", "experience", "using", "need", "must", "plus", "nice",
-    }
-    seen: list[str] = []
-    for text in texts:
-        for token in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]{2,}", text or ""):
-            key = token.strip(".,;:")
-            low = key.lower()
-            if low and low not in stop and low not in [s.lower() for s in seen]:
-                seen.append(key)
-            if len(seen) >= limit:
-                return seen
-    return seen
-
-
 def generate_questions(
     profile,
     requirements,

@@ -18,7 +18,7 @@
 
 ## Helpers
 
-`_env_bool` / `_env_int` — parse env with safe defaults.
+`_env_int` — parse integer env vars with safe defaults.
 
 ---
 

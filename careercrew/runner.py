@@ -54,24 +54,16 @@ TASK_STAGE = {
     "build_prep_plan": Stage.PREP,
 }
 
-# Names the UI already uses.
-_TOTAL_STAGES = TOTAL_STAGES
-_FINAL = FINAL_STAGE
-_AGENT_STAGE = AGENT_STAGE
-_TASK_STAGE = TASK_STAGE
-
 
 def stream_with_progress(
     request: AnalysisRequest,
     *,
-    stage_offset: int = 0,
     reading_detail: str = "Reading your resume…",
 ) -> Iterator[tuple[int, str]]:
     """Yield (stage_index, detail) as the pipeline reports progress.
 
     The generator's return value is the PipelineResult. Callers read it from
     ``StopIteration.value`` after the progress updates stop.
-    ``stage_offset`` shifts every yielded index (0 for a normal Analyze run).
     """
     stages: dict[str, object] = {"index": Stage.CHECK, "detail": "Checking your inputs…"}
 
@@ -107,7 +99,7 @@ def stream_with_progress(
             if target != last_yielded:
                 last_yielded = target
                 detail = str(stages["detail"] or "Working…")
-                yield target + stage_offset, detail
+                yield target, detail
             wait_futures([future], timeout=1.0)
         result: PipelineResult = future.result()
     return result

@@ -15,6 +15,7 @@ from careercrew.runner import FINAL_STAGE as _FINAL
 from careercrew.runner import STAGES
 from careercrew.runner import TOTAL_STAGES as _TOTAL_STAGES
 
+
 def _esc(value: object) -> str:
     return html.escape(str(value if value is not None else ""))
 

@@ -13,7 +13,7 @@ after a completed mock interview (`iv_state`).
 
 | Module | Role |
 |--------|------|
-| [`app.py`](../app.py) `_render_prep_chat`, `_render_post_chat` | Gradio Chatbot + textbox submit |
+| [`careercrew/callbacks_interview.py`](../careercrew/callbacks_interview.py) `_render_prep_chat`, `_render_post_chat` | Gradio Chatbot + textbox submit |
 | [`careercrew/coach.py`](../careercrew/coach.py) | `build_context`, `prep_coach_reply`, `post_coach_reply` |
 | [`careercrew/llm.py`](../careercrew/llm.py) | `chat_completion` / `callable_or_none` |
 | [`careercrew/guardrails.py`](../careercrew/guardrails.py) | Input size/injection; `validate_coaching_reply` |
@@ -79,7 +79,7 @@ Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcri
 | 2 | `validate_interview_answer(message, max_chars=4000)` | Untrusted user input |
 | 3 | Build prompt: persona + context + last `MAX_HISTORY_TURNS` (12) + user message | Bounded memory |
 | 4 | If LLM callable → `llm(prompt)`; else `_fallback_reply` | Works without API key |
-| 5 | `validate_coaching_reply(reply, context_text=...)` | No invented facts / PII leakage style checks; fail → safe refusal string |
+| 5 | `validate_coaching_reply(reply, context_text=...)` | No invented facts / PII leakage style checks; problems become warnings under the reply |
 | 6 | Return `(reply, warnings)` | Never raises into Gradio |
 
 ---
@@ -94,7 +94,8 @@ Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcri
 | `content` | Message text |
 | `created_at` | UTC ISO |
 
-Survives app restarts; Gradio `history` also carries the live thread.
+Rows persist, but the app never reads chat history back: the visible thread lives
+in Gradio `history` state for the current session only.
 
 ---
 

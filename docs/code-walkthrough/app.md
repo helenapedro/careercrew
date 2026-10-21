@@ -1,12 +1,22 @@
 # Walkthrough: `app.py` (Gradio UI)
 
-**File purpose:** Builds the Gradio page and wires buttons. Analyze lives in `callbacks_analyze.py`, HTML in `ui_html.py`, the interview and coaches in `callbacks_interview.py`, and the progress loop in `runner.py`.
+**File purpose:** Builds the Gradio page and wires each button to a callback. It
+holds layout and wiring only — no agent logic and no HTML strings.
 
-**Moved in the explainability split.** Do not look for `analyze()` inside this file. Start at `docs/CODE_TOUR.md` if the line numbers below look stale.
+| Where the work lives | Module |
+|----------------------|--------|
+| Analyze, Approve, Reject, Request changes | `careercrew/callbacks_analyze.py` |
+| Mock interview + both coach chats | `careercrew/callbacks_interview.py` |
+| HTML renderers | `careercrew/ui_html.py` |
+| Named Analyze outputs | `careercrew/ui_state.py` |
+| Worker thread + stage stream | `careercrew/runner.py` |
+| Settings, database, review service | `careercrew/services.py` |
+| CSS | `careercrew/ui_css.py` |
+
+**Moved in the explainability split.** Do not look for `analyze()` inside this
+file. Start at `docs/CODE_TOUR.md` if the line numbers below look stale.
 
 **Flow docs:** [CODE_PATH_ANALYZE](../CODE_PATH_ANALYZE.md) · [HITL](../CODE_PATH_HITL.md) · [MOCK](../CODE_PATH_MOCK_INTERVIEW.md) · [COACH](../CODE_PATH_COACH.md)
-
-CSS lives in `careercrew/ui_css.py` (not agent logic — skip in the talk unless asked).
 
 ---
 
@@ -14,111 +24,53 @@ CSS lives in `careercrew/ui_css.py` (not agent logic — skip in the talk unless
 
 | Symbol | Role |
 |--------|------|
-| `_SETTINGS` / `_STORE` / `_REVIEW` | Rebound in `app.py` onto `careercrew/services.py` so tests can reload settings |
-| `Stage` / `STAGES` | Progress stepper in `careercrew/runner.py` (`Stage.PREP`, not a raw number) |
-| `CUSTOM_CSS` | Imported from `ui_css` |
+| `_bind_runtime()` | Points `services` and both callback modules at the current settings, store, and review service |
+| `_SETTINGS` / `_STORE` / `_REVIEW` | Module-level copies of the same objects; `_bind_runtime()` refreshes them so tests can reload with a temp folder |
+| `build_app()` | Layout + `*.click(...)` wiring; returns the `Blocks` object |
+| `theme()` / `main()` | Light theme, then `queue().launch()` on `0.0.0.0:_SETTINGS.app_port` |
 
 ---
 
-## UI chrome (group when talking)
+## Layout (open this while talking)
 
-`_esc`, `_alert_html`, `_mode_banner`, `_topbar`, `_hero`, `_stages_html`, `_empty_card`, `_trace_markdown` — HTML helpers for branding, errors, progress, Advanced trace.
+Four tabs, in the order the user works:
 
-**HTML tab renderers (short note each):**
+| Tab | Controls |
+|-----|----------|
+| `1 · Analyze match` | Resume input, job input, **Analyze match**, **Clear**, stage tracker, Match report / Interview prep plan sub-tabs, decision dock (Approve / Apply updates / Reject) |
+| `2 · Prep coach` | Chatbot + question box |
+| `3 · Mock interview` | Start, question slider, audio player, mic or typed answer, live transcript, feedback, overall score |
+| `4 · Post-interview coach` | Chatbot + question box |
 
-| Function | Tab content |
-|----------|-------------|
-| `_insight_html` | Match report (coverage, verdicts, rewrites, talking points, do-not-claim) |
-| `_package_html` | Screening answers + needs-your-input |
-| `_prep_html` | Interview prep plan cards |
-| `_question_html` / `_evaluation_html` / `_overall_html` | Mock interview panels |
-| `_audio_status` | Banner if TTS/STT unavailable |
-
-**Say this:** “These build HTML strings for Gradio; the intelligence is in the pipeline/interview/coach modules.”
+**Say this:** “`build_app` is layout and wiring only. Every handler lives in a
+callback module, so this file reads top to bottom as a page description.”
 
 ---
 
-## Upload resolution
+## Wiring (what each control calls)
 
-### `_resolve_resume` / `_resolve_upload(upload, pasted, kind)`
+| Control | Callback | Module |
+|---------|----------|--------|
+| **Analyze match** | `analyze` (generator) | `callbacks_analyze` |
+| **Clear** | inline lambda → `_empty_outputs()` | `app.py` |
+| **Try a sample resume / job** | inline lambda → `_read_sample()` | `app.py` |
+| **Approve prep bundle** | `approve` | `callbacks_analyze` |
+| **Apply updates & re-analyze** | `request_revision` (generator) | `callbacks_analyze` |
+| **Reject prep bundle** | `reject` | `callbacks_analyze` |
+| **Start interview** | `interview_start` | `callbacks_interview` |
+| **Submit answer** | `interview_submit` | `callbacks_interview` |
+| Coach send buttons and Enter | `_render_prep_chat` / `_render_post_chat` | `callbacks_interview` |
 
-**What:** If Gradio file present → copy into `uploads/` with basename only → return `(filename, None)`. Else if paste → return `(None, text)`. Else `(None, None)`.  
-**Why:** MCP tools only accept bare filenames under uploads.  
-**I/O:** Disk write to uploads.  
-**Say this:** “We never pass absolute paths to agents.”
+Analyze outputs are ordered by `careercrew/ui_state.py` `OUTPUT_ORDER`; `app.py`
+builds that list once from the `named` dict, so no handler depends on a magic
+index.
 
----
-
-## Analyze (core)
-
-### `analyze(...)` — generator
-
-**What:**
-
-1. Yield immediate “Starting…” progress  
-2. Resolve resume + JD; fail early with `_alert_html`  
-3. Parse screening lines; build `AnalysisRequest` + `make_package_id`  
-4. Submit `run_analysis` on `ThreadPoolExecutor`; poll `stages` via `progress` / `on_task` and yield stepper updates  
-5. On success: `_REVIEW.submit_for_review(...)` (SQLite PENDING_REVIEW)  
-6. Yield filled tabs: insight, prep, package, JSON, enable HITL buttons, `ctx_state` = `_serialize_result`  
-
-**Why generator:** Live stage UI without freezing Gradio.  
-**I/O:** uploads, OpenAI/MCP via pipeline, SQLite via review.  
-**Say this:** “Click Analyze → this generator → pipeline on a worker thread → tabs fill.”
-
-### `_serialize_result` / `_load_context` / `_context_models`
-
-Pack/unpack Analyze results for interview + coach tabs (JSON in Gradio State).
-
-### `_empty_outputs`
-
-Reset tuple for clear/error paths.
-
----
-
-## HITL handlers
-
-| Function | Action |
-|----------|--------|
-| `_load_package` / `_current_status` | State → ApplicationPackage; SQLite status + revisions |
-| `approve` | `ReviewAction.APPROVE` → message with prep bundle id + next-tab hint |
-| `reject` | `REJECT` |
-| `request_revision` | `REVISE` (notes required) → re-runs `run_analysis` with saved inputs + `revision_notes`, refreshes all result tabs |
-| `_tracker_rows` | History dataframe from `list_packages` |
-
-**Say this:** “Approve only changes SQLite status — nothing is submitted to an employer.”
-
----
-
-## Mock interview handlers
-
-| Function | What |
-|----------|------|
-| `interview_start` | Require context → `generate_questions` → `MockInterviewSession` → `_ask_question(0)` |
-| `_ask_question` | TTS `audio.speak` → append interviewer turn → `save_interview` → render |
-| `interview_submit` | STT or text → `validate_interview_answer` → `evaluate_answer` → candidate turn → next Q or `overall_evaluation` |
-| `_turns_to_messages` | Transcript → Chatbot messages |
-| `_load_interview` | Parse `iv_state` JSON |
-
----
-
-## Coach handlers
-
-| Function | What |
-|----------|------|
-| `_render_prep_chat` | `build_context` (no interview) → `prep_coach_reply` → persist `channel=prep` |
-| `_render_post_chat` | Context + `include_interview` from `iv_state` → `post_coach_reply` → `channel=post` |
-
----
-
-## `build_app` / `theme` / `main`
-
-**What:** Construct Gradio Blocks (inputs, tabs, HITL dock), wire `.click` handlers to the functions above, launch on `0.0.0.0:_SETTINGS.app_port` with theme + CSS.  
-
-**Say this:** “build_app is layout and wiring only.”
+Both streaming buttons pass `show_progress="hidden"` so Gradio's own progress
+chrome does not draw a border around every output on each yield.
 
 ---
 
 ## How it connects
 
-Calls `pipeline`, `review`, `session_store`, `interview`, `audio`, `coach`, `llm`, `guardrails`.
+Calls `callbacks_analyze`, `callbacks_interview`, `ui_html`, `ui_css`,
+`ui_state`, `services`, `review`, `session_store`, `config`.

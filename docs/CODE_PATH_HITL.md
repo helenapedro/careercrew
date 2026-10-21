@@ -4,7 +4,7 @@ After Analyze, the prep bundle is stored as **`PENDING_REVIEW`**. The dock
 **Your decision** lets a human approve, request changes, or reject. Nothing is
 submitted to an employer.
 
-**Upstream:** [CODE_PATH_ANALYZE.md](CODE_PATH_ANALYZE.md) step 14.
+**Upstream:** [CODE_PATH_ANALYZE.md](CODE_PATH_ANALYZE.md) step 13.
 
 ---
 
@@ -41,7 +41,7 @@ Enums: `ReviewStatus`, `ReviewAction` in [`models.py`](../careercrew/models.py).
 
 | Step | Code | Persistence |
 |------|------|-------------|
-| 1 | `app.analyze` calls `_REVIEW.submit_for_review(inputs, result.package, result.trace)` | |
+| 1 | `callbacks_analyze.analyze` calls `_REVIEW.submit_for_review(inputs, result.package, result.trace)` | |
 | 2 | `save_package(inputs, package, trace, revision_count)` | **INSERT/UPSERT** SQLite `packages` |
 | 3 | `update_status(..., PENDING_REVIEW)` | Status column |
 | 4 | Enable Approve / Reject / Revise buttons | Gradio `interactive=True` |
@@ -54,12 +54,11 @@ Store: [`careercrew/session_store.py`](../careercrew/session_store.py).
 
 ## 3. UI handlers
 
-| Button | Handler in `app.py` | Service call |
+| Button | Handler in `callbacks_analyze.py` | Service call |
 |--------|---------------------|--------------|
 | Approve prep bundle | `approve(state, feedback)` | `apply_decision(..., APPROVE)` |
 | Request changes | `request_revision(state, feedback)` | Candidate adds missing experience (e.g. React years). Notes are **merged into the resume**, then Analyze re-runs so gaps / prep / rewrites update. |
 | Reject | `reject(state, feedback)` | `apply_decision(..., REJECT)` |
-| Refresh history | `refresh_btn` → `_tracker_rows()` | `list_packages` read-only |
 
 Shared pattern:
 
@@ -67,7 +66,7 @@ Shared pattern:
 2. `_current_status(package)` → read SQLite status + revision_count  
 3. `ReviewDecision(package_id, decision, reviewer_feedback)`  
 4. `_REVIEW.apply_decision(...)`  
-5. Refresh `package_md` HTML + History table  
+5. Refresh the decision dock (`_review_guide_html`) + status line  
 
 On success, approve message includes the prep-bundle id (`pkg-…`).
 
@@ -86,15 +85,13 @@ Each approve/reject/revise also **INSERT**s into SQLite `decisions`:
 
 ---
 
-## 5. History tab
+## 5. Where the package id lives
 
-| Piece | Detail |
-|-------|--------|
-| Renderer | `_tracker_rows()` → Gradio Dataframe |
-| Source | `_STORE.list_packages(limit=50)` |
-| Columns | Package (id), Role, Company, Status, Revisions, Updated |
-
-**This is where you find `pkg-ec169491`:** History tab, Package column. Content of that bundle is the **Screening answers** tab (and Match / Prep plan from the same Analyze run in Gradio state).
+There is no History tab in the current UI. The prep bundle id (`pkg-…`) appears
+in the Analyze status line, in the decision dock, and in the approve / reject
+messages. The same id is the primary key of the SQLite `packages` row, so
+`_STORE.get_package("pkg-…")` returns the stored package, its inputs, and its
+trace. `_STORE.list_packages()` still exists for scripts and tests.
 
 ---
 
@@ -103,5 +100,5 @@ Each approve/reject/revise also **INSERT**s into SQLite `decisions`:
 - HITL is real persistence, not a fake button  
 - Approve does **not** call any employer API  
 - Revise without notes is rejected by the service  
-- **Request changes** means “I have experience that wasn’t on my resume” → merge into resume → re-analyze → refresh Match / Prep / Screening  
+- **Request changes** means “I have experience that wasn’t on my resume” → merge into resume → re-analyze → refresh Match / Prep  
 - After terminal APPROVED/REJECTED, further decisions fail until a new Analyze  

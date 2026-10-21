@@ -17,18 +17,15 @@ flowchart TB
         U1(["1. Analyze resume + job description"])
         U2(["2. Identify strengths + gaps"])
         U3(["3. Generate resume feedback"])
-        U4(["4. Prepare screening answers"])
-        U5(["5. Build interview prep plan"])
-        U6(["6. Practice mock interview"])
-        U7(["7. Review interview feedback"])
-        U8(["8. Continue coaching"])
+        U5(["4. Build interview prep plan"])
+        U6(["5. Practice mock interview"])
+        U7(["6. Review interview feedback"])
+        U8(["7. Continue coaching"])
         U1 --> U2 --> U3
-        U2 --> U4
         U2 --> U5 --> U6 --> U7 --> U8
     end
 
     JS --> U1
-    JS --> U4
     EC --> U1
     EC --> U5
     EC --> U6
@@ -48,7 +45,7 @@ flowchart TB
 
     class JS jobseeker;
     class EC earlycareer;
-    class U1,U2,U3,U4,U5,U6,U7,U8 workflow;
+    class U1,U2,U3,U5,U6,U7,U8 workflow;
     class CA,U9 future;
     style IND fill:#F8FAFC,stroke:#64748B,stroke-width:1px
     style SELF fill:#F9FAFB,stroke:#9CA3AF,stroke-width:1px
@@ -86,7 +83,7 @@ flowchart TD
     O -- Revise --> J
     O -- Reject --> P([End without approval])
     O -- Approve --> Q["13. Use preparation package"]
-    Q --> R["14. Optional: screening prep or mock interview"]
+    Q --> R["14. Optional: mock interview"]
     R --> S([End])
 ```
 
@@ -94,32 +91,7 @@ flowchart TD
 **Outcome:** A reviewed preparation package grounded in the user's supplied experience, when the workflow succeeds.  
 **Boundary:** CareerCrew prepares the user; it does not submit an application.
 
-### 3.3 UC-02 — Prepare employer screening answers
-
-```mermaid
-flowchart TD
-    A([Start]) --> B["1. Use screening questions from the verified answer bank"]
-    B --> C["2. Load verified candidate information"]
-    C --> D["3. Match each question to available evidence"]
-    D --> E{"4. Evidence sufficient?"}
-    E -- Yes --> F["5. Draft supported answer"]
-    E -- No --> G["5. Flag question for user input"]
-    F --> H["6. Validate for unsupported claims"]
-    G --> I["6. User supplies or confirms missing information"]
-    I --> H
-    H --> J["7. User reviews answer"]
-    J --> K{"8. Accept answer?"}
-    K -- No --> L["Revise or discard"]
-    K -- Yes --> M["9. Copy/use answer outside CareerCrew"]
-    L --> J
-    M --> N([End])
-```
-
-**Actor:** Job seeker  
-**Outcome:** Screening-answer drafts the user can review and use.  
-**Guardrail:** Never invent personal facts or submit answers to an employer.
-
-### 3.4 UC-03 — Practice for an interview
+### 3.3 UC-02 — Practice for an interview
 
 ```mermaid
 flowchart TD
@@ -139,7 +111,7 @@ flowchart TD
 **Outcome:** Practice and actionable feedback where the relevant interview workflow is implemented.  
 **Implementation check:** Confirm voice support, evaluation format, session summaries, and persistence in `dev`.
 
-### 3.5 UC-04 — Career advisor supports job seekers (potential use case)
+### 3.3 UC-03 — Career advisor supports job seekers (potential use case)
 
 ```mermaid
 flowchart TD
@@ -158,14 +130,13 @@ flowchart TD
 **Actor:** Career advisor or university career-services staff  
 **Status:** This diagram captures a possible future workflow, **not a claim that advisor accounts, multi-user management, or advisor dashboards currently exist**. Validate this audience and its needs before adding it to the implemented feature set.
 
-### 3.6 Use-case relationships at a glance
+### 3.4 Use-case relationships at a glance
 
 ```mermaid
 flowchart TB
     INPUT["Resume + job description"] --> ANALYSIS["Job-fit and gap analysis"]
     ANALYSIS --> PACKAGE["Preparation package"]
     PACKAGE --> RESUME["Resume feedback"]
-    PACKAGE --> SCREEN["Screening-answer preparation"]
     PACKAGE --> PLAN["Interview preparation plan"]
     PLAN --> MOCK["Mock interview"]
     MOCK --> FEEDBACK["Interview feedback"]
@@ -177,10 +148,9 @@ flowchart TB
 
 - [x] Confirm resume and job-description input methods and file formats.
 - [x] Confirm the actual analysis steps and output schemas.
-- [x] Confirm whether users can approve, revise, or reject suggestions in the current UI.
-- [x] Confirm screening-answer preparation and its evidence guardrails.
+- [x] Confirm the review lifecycle: approve, revise, or reject suggestions in the current UI.
 - [x] Confirm text and voice mock-interview paths and evaluation outputs.
-- [x] Confirm coaching and session-history persistence.
+- [x] Confirm coaching replies and SQLite persistence (packages, interviews, chat writes).
 - [ ] Treat advisor/multi-user support as future scope unless code proves otherwise.
 
 ## 2. User Stories and Acceptance Criteria
@@ -199,16 +169,15 @@ flowchart TB
 
     A --> A1["US-01: Analyze job fit"]
     B --> B1["US-02: Improve resume honestly"]
-    B --> B2["US-03: Prepare screening answers"]
-    C --> C1["US-04: Practice interviews"]
-    D --> D1["US-05: Continue coaching"]
+    C --> C1["US-03: Practice interviews"]
+    D --> D1["US-04: Continue coaching"]
 
     classDef goal fill:#1F2937,stroke:#111827,color:#FFFFFF,stroke-width:2px;
     classDef outcome fill:#DBEAFE,stroke:#2563EB,color:#1E3A8A,stroke-width:1.5px;
     classDef story fill:#F3F4F6,stroke:#6B7280,color:#111827;
     class GOAL goal;
     class A,B,C,D outcome;
-    class A1,B1,B2,C1,D1 story;
+    class A1,B1,C1,D1 story;
 ```
 
 ### US-01 — Analyze job fit
@@ -231,17 +200,7 @@ flowchart TB
 > - [x] Unsupported claims are excluded or explicitly flagged.
 > - [x] The user can review, revise, or reject suggestions.
 
-### US-03 — Prepare screening answers
-
-> **As a** job seeker, **I want** help preparing answers to employer screening questions, **so that** I can respond consistently using verified information about myself.
->
-> **Acceptance criteria**
-> - [x] Supported answers are drafted from a verified answer bank or other user-provided evidence.
-> - [x] Questions that require unknown personal facts are flagged for user input.
-> - [x] The system does not invent work authorization, notice period, location, salary, or other personal facts.
-> - [x] CareerCrew does not submit the answers to the employer.
-
-### US-04 — Practice interviews
+### US-03 — Practice interviews
 
 > **As a** job seeker or student/early-career professional, **I want** to practice role-specific interview questions and receive feedback, **so that** I can improve my answers before an interview.
 >
@@ -251,14 +210,15 @@ flowchart TB
 > - [x] The session provides an understandable summary or evaluation when supported.
 > - [x] If voice is unavailable, a supported text path remains usable where implemented.
 
-### US-05 — Continue coaching over time
+### US-04 — Continue coaching over time
 
 > **As a** job seeker, **I want** coaching to use relevant preparation and practice history, **so that** follow-up advice builds on prior work.
 >
 > **Acceptance criteria**
 > - [x] Relevant prior context is available to the coaching workflow where implemented.
 > - [x] The system distinguishes supplied evidence from uncertainty.
-> - [x] Stored sessions can be retrieved after restart if persistence is part of the configured implementation.
+> - [x] Persisted packages and the latest interview session can be reloaded for continued work.
+> - [ ] Full chat-history reload after restart is not implemented; chat turns are written, not read back.
 > - [ ] Persistence failures are surfaced rather than represented as successful saves.
 
 ### Optional institutional story — Support multiple job seekers

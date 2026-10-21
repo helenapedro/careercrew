@@ -30,7 +30,7 @@ This folder answers: **what does each function/block do and why?**
 
 ## Page list (all modules)
 
-- [app.md](app.md) — Gradio handlers (Analyze, HITL, interview, coaches)
+- [app.md](app.md) — Gradio page layout and event wiring
 - [pipeline.md](pipeline.md) — analysis orchestrator
 - [crew.md](crew.md) — CrewAI assembly
 - [config_agents_tasks.md](config_agents_tasks.md) — YAML roles and tasks

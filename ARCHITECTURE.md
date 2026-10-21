@@ -57,10 +57,10 @@ flowchart TD
 | `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading and uploads-folder confinement. |
 | `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
-| `S8` | `careercrew/models.py` | Approved prep bundle: bullets, talking points, prep plan, and copy-ready answers. Nothing is submitted. |
+| `S8` | `careercrew/models.py` | Approved prep bundle: profile, requirements, gaps, rewrites, prep plan. Nothing is submitted. |
 | `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
 | `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with transcript and scores in context). |
-| `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, interview sessions and turns, and both chat channels, so context survives restarts. |
+| `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, review decisions, interview sessions and turns, and both chat channels. The UI reads back the current package and the latest interview; chat history is write-only. |
 | `K` | `knowledge/` | `resume_guidelines.md` (writing + honesty) and `interview_guidelines.md` (prep, interviewer, and coaching conduct). |
 
 ## 3. HITL review loop
@@ -85,8 +85,8 @@ prep bundle: nothing is ever submitted to an employer.
 ## 4. Key design decisions
 
 1. **Sequential crew, not hierarchical.** The analysis pipeline is linear
-   (extract → analyze → compare → write → plan → answer). There is no
-   delegation decision to make, so a manager agent would add latency and cost
+   (extract → analyze → compare → write → plan). There is no delegation
+   decision to make, so a manager agent would add latency and cost
    for no benefit.
 2. **MCP over stdio, in-process.** One tool implementation
    (`document_tools.py`) serves the agents, the deterministic fallback, and
@@ -118,7 +118,7 @@ in the repo. The Space URL is the demo link for the final presentation.
 
 ## 6. Architecture verification checklist
 
-Verified 2026-10-16 against `dev`; one item remains open.
+Verified 2026-10-20 against `dev`.
 
 - [x] Confirm the actual UI entry points and supported input methods.
 - [x] Confirm the exact agent/task sequence and data contracts.
@@ -127,7 +127,7 @@ Verified 2026-10-16 against `dev`; one item remains open.
 - [x] Confirm whether human approval/revision/rejection exists in the UI or is only a proposed interaction.
 - [x] Confirm which workflows use SQLite or other persistence and what is stored.
 - [x] Confirm the actual mock-interview, voice/text, and coaching paths.
-- [ ] Update the diagram to distinguish in-process modules from external services.
+- [x] Update the diagram to distinguish in-process modules from external services.
 
 ## 7. Reading order for learning the codebase
 
