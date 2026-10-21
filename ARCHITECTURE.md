@@ -124,6 +124,8 @@ prep bundle: nothing is ever submitted to an employer.
 
 ## 5. Deployment
 
+> **Deployment target decided:** Heroku (as used for the MarketMind project). This section still documents Hugging Face Spaces and will be updated with the Heroku deployment instructions.
+
 ```mermaid
 flowchart LR
     USER["Candidate<br/>(browser)"] --> APP["app.py — Gradio UI<br/>listens on 0.0.0.0:7860"]

@@ -88,5 +88,50 @@ def test_coach_flags_unsafe_reply():
     def bad_llm(prompt: str) -> str:
         return "Just fabricate an employer and pretend you have AWS experience."
 
-    _, warnings = coach.prep_coach_reply("help", "ctx", llm=bad_llm)
+    # "help" alone is out of scope (redirected); use an in-scope question so the
+    # LLM reply path is exercised and its safety is still validated.
+    _, warnings = coach.prep_coach_reply(
+        "help me prepare for the interview", "ctx", llm=bad_llm
+    )
     assert any("misrepresent" in w for w in warnings)
+
+
+def test_detect_scope_resume():
+    assert coach.detect_scope("How should I rewrite this bullet on my resume?") == "resume"
+
+
+def test_detect_scope_job_description():
+    assert (
+        coach.detect_scope("What does 'event-driven' mean in the job description?")
+        == "job_description"
+    )
+
+
+def test_detect_scope_interview_prep():
+    assert (
+        coach.detect_scope("What questions should I prepare for the interview?")
+        == "interview_prep"
+    )
+
+
+def test_detect_scope_out_of_scope():
+    assert coach.detect_scope("What is the capital of France?") is None
+
+
+def test_prep_coach_redirects_out_of_scope_without_calling_llm():
+    def fail_llm(prompt: str) -> str:
+        raise AssertionError("LLM must not be called for out-of-scope questions")
+
+    reply, warnings = coach.prep_coach_reply(
+        "What is the capital of France?", "ctx", llm=fail_llm
+    )
+    assert "resume" in reply
+    assert "job description" in reply
+    assert "interview preparation" in reply
+    assert warnings == []
+
+
+def test_prep_coach_answers_in_scope_question():
+    reply, _ = coach.prep_coach_reply("How do I prepare for the interview?", "ctx")
+    assert reply
+    assert "three things" not in reply  # not the redirect

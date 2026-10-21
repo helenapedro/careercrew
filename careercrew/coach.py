@@ -97,6 +97,45 @@ def _history_text(history: list[dict] | None) -> str:
     return "\n".join(lines) or "(no previous messages)"
 
 
+# The prep chatbot is scoped to three topics (team decision, 2026-10-16):
+# the candidate's resume, the job description, and interview preparation.
+# Questions outside these scopes get a deterministic redirect instead of an answer.
+SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "resume": (
+        "resume", "cv", "bullet", "rewrite", "experience", "skill",
+        "background", "job title", "employment", "career",
+    ),
+    "job_description": (
+        "job description", "jd", "posting", "requirement", "role",
+        "responsibilities", "qualification", "what does", "what do they mean",
+        "mean by", "company",
+    ),
+    "interview_prep": (
+        "interview", "prepare", "preparation", "practice", "mock",
+        "question", "nervous", "tips", "advice", "star",
+    ),
+}
+
+SCOPE_REDIRECT = (
+    "I can help with three things: your resume, the job description, "
+    "or interview preparation. Could you ask about one of those?"
+)
+
+
+def detect_scope(message: str) -> str | None:
+    """Classify a prep-chat question into one of the three supported scopes.
+
+    Returns ``"resume"``, ``"job_description"``, ``"interview_prep"``,
+    or ``None`` when the question is outside all three scopes.
+    Keyword-based and deterministic: no LLM call, cheap to test.
+    """
+    lower = (message or "").lower()
+    for scope, keywords in SCOPE_KEYWORDS.items():
+        if any(keyword in lower for keyword in keywords):
+            return scope
+    return None
+
+
 def prep_coach_reply(
     message: str,
     context: str,
@@ -106,6 +145,10 @@ def prep_coach_reply(
 ) -> tuple[str, list[str]]:
     """Reply on the resume-improvement / preparation channel.
 
+    The channel is scoped to three topics: the candidate's resume, the job
+    description, and interview preparation. Out-of-scope questions get a
+    deterministic redirect instead of an answer.
+
     Returns ``(reply, warnings)``. Never raises.
     """
     return _reply(
@@ -113,10 +156,14 @@ def prep_coach_reply(
         context,
         history,
         persona=(
-            "You are the CareerCrew preparation coach. Help the candidate improve "
-            "their resume and prepare for the interview, using only the context "
-            "provided. Be specific and honest; never invent experience."
+            "You are the CareerCrew preparation coach. You help with exactly three "
+            "topics: (1) improving the candidate's resume, (2) clarifying the job "
+            "description, and (3) preparing for the interview. If the candidate asks "
+            "about anything else, politely redirect them to these three topics. "
+            "Use only the context provided. Be specific and honest; "
+            "never invent experience."
         ),
+        scope_redirect=SCOPE_REDIRECT,
         llm=llm,
     )
 
@@ -150,6 +197,7 @@ def _reply(
     history: list[dict] | None,
     *,
     persona: str,
+    scope_redirect: str | None = None,
     llm=None,
 ) -> tuple[str, list[str]]:
     message = (message or "").strip()
@@ -164,6 +212,11 @@ def _reply(
             "Ask a normal question about your resume, the role, or your results.",
             [],
         )
+
+    # Scope guardrail (prep channel only): stay on the resume, the job
+    # description, or interview preparation; redirect anything else.
+    if scope_redirect is not None and detect_scope(message) is None:
+        return scope_redirect, []
 
     answer = ""
     if llm is not None:

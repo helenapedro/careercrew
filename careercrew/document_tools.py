@@ -23,6 +23,7 @@ import os
 import re
 
 from careercrew.config import ANSWER_BANK_PATH, get_settings
+from careercrew.guardrails import redact_pii
 
 MAX_RESUME_CHARS = 100_000
 MAX_JOB_DESCRIPTION_CHARS = 100_000
@@ -87,7 +88,13 @@ def _read_docx(full_path: str) -> str:
 
 
 def extract_text(full_path: str) -> str:
-    """Extract text from a resume file: PDF, DOCX, or TXT."""
+    """Extract text from a resume file: PDF, DOCX, or TXT.
+
+    Emails and phone numbers are redacted here, at the single choke point for
+    all file reads, so PII from uploaded files never reaches an LLM (pasted
+    text is already redacted at the input boundary). Names and other content
+    pass through untouched.
+    """
     lower = full_path.lower()
     if lower.endswith(".pdf"):
         raw = _read_pdf(full_path)
@@ -96,7 +103,7 @@ def extract_text(full_path: str) -> str:
     else:
         with open(full_path, encoding="utf-8", errors="replace") as handle:
             raw = handle.read()
-    return _clean_text(raw)[:MAX_RESUME_CHARS]
+    return redact_pii(_clean_text(raw))[:MAX_RESUME_CHARS]
 
 
 def read_resume(path: str) -> str:

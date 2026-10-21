@@ -1655,6 +1655,18 @@ def build_app() -> gr.Blocks:
                 prep_html = gr.HTML(_prep_html(None))
             with gr.Tab("Screening answers"):
                 package_md = gr.HTML(_package_html(None))
+            with gr.Tab("Prep coach"):
+                gr.HTML(
+                    "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
+                    "<p class='cc-hint'>Ask about your resume, the job description, or interview preparation. "
+                    "The coach uses your resume, the job description, and your "
+                    "gap report.</p></div>"
+                )
+                prep_chat = gr.Chatbot(label="Prep coach", height=380)
+                prep_msg = gr.Textbox(
+                    label="Your question", placeholder="How should I talk about the AWS gap?",
+                    lines=2, elem_classes=["cc-field"],
+                )
             with gr.Tab("Mock interview"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Voice mock interview</h3>"
@@ -1695,18 +1707,6 @@ def build_app() -> gr.Blocks:
                         )
                 iv_feedback_html = gr.HTML("")
                 iv_overall_html = gr.HTML("")
-            with gr.Tab("Prep coach"):
-                gr.HTML(
-                    "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
-                    "<p class='cc-hint'>Ask anything about improving your resume or preparing "
-                    "for this role. The coach uses your resume, the job description, and your "
-                    "gap report.</p></div>"
-                )
-                prep_chat = gr.Chatbot(label="Prep coach", height=380)
-                prep_msg = gr.Textbox(
-                    label="Your question", placeholder="How should I talk about the AWS gap?",
-                    lines=2, elem_classes=["cc-field"],
-                )
             with gr.Tab("Post-interview coach"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Post-interview coach</h3>"

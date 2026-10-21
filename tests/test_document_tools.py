@@ -109,3 +109,29 @@ def test_read_jd_from_docx_file(upload_dir):
 def test_read_jd_filename_without_upload_treated_as_text(upload_dir):
     """A bare *.txt name that is not actually uploaded is treated as pasted text."""
     assert read_job_description("posting.txt") == "posting.txt"
+
+
+def test_read_resume_file_redacts_pii(upload_dir):
+    name = _write(
+        upload_dir / "resume.txt",
+        "JANE DOE\njane.doe@example.com\n+1 (555) 123-4567\nPython AWS",
+    )
+    text = read_resume(name)
+    assert "jane.doe@example.com" not in text
+    assert "555" not in text
+    assert "[redacted email]" in text
+    assert "[redacted phone]" in text
+    assert "JANE DOE" in text  # names pass through
+    assert "Python" in text
+
+
+def test_read_jd_file_redacts_pii(upload_dir):
+    name = _write(
+        upload_dir / "jd.txt",
+        "Python role. Contact hr@company.com or +1-555-987-6543 for details.",
+    )
+    text = read_job_description(name)
+    assert "hr@company.com" not in text
+    assert "[redacted email]" in text
+    assert "[redacted phone]" in text
+    assert "Python role" in text
