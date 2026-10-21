@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/crew.py`
 
-**File purpose:** Turns YAML roles/tasks into a **sequential** CrewAI crew of six agents, wires MCP + knowledge, and builds kickoff inputs. No manager agent.
+**File purpose:** Turns YAML roles/tasks into a **sequential** CrewAI crew of five agents, wires MCP + knowledge, and builds kickoff inputs. No manager agent. No screening agent.
 
 **Flow doc:** [CODE_PATH_ANALYZE.md](../CODE_PATH_ANALYZE.md) §4
 
@@ -49,7 +49,7 @@
    - Always resume guidelines; optional interview guidelines  
    - `allow_delegation=False` (no peer handoff)  
    - If `with_mcp`: attach MCP server  
-5. Instantiate six agents (MCP on: profile, JD, screening; off: gap, feedback, prep)  
+5. Instantiate five agents (MCP on: profile and JD; off: gap, feedback, prep)  
 6. Instantiate six tasks with `output_pydantic` and `context=[...]` dependencies  
 7. Return `Crew(..., process=Process.sequential, memory=True, task_callback=on_task)`
 

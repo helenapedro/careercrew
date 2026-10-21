@@ -43,8 +43,8 @@ sequenceDiagram
   PL->>DT: prepare resume/JD text fail-fast
   alt has OPENAI_API_KEY
     PL->>CR: build_crew kickoff
-    CR->>MCP: read_resume / read_job_description / query_answer_bank
-    CR->>LLM: six agent completions
+    CR->>MCP: read_resume / read_job_description
+    CR->>LLM: five agent completions
     PL->>PL: extract_json coerce models
   else no key or parse fail
     PL->>MCP: deterministic_package answer bank only
@@ -83,7 +83,7 @@ sequenceDiagram
 
 ---
 
-## 4. Six agents (sequential crew)
+## 4. Five agents (sequential crew)
 
 Config: [`config/agents.yaml`](../config/agents.yaml), [`config/tasks.yaml`](../config/tasks.yaml).  
 Wiring: [`careercrew/crew.py`](../careercrew/crew.py) `build_crew()`.
@@ -95,7 +95,6 @@ Wiring: [`careercrew/crew.py`](../careercrew/crew.py) `build_crew()`.
 | 3 | `gap_analyst` | `analyze_gaps` | `GapReport` | No | resume guidelines |
 | 4 | `feedback_writer` | `write_feedback` | `FeedbackDraft` | No | resume guidelines |
 | 5 | `interview_prep_advisor` | `build_prep_plan` | `InterviewPrepPlan` | No | + `interview_guidelines.md` |
-| 6 | `screening_prep_writer` | `prepare_screening_answers` | `ScreeningPrep` | Yes (`query_answer_bank`) | resume guidelines |
 
 **Context edges** (why order matters):
 

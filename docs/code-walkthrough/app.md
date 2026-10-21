@@ -1,6 +1,8 @@
 # Walkthrough: `app.py` (Gradio UI)
 
-**File purpose:** Candidate-facing Gradio product. Wires Analyze, tabs, HITL, mock interview, and coaches. Business logic lives in `careercrew/*`; this file is orchestration + HTML.
+**File purpose:** Builds the Gradio page and wires buttons. Analyze lives in `callbacks_analyze.py`, HTML in `ui_html.py`, the interview and coaches in `callbacks_interview.py`, and the progress loop in `runner.py`.
+
+**Moved in the explainability split.** Do not look for `analyze()` inside this file. Start at `docs/CODE_TOUR.md` if the line numbers below look stale.
 
 **Flow docs:** [CODE_PATH_ANALYZE](../CODE_PATH_ANALYZE.md) · [HITL](../CODE_PATH_HITL.md) · [MOCK](../CODE_PATH_MOCK_INTERVIEW.md) · [COACH](../CODE_PATH_COACH.md)
 
@@ -12,8 +14,8 @@ CSS lives in `careercrew/ui_css.py` (not agent logic — skip in the talk unless
 
 | Symbol | Role |
 |--------|------|
-| `_SETTINGS` / `_STORE` / `_REVIEW` | Settings, SQLite store, HITL service |
-| `STAGES` / `_AGENT_STAGE` / `_TASK_STAGE` | Progress stepper mapping for Analyze |
+| `_SETTINGS` / `_STORE` / `_REVIEW` | Rebound in `app.py` onto `careercrew/services.py` so tests can reload settings |
+| `Stage` / `STAGES` | Progress stepper in `careercrew/runner.py` (`Stage.PREP`, not a raw number) |
 | `CUSTOM_CSS` | Imported from `ui_css` |
 
 ---
@@ -78,7 +80,7 @@ Reset tuple for clear/error paths.
 
 | Function | Action |
 |----------|--------|
-| `_load_package` / `_current_status` | State → ScreeningPrep; SQLite status + revisions |
+| `_load_package` / `_current_status` | State → ApplicationPackage; SQLite status + revisions |
 | `approve` | `ReviewAction.APPROVE` → message with prep bundle id + next-tab hint |
 | `reject` | `REJECT` |
 | `request_revision` | `REVISE` (notes required) → re-runs `run_analysis` with saved inputs + `revision_notes`, refreshes all result tabs |

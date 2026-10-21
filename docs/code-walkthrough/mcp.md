@@ -2,7 +2,7 @@
 
 **Files:** [`mcp_server/server.py`](../../mcp_server/server.py), [`careercrew/mcp_client.py`](../../careercrew/mcp_client.py)
 
-**File purpose:** Expose `document_tools` over the Model Context Protocol (stdio) and call them from the crew + deterministic fallback. Every tool call is a **real** MCP round-trip.
+**File purpose:** Expose `read_resume` and `read_job_description` over the Model Context Protocol (stdio). Every tool call is a **real** MCP round-trip. There is no answer-bank tool.
 
 ---
 
@@ -18,7 +18,6 @@
 |-----------|-------|-----|
 | `read_resume_tool` | `read_resume(path)` | bare uploads filename |
 | `read_job_description_tool` | `read_job_description(source)` | filename or pasted text |
-| `query_answer_bank_tool` | `query_answer_bank(question)` | screening question |
 
 `if __name__ == "__main__": mcp.run()` — standalone smoke: `python -m mcp_server.server`.
 

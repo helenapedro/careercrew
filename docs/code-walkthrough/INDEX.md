@@ -15,10 +15,10 @@ This folder answers: **what does each function/block do and why?**
 
 | When | Open source | Walkthrough |
 |------|-------------|-------------|
-| Intro / honesty | `ARCHITECTURE.md`, `data/answer_bank.yaml` | (flow) CODE_PATH + ARCHITECTURE |
-| Analyze click | `app.py` → `analyze` | [app.md](app.md) |
+| Intro / honesty | `ARCHITECTURE.md`, `GLOSSARY.md`, `docs/CODE_TOUR.md` | (flow) CODE_PATH + ARCHITECTURE |
+| Analyze click | `app.py` wires `callbacks_analyze.analyze` | [app.md](app.md) |
 | Orchestrator | `careercrew/pipeline.py` → `run_analysis` | [pipeline.md](pipeline.md) |
-| Six agents | `careercrew/crew.py`, `config/*.yaml` | [crew.md](crew.md), [config_agents_tasks.md](config_agents_tasks.md) |
+| Five agents | `careercrew/crew.py`, `config/*.yaml` | [crew.md](crew.md), [config_agents_tasks.md](config_agents_tasks.md) |
 | Tools + MCP | `document_tools.py`, `mcp_server/server.py`, `mcp_client.py` | [document_tools.md](document_tools.md), [mcp.md](mcp.md) |
 | Contracts | `careercrew/models.py` | [models.md](models.md) |
 | Guardrails | `careercrew/guardrails.py` | [guardrails.md](guardrails.md) |
@@ -34,7 +34,7 @@ This folder answers: **what does each function/block do and why?**
 - [pipeline.md](pipeline.md) — analysis orchestrator
 - [crew.md](crew.md) — CrewAI assembly
 - [config_agents_tasks.md](config_agents_tasks.md) — YAML roles and tasks
-- [document_tools.md](document_tools.md) — resume/JD/answer bank tools
+- [document_tools.md](document_tools.md) — resume and job-description readers
 - [mcp.md](mcp.md) — MCP server + client
 - [models.md](models.md) — Pydantic contracts
 - [guardrails.md](guardrails.md) — input/output/tool checks

@@ -4,7 +4,7 @@
 
 ---
 
-## `agents.yaml` — six agents
+## `agents.yaml` — five agents
 
 Each block has: `role`, `goal`, `backstory`, `allow_delegation: false`, `verbose: true`.
 
@@ -15,7 +15,6 @@ Each block has: `role`, `goal`, `backstory`, `allow_delegation: false`, `verbose
 | `gap_analyst` | Gap Analyst | Verdicts: covered / reframeable / out_of_scope; never invent coverage |
 | `feedback_writer` | Feedback Writer | Every bullet cites a profile fact; else do_not_claim |
 | `interview_prep_advisor` | Interview Preparation Advisor | Focus areas cite real gaps; seniority raises the bar |
-| `screening_prep_writer` | Screening Answer Prep Writer | Only `query_answer_bank`; never invent; never claim submit |
 
 **Why `allow_delegation: false`:** Agents must not hand work to each other outside the fixed sequential task graph.
 
@@ -23,9 +22,9 @@ Each block has: `role`, `goal`, `backstory`, `allow_delegation: false`, `verbose
 
 ---
 
-## `tasks.yaml` — six tasks
+## `tasks.yaml` — five tasks
 
-Placeholders like `{resume_path}`, `{jd_text}`, `{screening_questions}`, `{seniority}` are filled by `crew_inputs` at kickoff.
+Placeholders like `{resume_path}`, `{jd_text}`, and `{seniority}` are filled by `crew_inputs` at kickoff.
 
 | Key | Agent (in crew.py) | Expected typed output | Critical instruction |
 |-----|--------------------|----------------------|----------------------|
@@ -34,7 +33,6 @@ Placeholders like `{resume_path}`, `{jd_text}`, `{screening_questions}`, `{senio
 | `analyze_gaps` | Gap Analyst | `GapReport` | Score 0–100; per-requirement verdicts |
 | `write_feedback` | Feedback Writer | `FeedbackDraft` | 5–8 bullets + talking points + do_not_claim |
 | `build_prep_plan` | Interview Prep Advisor | `InterviewPrepPlan` | Shares ~100%; evidence = requirement text |
-| `prepare_screening_answers` | Screening Prep Writer | `ScreeningPrep` | Bank only; unknown → do_not_claim |
 
 **Say this:** “Task text is the prompt template; expected_output is what Pydantic validation expects.”
 

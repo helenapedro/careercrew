@@ -33,7 +33,7 @@ Commit on success; shared vs per-call connection.
 | `save_package` | UPSERT package row (status starts DRAFT in insert; review then sets PENDING) |
 | `record_decision` | INSERT decision |
 | `update_status` | UPDATE status (± revision_count) |
-| `get_package` | Row + parsed `ScreeningPrep` |
+| `get_package` | Row + parsed `ApplicationPackage` |
 | `get_decisions` | Oldest-first decisions |
 | `list_packages` | History table (updated_at DESC) |
 | `count_revisions` | Count REVISE rows |

@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/pipeline.py`
 
-**File purpose:** Orchestrates one Analyze run — guardrails → crew (or MCP fallback) → typed models → output validation → `PipelineResult`.
+**File purpose:** Orchestrates one Analyze run — guardrails, the five-agent crew (or the gap-based fallback), typed models, output validation, then a `PipelineResult`.
 
 **Flow doc:** [CODE_PATH_ANALYZE.md](../CODE_PATH_ANALYZE.md)
 
@@ -83,7 +83,7 @@ Alias of `deterministic_package` (legacy name).
 **What:** Build `crew_inputs` (prefer paste over path when both concepts present), `build_crew`, `asyncio.run(asyncio.to_thread(crew.kickoff, inputs=...))`, time and `trace.add("crew.kickoff")`.  
 **Why:** Kickoff is blocking; thread keeps the process usable.  
 **I/O:** OpenAI via CrewAI; MCP tools inside agents.  
-**Say this:** “This is where the six agents actually run.”
+**Say this:** “This is where the five agents actually run.”
 
 ### `_parse_crew_outputs(result, request, trace)`
 

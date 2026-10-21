@@ -63,7 +63,7 @@ Store: [`careercrew/session_store.py`](../careercrew/session_store.py).
 
 Shared pattern:
 
-1. `_load_package(state)` → `ScreeningPrep`  
+1. `_load_package(state)` → `ApplicationPackage`  
 2. `_current_status(package)` → read SQLite status + revision_count  
 3. `ReviewDecision(package_id, decision, reviewer_feedback)`  
 4. `_REVIEW.apply_decision(...)`  

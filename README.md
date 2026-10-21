@@ -113,8 +113,7 @@ in the UI banner. Add a key for the full crew and the voice interview.
 - `careercrew/session_store.py` - SQLite session tracker, interviews, and chats
 - `careercrew/review.py` - HITL state machine (approve / reject / revise)
 - `careercrew/guardrails.py` - input, tool, and per-agent output checks
-- `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description / query_answer_bank
-- `data/answer_bank.yaml` - the verified screening facts (set `verified: true` to allow)
+- `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description
 - `knowledge/resume_guidelines.md`, `knowledge/interview_guidelines.md` - agent knowledge
 - `app.py` - Gradio UI; `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
 - `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)

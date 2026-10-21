@@ -27,10 +27,7 @@
 | `GapReport` | coverage_score (0–100), verdicts | Match report + prep ranking |
 | `RewrittenBullet` | text, cited_fact | Citation guardrail target |
 | `FeedbackDraft` | rewritten_bullets, talking_points, do_not_claim | Match report rewrites |
-| `ScreeningAnswer` | question, answer, source=`answer_bank`, verified | Must be bank-sourced |
-| `ScreeningPrep` | package_id, role/company, screening_answers, summary, do_not_claim | Prep bundle / HITL entity |
-
-`ApplicationPackage = ScreeningPrep` — legacy alias for older imports/tests.
+| `ApplicationPackage` | package_id, role/company, summary, do_not_claim | Prep bundle / HITL entity |
 
 **Say this:** “Typed outputs are the honesty backbone.”
 

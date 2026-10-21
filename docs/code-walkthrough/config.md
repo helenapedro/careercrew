@@ -11,7 +11,6 @@
 | `PROJECT_ROOT` | Repo root (`careercrew/` package’s parent) |
 | `RESUME_GUIDELINES_PATH` / `INTERVIEW_GUIDELINES_PATH` | `knowledge/*.md` |
 | `COACHING_GUIDELINES_PATH` | Same interview guidelines file (shared rubric) |
-| `ANSWER_BANK_PATH` | `data/answer_bank.yaml` |
 
 `load_dotenv(override=False)` — local `.env` fills gaps without overriding real env.
 

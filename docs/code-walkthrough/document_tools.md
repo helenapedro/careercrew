@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/document_tools.py`
 
-**File purpose:** Single source of truth for turning uploads/paste into text and for verified screening answers. Used by MCP server, pipeline fail-fast, and (historically) any local wrappers.
+**File purpose:** Single source of truth for turning an upload or pasted text into plain text. Used by the MCP server and by the pipeline's fail-fast read.
 
 **Say this:** “One implementation — MCP, pipeline, and tools cannot drift.”
 
@@ -79,9 +79,9 @@ Helper for the bare-filename branch.
 
 Tokenize for matching; ignore common words so “are you” alone cannot match.
 
-### `_load_answer_bank()` / `reset_answer_bank_cache()`
+### Removed: answer bank
 
-Load YAML once into `_BANK_CACHE`; tests can reset.
+`query_answer_bank`, `_load_answer_bank`, and `data/answer_bank.yaml` are gone. The page no longer prepares screening answers.
 
 ### `query_answer_bank(question)`
 

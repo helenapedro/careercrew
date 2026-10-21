@@ -17,7 +17,7 @@ Use this live. Open the file named in each minute block; scroll to the symbol.
 
 | Say | Open |
 |-----|------|
-| Six agents, no auto-submit, prep + practice | `README.md` top + `ARCHITECTURE.md` §1 diagram |
+| Five agents, no auto-submit, prep + practice | `README.md` top + `ARCHITECTURE.md` §1 diagram |
 | Honesty: citations + answer bank + do-not-claim | `data/answer_bank.yaml` (one verified entry) |
 
 ---
