@@ -9,6 +9,7 @@
 > - Agent and task details: `docs/engineering/agents-and-workflows.md`
 > - Use cases and user stories: `docs/engineering/use-cases-and-user-stories.md`
 
+
 ## 1. System overview
 
 A user provides a resume (file or pasted text) and a job description (file or
@@ -100,6 +101,8 @@ prep bundle: nothing is ever submitted to an employer.
    fact. Unsupported claims go to `do_not_claim` instead of being invented.
 
 ## 5. Deployment
+
+> **Deployment target decided:** Heroku (as used for the MarketMind project). This section still documents Hugging Face Spaces and will be updated with the Heroku deployment instructions.
 
 ```mermaid
 flowchart LR

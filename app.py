@@ -243,8 +243,8 @@ def build_app() -> gr.Blocks:
             with gr.Tab("2 · Prep coach"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Resume &amp; preparation coach</h3>"
-                    "<p class='cc-hint'>Ask anything about improving your resume or preparing "
-                    "for this role. Uses your Analyze context when available.</p></div>"
+                    "<p class='cc-hint'>Ask about your resume, the job description, or interview "
+                    "preparation. Uses your Analyze context when available.</p></div>"
                 )
                 prep_chat = gr.Chatbot(label="Chat", height=380, show_label=False)
                 with gr.Row(equal_height=True):
