@@ -46,6 +46,7 @@ from careercrew.pipeline import AnalysisRequest, make_package_id, run_analysis
 from careercrew.review import PackageReviewService, ReviewError
 from careercrew.session_store import SessionStore
 from careercrew.ui_css import CUSTOM_CSS, LIGHT_MODE_JS
+from careercrew.ui_state import OUTPUT_ORDER, AnalyzeOutputs
 
 logging.basicConfig(level=get_settings().log_level)
 logger = logging.getLogger("careercrew.app")
@@ -475,30 +476,14 @@ def _review_guide_html(
     )
 
 
-def _empty_outputs() -> tuple:
-    """The reset state shared by every early return in :func:`analyze`.
-
-    Index map::
-
-        0 error · 1 status · 2 stages · 3 match · 4 prep
-        5 approve · 6 reject · 7 revise · 8 package state · 9 notes
-        10 ctx_state · 11 review guide · 12 run button · 13 clear button
-    """
-    return (
-        "",  # 0 error_box
-        _IDLE_STATUS,  # 1 status
-        _stages_html(-1),  # 2 stages_html
-        _insight_html(None),  # 3 insight_html
-        _prep_html(None),  # 4 prep_html
-        gr.update(interactive=False),  # 5 approve_btn
-        gr.update(interactive=False),  # 6 reject_btn
-        gr.update(interactive=False),  # 7 revise_btn
-        None,  # 8 state
-        gr.update(value="", interactive=False),  # 9 feedback
-        None,  # 10 ctx_state
-        _review_guide_html("idle"),  # 11 review_guide_html
-        gr.update(interactive=True),  # 12 run_btn
-        gr.update(interactive=True),  # 13 clear_btn
+def _empty_outputs() -> AnalyzeOutputs:
+    """The reset state shared by every early return in analyze and request_revision."""
+    return AnalyzeOutputs(
+        status=_IDLE_STATUS,
+        stages=_stages_html(-1),
+        match_report=_insight_html(None),
+        prep_plan=_prep_html(None),
+        review_guide=_review_guide_html("idle"),
     )
 
 
@@ -579,35 +564,29 @@ def analyze(
     resume_file, resume_text, jd_file, jd_text
 ) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
-    outputs = list(_empty_outputs())
-
-    def emit(*pairs) -> tuple:
-        """Mutate and return the full output tuple from ``index, value`` pairs."""
-        for position in range(0, len(pairs), 2):
-            outputs[pairs[position]] = pairs[position + 1]
-        return tuple(outputs)
+    view = _empty_outputs()
 
     def fail(message: str, *, status: str = "Couldn’t finish — see the message above.") -> tuple:
-        return emit(
-            0, _alert_html(message, kind="error"),
-            1, status,
-            2, _stages_html(-1),
-            5, gr.update(interactive=False),
-            6, gr.update(interactive=False),
-            7, gr.update(interactive=False),
-            12, gr.update(interactive=True),
-            13, gr.update(interactive=True),
+        return view.apply(
+            error=_alert_html(message, kind="error"),
+            status=status,
+            stages=_stages_html(-1),
+            approve=gr.update(interactive=False),
+            reject=gr.update(interactive=False),
+            revise=gr.update(interactive=False),
+            run_button=gr.update(interactive=True),
+            clear_button=gr.update(interactive=True),
         )
 
     try:
         # Immediate feedback so the click never looks dead; the run button is
         # disabled here and only re-enabled when this generator finishes.
-        yield emit(
-            0, "",
-            1, "**Starting…** checking your resume and job description.",
-            2, _stages_html(1, "Checking your inputs…"),
-            12, gr.update(interactive=False),
-            13, gr.update(interactive=False),
+        yield view.apply(
+            error="",
+            status="**Starting…** checking your resume and job description.",
+            stages=_stages_html(1, "Checking your inputs…"),
+            run_button=gr.update(interactive=False),
+            clear_button=gr.update(interactive=False),
         )
 
         # --- Stage 1: input guardrails (resume + JD resolution). ------------ #
@@ -647,10 +626,10 @@ def analyze(
             seniority="",
         )
 
-        yield emit(
-            0, "",
-            1, "Checking your inputs…",
-            2, _stages_html(1, "Checking that your resume and job description look valid"),
+        yield view.apply(
+            error="",
+            status="Checking your inputs…",
+            stages=_stages_html(1, "Checking that your resume and job description look valid"),
         )
 
         stages: dict[str, object] = {"index": 1, "detail": "Checking your inputs…"}
@@ -676,7 +655,7 @@ def analyze(
                 stages["detail"] = f"Finished: {title}"
 
         def advance(stage_index: int, label: str) -> tuple:
-            return emit(2, _stages_html(stage_index, label), 1, label)
+            return view.apply(stages=_stages_html(stage_index, label), status=label)
 
         # run_analysis blocks, so run it on a worker thread and poll for progress.
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -721,21 +700,21 @@ def analyze(
             f"{len(result.prep_plan.focus_areas)} prep focus area(s) · "
             f"{len(result.package.do_not_claim)} item(s) still need your input."
         )
-        yield emit(
-            0, "",
-            1, status,
-            2, _stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
-            3, _insight_html(result),
-            4, _prep_html(result.prep_plan),
-            5, gr.update(interactive=True),
-            6, gr.update(interactive=True),
-            7, gr.update(interactive=True),
-            8, result.package.model_dump(),
-            9, gr.update(value="", interactive=True),
-            10, _serialize_result(result),
-            11, _review_guide_html("ready", package_id=result.package.package_id),
-            12, gr.update(interactive=True),
-            13, gr.update(interactive=True),
+        yield view.apply(
+            error="",
+            status=status,
+            stages=_stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
+            match_report=_insight_html(result),
+            prep_plan=_prep_html(result.prep_plan),
+            approve=gr.update(interactive=True),
+            reject=gr.update(interactive=True),
+            revise=gr.update(interactive=True),
+            package=result.package.model_dump(),
+            notes=gr.update(value="", interactive=True),
+            context=_serialize_result(result),
+            review_guide=_review_guide_html("ready", package_id=result.package.package_id),
+            run_button=gr.update(interactive=True),
+            clear_button=gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001 - never let Gradio swallow a silent failure
         logger.exception("analyze callback crashed")
@@ -885,28 +864,22 @@ def request_revision(state, feedback) -> Iterator[tuple]:
     years not on the resume). Notes are folded into the resume context and the
     full Analyze pipeline runs again so gaps, prep, and answers update.
     """
-    outputs = list(_empty_outputs())
-
-    def emit(*pairs) -> tuple:
-        for position in range(0, len(pairs), 2):
-            outputs[pairs[position]] = pairs[position + 1]
-        return tuple(outputs)
-
+    view = _empty_outputs()
     package = _load_package(state)
 
     def fail(message: str) -> tuple:
-        return emit(
-            0, _alert_html(message, kind="error"),
-            1, "Revision could not finish — see the message above.",
-            2, _stages_html(-1),
-            5, gr.update(interactive=bool(package)),
-            6, gr.update(interactive=bool(package)),
-            7, gr.update(interactive=bool(package)),
-            8, state,
-            9, gr.update(interactive=bool(package)),
-            12, gr.update(interactive=True),
-            13, gr.update(interactive=True),
-            11, _review_guide_html(
+        return view.apply(
+            error=_alert_html(message, kind="error"),
+            status="Revision could not finish — see the message above.",
+            stages=_stages_html(-1),
+            approve=gr.update(interactive=bool(package)),
+            reject=gr.update(interactive=bool(package)),
+            revise=gr.update(interactive=bool(package)),
+            package=state,
+            notes=gr.update(interactive=bool(package)),
+            run_button=gr.update(interactive=True),
+            clear_button=gr.update(interactive=True),
+            review_guide=_review_guide_html(
                 "ready" if package else "idle",
                 package_id=package.package_id if package else "",
             ),
@@ -971,25 +944,25 @@ def request_revision(state, feedback) -> Iterator[tuple]:
         revision_notes=notes,
     )
 
-    yield emit(
-        0, "",
-        1, (
+    yield view.apply(
+        error="",
+        status=(
             f"**Revision {outcome.revision_count}…** updating your experience from the "
             "notes and re-analyzing the match."
         ),
-        2, _stages_html(1, "Merging your experience updates…"),
-        5, gr.update(interactive=False),
-        6, gr.update(interactive=False),
-        7, gr.update(interactive=False),
-        8, state,
-        9, gr.update(value=notes, interactive=False),
-        11, _review_guide_html(
+        stages=_stages_html(1, "Merging your experience updates…"),
+        approve=gr.update(interactive=False),
+        reject=gr.update(interactive=False),
+        revise=gr.update(interactive=False),
+        package=state,
+        notes=gr.update(value=notes, interactive=False),
+        review_guide=_review_guide_html(
             "working",
             package_id=package.package_id,
             detail="Analyze is running again with your experience updates…",
         ),
-        12, gr.update(interactive=False),
-        13, gr.update(interactive=False),
+        run_button=gr.update(interactive=False),
+        clear_button=gr.update(interactive=False),
     )
 
     stages: dict[str, object] = {"index": 1, "detail": "Applying your revision notes…"}
@@ -1025,7 +998,7 @@ def request_revision(state, feedback) -> Iterator[tuple]:
                 if target != last_yielded:
                     last_yielded = target
                     detail = str(stages["detail"] or "Working…")
-                    yield emit(2, _stages_html(target, detail), 1, detail)
+                    yield view.apply(stages=_stages_html(target, detail), status=detail)
                 _wait_futures([future], timeout=1.0)
 
             try:
@@ -1055,21 +1028,21 @@ def request_revision(state, feedback) -> Iterator[tuple]:
             f"were rebuilt — `{result.package.package_id}`. Review the updated tabs, "
             f"then approve, add more experience, or reject."
         )
-        yield emit(
-            0, "",
-            1, status,
-            2, _stages_html(_FINAL, "Experience updated — review the new match report."),
-            3, _insight_html(result),
-            4, _prep_html(result.prep_plan),
-            5, gr.update(interactive=True),
-            6, gr.update(interactive=True),
-            7, gr.update(interactive=True),
-            8, result.package.model_dump(),
-            9, gr.update(value="", interactive=True),
-            10, _serialize_result(result),
-            11, _review_guide_html("ready", package_id=result.package.package_id),
-            12, gr.update(interactive=True),
-            13, gr.update(interactive=True),
+        yield view.apply(
+            error="",
+            status=status,
+            stages=_stages_html(_FINAL, "Experience updated — review the new match report."),
+            match_report=_insight_html(result),
+            prep_plan=_prep_html(result.prep_plan),
+            approve=gr.update(interactive=True),
+            reject=gr.update(interactive=True),
+            revise=gr.update(interactive=True),
+            package=result.package.model_dump(),
+            notes=gr.update(value="", interactive=True),
+            context=_serialize_result(result),
+            review_guide=_review_guide_html("ready", package_id=result.package.package_id),
+            run_button=gr.update(interactive=True),
+            clear_button=gr.update(interactive=True),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("request_revision crashed")
@@ -1677,22 +1650,23 @@ def build_app() -> gr.Blocks:
         )
 
         # --- wiring --------------------------------------------------------- #
-        analyze_outputs = [
-            error_box,          # 0
-            status,             # 1
-            stages_html,        # 2
-            insight_html,       # 3
-            prep_html,          # 4
-            approve_btn,        # 5
-            reject_btn,         # 6
-            revise_btn,         # 7
-            state,              # 8
-            feedback,           # 9
-            ctx_state,          # 10
-            review_guide_html,  # 11
-            run_btn,            # 12
-            clear_btn,          # 13
-        ]
+        named = {
+            "error": error_box,
+            "status": status,
+            "stages": stages_html,
+            "match_report": insight_html,
+            "prep_plan": prep_html,
+            "approve": approve_btn,
+            "reject": reject_btn,
+            "revise": revise_btn,
+            "package": state,
+            "notes": feedback,
+            "context": ctx_state,
+            "review_guide": review_guide_html,
+            "run_button": run_btn,
+            "clear_button": clear_btn,
+        }
+        analyze_outputs = [named[name] for name in OUTPUT_ORDER]
 
         decision_outputs = [
             review_guide_html,

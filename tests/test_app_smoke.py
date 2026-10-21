@@ -85,7 +85,7 @@ def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
     assert last[13]["interactive"] is True
 
     # The reset state used by Clear also leaves both buttons usable.
-    reset = app._empty_outputs()
+    reset = app._empty_outputs().as_tuple()
     assert reset[12]["interactive"] is True
     assert reset[13]["interactive"] is True
 
