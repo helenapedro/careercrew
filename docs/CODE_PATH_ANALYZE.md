@@ -86,13 +86,18 @@ sequenceDiagram
 Config: [`config/agents.yaml`](../config/agents.yaml), [`config/tasks.yaml`](../config/tasks.yaml).  
 Wiring: [`careercrew/crew.py`](../careercrew/crew.py) `build_crew()`.
 
-| Order | Agent key | Task name | Typed output | MCP? | Knowledge |
-|------:|-----------|-----------|--------------|------|-----------|
-| 1 | `profile_extractor` | `extract_profile` | `CandidateProfile` | Yes (`read_resume`) | `resume_guidelines.md` |
-| 2 | `jd_analyzer` | `analyze_jd` | `JobRequirements` | Yes (`read_job_description`) | resume guidelines |
-| 3 | `gap_analyst` | `analyze_gaps` | `GapReport` | No | resume guidelines |
-| 4 | `feedback_writer` | `write_feedback` | `FeedbackDraft` | No | resume guidelines |
-| 5 | `interview_prep_advisor` | `build_prep_plan` | `InterviewPrepPlan` | No | + `interview_guidelines.md` |
+| Order | Agent key | Task name | Typed output | MCP? |
+|------:|-----------|-----------|--------------|------|
+| 1 | `profile_extractor` | `extract_profile` | `CandidateProfile` | Yes (`read_resume`) |
+| 2 | `jd_analyzer` | `analyze_jd` | `JobRequirements` | Yes (`read_job_description`) |
+| 3 | `gap_analyst` | `analyze_gaps` | `GapReport` | No |
+| 4 | `feedback_writer` | `write_feedback` | `FeedbackDraft` | No |
+| 5 | `interview_prep_advisor` | `build_prep_plan` | `InterviewPrepPlan` | No |
+
+**Knowledge:** both guideline files (`resume_guidelines.md`,
+`interview_guidelines.md`) are attached to the crew as a whole
+(`knowledge_sources=[...]`), not to individual agents. Only the two readers get
+an MCP server.
 
 **Context edges** (why order matters):
 

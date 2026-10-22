@@ -1,7 +1,8 @@
 # Code path: Prep coach and Post-interview coach
 
 Two full-memory chat windows. Same context builder; post-interview channel
-adds the mock interview transcript, evaluations, and score.
+adds the mock interview transcript and the per-answer evaluations. There is no
+session-wide score — each answer carries its own evaluated score.
 
 **Prerequisite:** Analyze (`ctx_state`) **and** an approved prep bundle. Both
 channels call `_is_approved(ctx_state)`, which reads the persisted

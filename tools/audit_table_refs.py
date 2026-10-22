@@ -19,8 +19,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {".git", ".venv", "__pycache__", "node_modules", ".pytest_cache",
-        ".mypy_cache", ".ruff_cache", "uploads"}
+SKIP = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "uploads",
+}
 
 # | ... | [label](path) | 123-456 |
 ROW_RE = re.compile(
@@ -30,9 +38,7 @@ ROW_RE = re.compile(
 
 
 def docs() -> list[Path]:
-    return sorted(
-        p for p in ROOT.rglob("*.md") if not any(part in SKIP for part in p.parts)
-    )
+    return sorted(p for p in ROOT.rglob("*.md") if not any(part in SKIP for part in p.parts))
 
 
 def resolve(raw: str, doc: Path) -> Path | None:

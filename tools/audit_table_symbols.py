@@ -18,8 +18,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {".git", ".venv", "__pycache__", "node_modules", ".pytest_cache",
-        ".mypy_cache", ".ruff_cache", "uploads"}
+SKIP = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "uploads",
+}
 
 ROW_RE = re.compile(
     r"^\|(?P<label>[^\n]*?)"

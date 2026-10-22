@@ -48,7 +48,7 @@ injected at two places.
 | 2 | The dock: one textbox shared by three buttons | [`app.py`](../app.py) | 208-223 |
 | 3 | `request_revision` starts and defines its error exit | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 394-423 |
 | 4 | The two cheap rejection gates | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 422-431 |
-| 5 | `apply_decision` with `REVISE` | [`review.py`](../careercrew/review.py) | 84-140 |
+| 5 | `apply_decision` with `REVISE` | [`review.py`](../careercrew/review.py) | 85-141 |
 | 6 | The state machine and its allowed transitions | [`review.py`](../careercrew/review.py) | 27-43 |
 | 7 | The original inputs are read back from SQLite | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 450-468 |
 | 7.1 | `get_package` returns the parsed inputs | [`session_store.py`](../careercrew/session_store.py) | 190-206 |
@@ -367,7 +367,7 @@ unforgivable, so the check is done in the UI **and** again in the service
 
 Inside the service:
 
-```startLine:120:140:careercrew/review.py
+```startLine:121:141:careercrew/review.py
         # REVISE
         if not decision.reviewer_feedback.strip():
             raise ReviewError("a revision request requires reviewer feedback")
@@ -435,11 +435,11 @@ _ALLOWED: dict[ReviewStatus, set[ReviewStatus]] = {
 
 **Line by line**
 
-- **31-37** — `PENDING_REVIEW` is the only state that can go anywhere, and `DRAFT` is
+- **29-33** — `PENDING_REVIEW` is the only state that can go anywhere, and `DRAFT` is
   reachable from it as the revision target.
-- **38-39** — `APPROVED` and `REJECTED` have empty sets, so they are **terminal**.
+- **34-35** — `APPROVED` and `REJECTED` have empty sets, so they are **terminal**.
 
-```startLine:41:43:careercrew/review.py
+```startLine:42:44:careercrew/review.py
 def _check_transition(current: ReviewStatus, target: ReviewStatus) -> None:
     if target not in _ALLOWED[current]:
         raise ReviewError(f"invalid transition: {current.value} -> {target.value}")

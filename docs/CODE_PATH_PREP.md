@@ -34,7 +34,7 @@ the inferred seniority band and `_BAND_EMPHASIS` themes but **zero focus areas**
 |-------|----------|
 | Role / backstory | `config/agents.yaml` → `interview_prep_advisor` |
 | Task text | `config/tasks.yaml` → `build_prep_plan` (uses `{seniority}`) |
-| Assembly | `crew.py` — MCP **off**; extra knowledge `interview_guidelines.md` |
+| Assembly | `crew.py` — MCP **off** (crew-level knowledge includes `interview_guidelines.md`) |
 | Context tasks | `extract_profile`, `analyze_jd`, `analyze_gaps` |
 | Output type | `InterviewPrepPlan` (Pydantic) |
 | Kickoff input | `seniority` inferred from the JD (optional CLI `--seniority` override) |

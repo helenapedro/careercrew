@@ -76,7 +76,8 @@ UI: mic recorder and/or typed text → **Submit answer**.
 
 **Evaluation fields** (`AnswerEvaluation`): `score`, `what_interviewer_wanted`, `strengths`, `improvements`, `model_answer_outline`.
 
-**Overall:** average of per-question scores + summary text.
+**Overall:** there is **no** aggregate session score. The tab keeps per-answer
+feedback only; the post-interview coach discusses the whole transcript.
 
 ---
 

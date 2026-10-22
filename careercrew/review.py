@@ -35,6 +35,7 @@ _ALLOWED: dict[ReviewStatus, set[ReviewStatus]] = {
     ReviewStatus.REJECTED: set(),
 }
 
+
 # --------------------------------------------------
 # Review Service
 # --------------------------------------------------

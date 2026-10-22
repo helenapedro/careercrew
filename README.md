@@ -75,7 +75,8 @@ Add a key for the full crew and the voice interview.
   text-only interview.
 - **Prep coach chat** — iterate on resume improvements and preparation.
 - **Post-interview coach chat** — ask anything about performance; the coach has
-  the resume, JD, gap report, prep plan, full transcript, evaluations, and score.
+  the resume, JD, gap report, prep plan, the full transcript, and the per-answer
+  evaluations (each with its own 0-100 score).
 - **Guardrails everywhere** — input validation, PII redaction, grounded prep
   advice, bounded scoring, safe coaching replies.
 
