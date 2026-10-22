@@ -67,5 +67,4 @@ validated and persisted, then it is used for practice.
 
 These pages cover the application modules and configuration. `ui_css.py` is
 styling only; `tests/` and the `Dockerfile` are documented in
-[`../engineering/testing-and-release.md`](../engineering/testing-and-release.md)
-and [`../engineering/huggingface-spaces.md`](../engineering/huggingface-spaces.md).
+[`../engineering/testing-and-release.md`](../engineering/testing-and-release.md).

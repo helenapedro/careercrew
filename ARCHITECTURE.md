@@ -112,9 +112,8 @@ order to decide.
 
 ## 5. Deployment
 
-One container image, one port. Any Docker host works: a small cloud VM, a
-university machine, or a Hugging Face Docker Space. Steps and cost notes:
-[`docs/engineering/huggingface-spaces.md`](docs/engineering/huggingface-spaces.md).
+One container image, one port. Any Docker host works: a small cloud VM or a
+university machine.
 
 ```mermaid
 flowchart LR

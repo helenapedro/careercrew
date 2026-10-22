@@ -93,7 +93,6 @@ Add a key for the full crew and the voice interview.
   - `functional-nonfunctional-requirements.md` — requirements with
     implementation evidence
   - `setup.md` — install, configuration, run instructions
-  - `huggingface-spaces.md` — deploy the Docker image to a Space, and what is free vs paid
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
 - **Code reference** — [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md)
@@ -141,7 +140,7 @@ Add a key for the full crew and the voice interview.
 - `careercrew/ui_html.py` - HTML renderers; `careercrew/ui_state.py` - named UI outputs
 - `careercrew/services.py` - settings, database, and review service shared by the UI
 - `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
-- `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)
+- `Dockerfile` - production container image
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
 See `ARCHITECTURE.md` for the full walkthrough.
@@ -153,9 +152,8 @@ docker build -t careercrew .
 docker run --rm -p 7860:7860 --env-file .env careercrew
 ```
 
-The same image runs on Hugging Face Spaces (Docker SDK) with secrets in the
-Space settings. The MCP server runs over stdio inside the container, so no
-second service is needed.
+The MCP server runs over stdio inside the container, so no second service is
+needed.
 
 ## Tests
 
