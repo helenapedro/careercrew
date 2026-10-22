@@ -4,7 +4,10 @@ Voice (or text) practice interview grounded in the Analyze result: questions,
 live transcript, per-question feedback, overall score. **Practice only — nothing
 is submitted.**
 
-**Prerequisite:** Analyze must have run (`ctx_state` populated).  
+**Prerequisite:** Analyze must have run (`ctx_state` populated) **and** the prep
+bundle must be approved. `_is_approved(ctx_state)` reads the persisted
+`packages.status`; while it is not `APPROVED`, Start and Submit return the
+"approve the prep bundle first" alert instead of running.  
 **UI tab:** **Mock interview**.
 
 ---
@@ -107,6 +110,7 @@ Updated after every ask/submit so the transcript stays synchronized with voice.
 | TTS fails | Question text only; interview continues |
 | STT fails / empty | Use typed answer if present |
 | No Analyze context | Start button shows alert: analyze first |
+| Bundle not approved yet | Start / Submit / both coach chats return the `_APPROVAL_REQUIRED` alert until **Approve prep bundle** is pressed |
 
 ---
 

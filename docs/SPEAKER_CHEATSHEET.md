@@ -96,4 +96,4 @@ Open `ARCHITECTURE.md` §4 / `crew.py` docstring: extract → JD → gap → wri
 
 ## If asked “what if no API key?”
 
-Point at `pipeline.run_analysis` branches + `prep.build_fallback_plan` + audio/coach fallbacks. The crew is skipped, the match report stays empty, and the prep plan is built from the gap rules — nothing is invented to fill the gap.
+Point at `pipeline.run_analysis` branches + `prep.build_fallback_plan` + audio/coach fallbacks. The crew is skipped, so the match report stays empty and the gap report has no verdicts — the fallback plan therefore carries the inferred seniority band and its question themes but no focus areas. Nothing is invented to fill the gap.

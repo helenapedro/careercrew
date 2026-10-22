@@ -65,7 +65,7 @@ Exactly one side of each pair is set. A file upload leaves the text argument `No
 
 `_run_crew` (`pipeline.py:234`) builds that dict and starts the crew:
 
-```startLine:242:257:careercrew/pipeline.py
+```startLine:248:263:careercrew/pipeline.py
     inputs = crew_inputs(
         resume_path=request.resume_path if not request.resume_text else None,
         resume_text=request.resume_text,
@@ -84,15 +84,15 @@ Exactly one side of each pair is set. A file upload leaves the text argument `No
     result = crew.kickoff(inputs=inputs)
 ```
 
-`crew_inputs` (`crew.py:164-191`) fills any missing key with a sentence such as
+`crew_inputs` (`crew.py:175-201`) fills any missing key with a sentence such as
 `"(none; use pasted resume_text)"`, so the task text can tell the agent which
-source to use. `crew.kickoff(inputs=inputs)` at **line 257** is the moment the
+source to use. `crew.kickoff(inputs=inputs)` at **line 263** is the moment the
 resume and job description enter CrewAI. CrewAI substitutes `{resume_path}`,
 `{resume_text}`, `{jd_path}`, and `{jd_text}` into `config/tasks.yaml`.
 
 ### Which agent receives which document
 
-Only the first two agents have tools (`crew.py:96-97`, `with_mcp=True`). The
+Only the first two agents have tools (`crew.py:109-110`, `with_mcp=True`). The
 tools are `read_resume_tool` (`mcp_server/server.py:25`) and
 `read_job_description_tool` (`mcp_server/server.py:34`). They call
 `document_tools.read_resume` (`document_tools.py:97`) and
@@ -101,21 +101,21 @@ tools are `read_resume_tool` (`mcp_server/server.py:25`) and
 
 | Order | Agent | Task | Code | Given | Returns |
 |------:|-------|------|------|-------|---------|
-| 1 | Profile Extractor | `extract_profile` | `crew.py:103-108` | `{resume_path}` or `{resume_text}` (`tasks.yaml:5-16`) | `CandidateProfile` |
-| 2 | JD Analyzer | `analyze_jd` | `crew.py:109-114` | `{jd_path}` or `{jd_text}` (`tasks.yaml:22-31`) | `JobRequirements` |
-| 3 | Gap Analyst | `analyze_gaps` | `crew.py:115-121` | outputs of tasks 1 and 2 | `GapReport` |
-| 4 | Feedback Writer | `write_feedback` | `crew.py:122-128` | output of task 3 | `FeedbackDraft` |
-| 5 | Interview Prep Advisor | `build_prep_plan` | `crew.py:129-135` | outputs of tasks 1, 2, and 3 | `InterviewPrepPlan` |
+| 1 | Profile Extractor | `extract_profile` | `crew.py:114-119` | `{resume_path}` or `{resume_text}` (`tasks.yaml:5-16`) | `CandidateProfile` |
+| 2 | JD Analyzer | `analyze_jd` | `crew.py:120-125` | `{jd_path}` or `{jd_text}` (`tasks.yaml:22-31`) | `JobRequirements` |
+| 3 | Gap Analyst | `analyze_gaps` | `crew.py:126-132` | outputs of tasks 1 and 2 | `GapReport` |
+| 4 | Feedback Writer | `write_feedback` | `crew.py:133-139` | output of task 3 | `FeedbackDraft` |
+| 5 | Interview Prep Advisor | `build_prep_plan` | `crew.py:140-146` | outputs of tasks 1, 2, and 3 | `InterviewPrepPlan` |
 
-Task 2 has **no** `context=` argument (`crew.py:109-114`). It does not see the
+Task 2 has **no** `context=` argument (`crew.py:120-125`). It does not see the
 profile. The two readers run one after the other only because the crew is
-`Process.sequential` (`crew.py:152`).
+`Process.sequential` (`crew.py:163`).
 
 ### The handoff: `context=` on the later tasks
 
 This is the entire pipe between agents:
 
-```startLine:115:135:careercrew/crew.py
+```startLine:126:146:careercrew/crew.py
     analyze_gaps = Task(
         name="analyze_gaps",
         config=tasks_cfg["analyze_gaps"],
@@ -148,7 +148,7 @@ a later task, it appends every task listed in `context` to that agent's prompt.
 | **126** | `[analyze_gaps]` | the gap report only |
 | **133** | `[extract_profile, analyze_jd, analyze_gaps]` | profile, requirements, and gaps. Not the feedback bullets. |
 
-`memory=False` (`crew.py:155`) means nothing else is stored. These three lists
+`memory=False` (`crew.py:166`) means nothing else is stored. These three lists
 are the only way one agent's result reaches another.
 
 ```
@@ -161,7 +161,7 @@ job file or paste    ──> Agent 2 JD Analyzer       ── JobRequirements �
 ### How the five results come back to the app
 
 `kickoff` returns them in task order on `result.tasks_output`.
-`_parse_crew_outputs` (`pipeline.py:267`) zips that list with `CREW_STAGES`
+`_parse_crew_outputs` (`pipeline.py:273`) zips that list with `CREW_STAGES`
 (`pipeline.py:81-87`):
 
 | Index | Stage name | Model |
@@ -172,7 +172,7 @@ job file or paste    ──> Agent 2 JD Analyzer       ── JobRequirements �
 | 3 | `feedback` | `FeedbackDraft` |
 | 4 | `prep_plan` | `InterviewPrepPlan` |
 
-```startLine:270:278:careercrew/pipeline.py
+```startLine:276:284:careercrew/pipeline.py
     for stage, output in zip(CREW_STAGES, outputs, strict=False):
         parsed[stage] = extract_json(getattr(output, "raw", None))
     trace.add("crew.parsed", "pipeline", f"{len(outputs)} task outputs parsed")
@@ -184,9 +184,9 @@ job file or paste    ──> Agent 2 JD Analyzer       ── JobRequirements �
     prep_plan = _coerce_model(InterviewPrepPlan, parsed.get("prep_plan"))
 ```
 
-`run_analysis` returns that bundle as a `PipelineResult` (`pipeline.py:469`).
-The UI reads it from `StopIteration.value` at `callbacks_analyze.py:212-213`.
-The last yield (`callbacks_analyze.py:240-255`) draws the match report from the
+`run_analysis` returns that bundle as a `PipelineResult` (`pipeline.py:473`).
+The UI reads it from `StopIteration.value` at `callbacks_analyze.py:207-208`.
+The last yield (`callbacks_analyze.py:235-252`) draws the match report from the
 gap and feedback models and the prep tab from the prep plan.
 
 ---
@@ -198,7 +198,7 @@ gap and feedback models and the prep tab from the prep plan.
 | 1 | `app.py` | **380** | `analyze_outputs = [named[name] for name in OUTPUT_ORDER]` — builds the ordered output list once |
 | 2 | `app.py` | **396** | `run_btn.click(analyze, inputs=..., outputs=analyze_outputs, show_progress="hidden")` |
 
-```startLine:396:401:app.py
+```startLine:397:402:app.py
         run_btn.click(
             analyze,
             inputs=[resume_file, resume_text, jd_file, jd_text],
@@ -225,27 +225,25 @@ fields. No handler anywhere uses `outputs[4]`-style indexing.
 
 ## 2. Entry: the generator starts
 
-```startLine:135:139:careercrew/callbacks_analyze.py
-def analyze(
-    resume_file, resume_text, jd_file, jd_text
-) -> Iterator[tuple]:
+```startLine:132:134:careercrew/callbacks_analyze.py
+def analyze(resume_file, resume_text, jd_file, jd_text) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
     view = _empty_outputs()
 ```
 
 | Line | Detail |
 |------|--------|
-| **135** | Definition. Returns `Iterator[tuple]` — it is a generator, not a plain function. |
-| **139** | `view = _empty_outputs()` builds a blank `AnalyzeOutputs` once, then reuses it via `view.apply(...)` for every yield. |
+| **132** | Definition. Returns `Iterator[tuple]` — it is a generator, not a plain function. |
+| **134** | `view = _empty_outputs()` builds a blank `AnalyzeOutputs` once, then reuses it via `view.apply(...)` for every yield. |
 
-`_empty_outputs()` is at **`callbacks_analyze.py:51`**. It sets the idle status
+`_empty_outputs()` is at **`callbacks_analyze.py:50`**. It sets the idle status
 text (`_IDLE_STATUS`, line **47**), renders the stepper idle (`_stages_html(-1)`),
 and clears both result tabs. Every early return uses this same object so the
 reset state is defined in exactly one place.
 
 Inside the function there is a local helper:
 
-```startLine:141:151:careercrew/callbacks_analyze.py
+```startLine:136:146:careercrew/callbacks_analyze.py
     def fail(message: str, *, status: str = "Couldn’t finish — see the message above.") -> tuple:
         return view.apply(
             error=_alert_html(message, kind="error"),
@@ -260,7 +258,7 @@ Inside the function there is a local helper:
 ```
 
 `fail()` is the single error exit: it shows an alert, resets the stepper, and —
-importantly — **re-enables** the run and clear buttons (lines **149-150**).
+importantly — **re-enables** the run and clear buttons (lines **144-145**).
 Without that, a failed run would leave the page permanently stuck because the
 button was disabled at the start.
 
@@ -268,7 +266,7 @@ button was disabled at the start.
 
 ## 3. The very first yield (why the click never looks dead)
 
-```startLine:156:162:careercrew/callbacks_analyze.py
+```startLine:151:157:careercrew/callbacks_analyze.py
         yield view.apply(
             error="",
             status="**Starting…** checking your resume and job description.",
@@ -281,19 +279,19 @@ button was disabled at the start.
 This runs **before** any file I/O or network call. Two jobs:
 
 1. Paint stage 1 so the user sees movement immediately.
-2. Disable `run_btn` (line **160**) — this is the fix for the double-click bug.
+2. Disable `run_btn` (line **153**) — this is the fix for the double-click bug.
    The button is only re-enabled by `fail()` or by the final success yield.
 
 ---
 
-## 4. Resolve the resume (line 166)
+## 4. Resolve the resume (line 161)
 
-```startLine:166:166:careercrew/callbacks_analyze.py
+```startLine:161:161:careercrew/callbacks_analyze.py
             resume_path, pasted_resume = _resolve_resume(resume_file, resume_text)
 ```
 
-`_resolve_resume` (**line 102**) is a thin wrapper over
-`_resolve_upload(upload, pasted, kind)` (**line 107**). Both resume and JD go
+`_resolve_resume` (**line 101**) is a thin wrapper over
+`_resolve_upload(upload, pasted, kind)` (**line 106**). Both resume and JD go
 through the same function so they behave identically.
 
 What `_resolve_upload` does, in order:
@@ -317,9 +315,9 @@ Two deliberate choices worth saying out loud:
   `guardrails.py:39`). The file path is *not* redacted — the file is read later
   through MCP, where `document_tools` handles it.
 
-### Empty-input guards (lines 171-189)
+### Empty-input guards (lines 166-184)
 
-```startLine:171:189:careercrew/callbacks_analyze.py
+```startLine:166:184:careercrew/callbacks_analyze.py
         if resume_path is None and pasted_resume is None:
             yield fail(
                 "Add a resume first — upload a PDF/DOCX/TXT file, or paste the text "
@@ -346,9 +344,9 @@ the generator alive; the `return` ends it.
 
 ---
 
-## 5. Build the request (line 192)
+## 5. Build the request (line 187)
 
-```startLine:192:199:careercrew/callbacks_analyze.py
+```startLine:187:194:careercrew/callbacks_analyze.py
         request = AnalysisRequest(
             package_id=make_package_id(),
             resume_path=resume_path,
@@ -361,21 +359,21 @@ the generator alive; the `return` ends it.
 
 | Field | Value |
 |-------|-------|
-| `package_id` | `make_package_id()` → `pkg-` + 8 hex chars (`pipeline.py:483`) |
+| `package_id` | `make_package_id()` → `pkg-` + 8 hex chars (`pipeline.py:487`) |
 | `resume_path` / `jd_path` | basenames inside `uploads/`, or `None` |
 | `resume_text` / `jd_text` | redacted pasted text, or `None` |
 | `seniority` | **always `""` here** — no UI picker exists |
 
 `AnalysisRequest` is a dataclass at `pipeline.py:51`. The `seniority=""` is
 intentional: the pipeline **infers** it from the job description at
-`pipeline.py:358` via `infer_seniority_from_jd(jd_plain)`. Only the CLI can
+`pipeline.py:363` via `infer_seniority_from_jd(jd_plain)`. Only the CLI can
 override it.
 
 ---
 
-## 6. Hand off to the worker thread (line 207)
+## 6. Hand off to the worker thread (line 202)
 
-```startLine:207:219:careercrew/callbacks_analyze.py
+```startLine:202:214:careercrew/callbacks_analyze.py
         stages_run = stream_with_progress(request, reading_detail="Reading your resume…")
         try:
             while True:
@@ -463,11 +461,11 @@ six done".
 ## 7. Inside the pipeline: `run_analysis`
 
 Everything from here runs **on the worker thread**.
-Signature at `pipeline.py:291`.
+Signature at `pipeline.py:297`.
 
 ### 7.1 Phase 1 — validate inputs (line 317)
 
-```startLine:317:325:careercrew/pipeline.py
+```startLine:323:331:careercrew/pipeline.py
     check = guardrails.validate_request(
         resume_path=request.resume_path,
         resume_text=request.resume_text,
@@ -480,16 +478,16 @@ Signature at `pipeline.py:291`.
 ```
 
 `validate_request` (`guardrails.py:65`) enforces **exactly one** source per
-input — a file *or* pasted text, never both (lines **82** and **97**). It also
-checks minimum pasted length (`MIN_PASTED_RESUME_CHARS`, line **87**) and scans
-for prompt-injection patterns (`_DISALLOWED_INPUT`, line **111**).
+input — a file *or* pasted text, never both (lines **82** and **101**). It also
+checks minimum pasted length (`MIN_PASTED_RESUME_CHARS`, line **28**) and scans
+for prompt-injection patterns (`_DISALLOWED_INPUT`, line **32**).
 
 If validation fails it raises `ValueError`, which propagates out of the thread
 and is caught at `callbacks_analyze.py:216` → `fail(...)`.
 
-### 7.2 Fail-fast text reads (lines 331-353)
+### 7.2 Fail-fast text reads (lines 337-359)
 
-```startLine:331:353:careercrew/pipeline.py
+```startLine:337:359:careercrew/pipeline.py
     try:
         _prepare_resume_text(request)
     except JobDescriptionError:
@@ -515,10 +513,10 @@ and is caught at `callbacks_analyze.py:216` → `fail(...)`.
         ) from exc
 ```
 
-Both helpers are thin: `_prepare_resume_text` (**line 216**) and
-`_prepare_jd_text` (**line 225**) just dispatch to `document_tools`.
+Both helpers are thin: `_prepare_resume_text` (**line 222**) and
+`_prepare_jd_text` (**line 231**) just dispatch to `document_tools`.
 
-**The crucial detail is the comment at line 339-341.** The JD is read *here*,
+**The crucial detail is the comment at lines 345-347.** The JD is read *here*,
 directly, rather than only inside the crew via MCP, for two reasons:
 
 1. A corrupt PDF fails in ~50 ms instead of after a minute of agent work.
@@ -526,9 +524,9 @@ directly, rather than only inside the crew via MCP, for two reasons:
    error string, so the user would lose the specific explanation. Calling the
    function directly preserves the message.
 
-### 7.3 Infer seniority (line 358)
+### 7.3 Infer seniority (line 363)
 
-```startLine:357:364:careercrew/pipeline.py
+```startLine:363:370:careercrew/pipeline.py
     if not (request.seniority or "").strip():
         request.seniority = infer_seniority_from_jd(jd_plain)
         if request.seniority:
@@ -539,13 +537,13 @@ directly, rather than only inside the crew via MCP, for two reasons:
             )
 ```
 
-`infer_seniority_from_jd` lives in `models.py` (function at **line 205**) and
+`infer_seniority_from_jd` lives in `models.py` (function at **line 193**) and
 returns one of `2-3 years`, `5-10 years`, `10+ years`, or `""`. It reads the
 years-of-experience phrases in the posting. Used later by the prep plan.
 
-### 7.4 Phase 2 — run the crew (lines 378-396)
+### 7.4 Phase 2 — run the crew (lines 384-401)
 
-```startLine:378:395:careercrew/pipeline.py
+```startLine:384:401:careercrew/pipeline.py
     if settings.has_llm:
         notify("Running the five-agent crew (this can take a minute)...")
         try:
@@ -573,9 +571,9 @@ The `except` is deliberately broad (`noqa: BLE001`): a live API can fail in many
 ways (rate limit, timeout, bad JSON, model change). The app degrades to the
 fallback rather than losing the user's work.
 
-### 7.5 `_run_crew` (line 234)
+### 7.5 `_run_crew` (line 240)
 
-```startLine:234:257:careercrew/pipeline.py
+```startLine:240:263:careercrew/pipeline.py
 def _run_crew(
     request: AnalysisRequest,
     trace: ExecutionTrace,
@@ -604,7 +602,7 @@ def _run_crew(
 
 Two things to explain:
 
-- **The `import` is inside the function** (line 240). `crewai` is heavy; importing
+- **The `import` is inside the function** (line 246). `crewai` is heavy; importing
   it lazily keeps `main.py --help` and the test suite fast, and keeps the offline
   path free of the dependency.
 - **Line 256** ("Already on a worker thread…") documents a real
@@ -619,18 +617,18 @@ Two things to explain:
 | **74** | `mcp_server = crewai_mcp_server()` — one server config shared by both reader agents |
 | **75-78** | Load `resume_guidelines.md` and `interview_guidelines.md` as **real** `StringKnowledgeSource` objects (content, not a path, so cwd does not matter) |
 | **96-100** | Five agents; only `profile_extractor` and `jd_analyzer` get `with_mcp=True` |
-| **103-135** | Five tasks, each with `output_pydantic=` set to its model (e.g. line **107**) |
-| **139-161** | `Crew(...)` with `process=Process.sequential` (line **152**), `memory=False` (line **155**) |
+| **114-146** | Five tasks, each with `output_pydantic=` set to its model (e.g. line **118**) |
+| **148-172** | `Crew(...)` with `process=Process.sequential` (line **163**), `memory=False` (line **166**) |
 
 `max_iter` differs by agent: readers get **6** (they must call a tool, then
 answer — two rounds), writers get **4** (they only transform the previous
 task's output). This stops a stuck tool call from spinning 25 times.
 
-`memory=False` (line **155**) is a cost decision: task context already passes
+`memory=False` (line **166**) is a cost decision: task context already passes
 each result forward, so enabling Crew memory would add one embedding/model call
 per agent for data that is already handed over.
 
-**Context edges** (lines **119, 126, 133**) are what make the order meaningful.
+**Context edges** (lines **130, 137, 144**) are what make the order meaningful.
 Section 0a is the full handoff. The picture:
 ```
 extract_profile ─┬─> analyze_gaps ─> write_feedback
@@ -638,9 +636,9 @@ analyze_jd ──────┘         │
         └──────────> build_prep_plan <┘
 ```
 
-### 7.7 `_parse_crew_outputs` (line 267)
+### 7.7 `_parse_crew_outputs` (line 273)
 
-```startLine:270:272:careercrew/pipeline.py
+```startLine:276:278:careercrew/pipeline.py
     for stage, output in zip(CREW_STAGES, outputs, strict=False):
         parsed[stage] = extract_json(getattr(output, "raw", None))
     trace.add("crew.parsed", "pipeline", f"{len(outputs)} task outputs parsed")
@@ -654,9 +652,9 @@ analyze_jd ──────┘         │
   only** — the model may wrap its answer in prose.
 - `_coerce_model` (**line 116**) wraps `model_validate` in `try/except` and
   returns `None` on failure. A malformed agent answer degrades; it does not crash.
-### 7.8 Revision-notes merge (lines 412-428)
+### 7.8 Revision-notes merge (lines 418-434)
 
-```startLine:412:428:careercrew/pipeline.py
+```startLine:418:434:careercrew/pipeline.py
     if (request.revision_notes or "").strip():
         profile, gaps, requirements = _apply_revision_experience(
             profile, gaps, requirements, request
@@ -681,9 +679,9 @@ only matters on the "Apply updates & re-analyze" path. `_apply_revision_experien
 (**line 126**) appends a `WorkExperience` marked `Candidate-attested update` and
 promotes requirements the notes cover from `out_of_scope` to `covered`.
 
-### 7.9 Prep plan fallback (line 432)
+### 7.9 Prep plan fallback (line 438)
 
-```startLine:432:445:careercrew/pipeline.py
+```startLine:438:451:careercrew/pipeline.py
     if prep_plan is None:
         from careercrew.prep import build_fallback_plan
 
@@ -702,12 +700,15 @@ promotes requirements the notes cover from `out_of_scope` to `covered`.
 
 Only the **prep plan** has a deterministic fallback. The profile, requirements,
 and gap report have none — they stay empty, which is why the match report shows
-"Nothing here yet" offline. This is the honesty constraint: the fallback cannot
-invent resume facts it never read.
+"Nothing here yet" offline. Because `build_fallback_plan` derives its focus areas
+by looping `gaps.verdicts`, an empty gap report also means an **empty focus-area
+list**: offline the plan still carries the inferred seniority band and the
+band-emphasis question themes, but no focus cards. This is the honesty
+constraint: the fallback cannot invent resume facts it never read.
 
-### 7.10 Phase 4 — output guardrails (lines 450-465)
+### 7.10 Phase 4 — output guardrails (lines 456-471)
 
-```startLine:450:467:careercrew/pipeline.py
+```startLine:456:471:careercrew/pipeline.py
     validation = guardrails.validate_package(package, feedback, profile)
     warnings.extend(validation.warnings)
     if not validation.ok:
@@ -717,9 +718,7 @@ invent resume facts it never read.
 
     plan_problems = guardrails.validate_prep_plan(prep_plan, gaps or GapReport(), requirements)
     if plan_problems:
-        trace.add(
-            "guardrail.prep", "guardrails", "; ".join(plan_problems), status="warning"
-        )
+        trace.add("guardrail.prep", "guardrails", "; ".join(plan_problems), status="warning")
         warnings.extend(plan_problems)
     else:
         trace.add("guardrail.prep", "guardrails", "prep plan validated")
@@ -739,9 +738,9 @@ A package with an uncited bullet is a honesty failure, so it must not ship. A
 prep plan with a soft priority label is still usable advice, so it ships with a
 warning.
 
-### 7.11 Return (line 469)
+### 7.11 Return (line 473)
 
-```startLine:469:480:careercrew/pipeline.py
+```startLine:473:484:careercrew/pipeline.py
     return PipelineResult(
         package=package,
         profile=profile or CandidateProfile(),
@@ -762,9 +761,9 @@ of the generator as `StopIteration.value`.
 
 ---
 
-## 8. Back in the callback: save for review (line 221)
+## 8. Back in the callback: save for review (line 216)
 
-```startLine:221:231:careercrew/callbacks_analyze.py
+```startLine:216:226:careercrew/callbacks_analyze.py
         _REVIEW.submit_for_review(
             {
                 "resume_path": request.resume_path,
@@ -779,14 +778,14 @@ of the generator as `StopIteration.value`.
 ```
 
 `_REVIEW` comes from `careercrew/services.py:14` (`REVIEW = PackageReviewService(STORE)`).
-`STORE` is a `SessionStore` over SQLite (line **13**).
+`STORE` is a `SessionStore` over SQLite (`services.py:13`).
 
 `submit_for_review` is at **`review.py:64`**. It does two writes:
 
 | Line | Call | Effect |
 |------|------|--------|
-| **74** | `self._store.save_package(...)` → `session_store.py:119` | UPSERT the package row |
-| **75** | `self._store.update_status(package_id, PENDING_REVIEW, ...)` → `session_store.py:175` | Flip status |
+| **74** | `self._store.save_package(...)` → `session_store.py:118` | UPSERT the package row |
+| **75** | `self._store.update_status(package_id, PENDING_REVIEW, ...)` → `session_store.py:174` | Flip status |
 
 `submit_for_review` also calls `_check_transition(status, PENDING_REVIEW)` first
 (line **73**), which is why a package already `APPROVED` cannot be resubmitted.
@@ -798,9 +797,9 @@ the resume and JD without asking the user to re-upload.
 
 ---
 
-## 9. The final yield — how you "get the result" (line 240)
+## 9. The final yield — how you "get the result" (line 235)
 
-```startLine:233:255:careercrew/callbacks_analyze.py
+```startLine:228:251:careercrew/callbacks_analyze.py
         mode = " (limited mode)" if result.used_fallback else ""
         status = (
             f"**Your prep bundle is ready{mode}.** "
@@ -811,7 +810,9 @@ the resume and JD without asking the user to re-upload.
         yield view.apply(
             error="",
             status=status,
-            stages=_stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
+            stages=_stages_html(
+                _FINAL, "All set — review your match report, prep plan, and answers."
+            ),
             match_report=_insight_html(result),
             prep_plan=_prep_html(result.prep_plan),
             approve=gr.update(interactive=True),
@@ -823,7 +824,6 @@ the resume and JD without asking the user to re-upload.
             review_guide=_review_guide_html("ready", package_id=result.package.package_id),
             run_button=gr.update(interactive=True),
             clear_button=gr.update(interactive=True),
-        )
 ```
 
 This single yield is the answer to "how do I get the final result". Field by field:
@@ -843,8 +843,8 @@ This single yield is the answer to "how do I get the final result". Field by fie
 `_serialize_result` (line **62**) is what makes the rest of the app work: it
 packs `package_id`, `profile`, `requirements`, `gaps`, and `prep_plan` into one
 JSON string. The Prep coach, Mock interview, and Post-interview coach all read
-that string later through `_load_context` (**line 75**) and `_context_models`
-(**line 88**) — which is why those tabs can work without re-running Analyze.
+that string later through `_load_context` (**line 74**) and `_context_models`
+(**line 87**) — which is why those tabs can work without re-running Analyze.
 
 ---
 
@@ -914,7 +914,7 @@ Every exit path (`fail()` line **149**, final yield line **253**) re-enables it.
 **"Why is the JD read twice — here and inside the crew?"**
 Here for fast failure and a preserved error message; inside the crew via MCP
 because the JD Analyzer agent is required to use the MCP tool. The double read
-is intentional (see the comment at `pipeline.py:339`).
+is intentional (see the comment at `pipeline.py:345-347`).
 
 ---
 

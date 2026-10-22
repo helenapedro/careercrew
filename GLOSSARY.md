@@ -32,7 +32,7 @@ The diary of one run (`ExecutionTrace`). Each step appends an event: input accep
 
 ## Fallback
 
-What still runs when there is no API key, or when the crew throws. The app does not pretend the agents ran. It builds a prep plan from the gap rules and shows a limited-mode note.
+What still runs when there is no API key, or when the crew throws. The app does not pretend the agents ran. It builds the prep plan from the gap rules and shows a limited-mode note. With no key there is no gap report either, so that plan carries the seniority band and question themes but no focus areas.
 
 ## Stage
 

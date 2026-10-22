@@ -26,7 +26,7 @@ personal account with no subscription.
 | CPU Basic hardware (2 vCPU, 16 GB RAM) | **$0 per hour.** Leave the Space on this. Do not pick a GPU. |
 | Creating a Docker or Gradio Space | Requires a **paid Hugging Face plan**: PRO for a personal account, Team or Enterprise for an organization. A free account gets an HTTP 402 if it tries to create one. See the current monthly price on [huggingface.co/pricing](https://huggingface.co/pricing). |
 | ZeroGPU Gradio Spaces | Free accounts can host up to 2 of these. **CareerCrew cannot use ZeroGPU.** It is a CPU app that calls OpenAI. It is not a model loaded on a Hugging Face GPU. |
-| OpenAI (`OPENAI_API_KEY`) | Billed by **OpenAI**, not by Hugging Face, per token. With no key the page still opens in limited mode (gap-based prep plan only; the five-agent crew does not run). |
+| OpenAI (`OPENAI_API_KEY`) | Billed by **OpenAI**, not by Hugging Face, per token. With no key the page still opens in limited mode (seniority band and themes only; the five-agent crew does not run, so there is no match report and no gap-driven focus areas). |
 | Disk (`/data/careercrew.db` and uploads) | **Ephemeral** on the free disk (50 GB, wiped on restart, rebuild, or sleep). A Storage Bucket that survives restarts is **paid**. |
 | Idle time | On CPU Basic the Space **sleeps** when nobody uses it. The next visit waits for it to wake up. Staying awake all the time means paid hardware. |
 

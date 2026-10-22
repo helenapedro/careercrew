@@ -38,10 +38,9 @@ flowchart TD
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
 
-    S5 <--> MCP["MCP server — stdio<br/>read_resume · read_job_description"]
+    S5 <--> MCP["MCP server — stdio<br/>read_resume_tool · read_job_description_tool"]
     S4 -.-> K["knowledge/<br/>resume_guidelines.md<br/>interview_guidelines.md"]
-    S3 -.-> DB[("SQLite session store<br/>bundles · sessions · turns · chats")]
-    S7 -.-> DB
+    S7 -.-> DB[("SQLite session store<br/>bundles · decisions · sessions · turns · chats")]
     S9 -.-> DB
 ```
 
@@ -55,7 +54,6 @@ flowchart TD
 | `S5` | `careercrew/crew.py` | Turns `config/*.yaml` into a running sequential crew with MCP tools and knowledge sources. |
 | `1`–`5` | `config/agents.yaml`, `config/tasks.yaml` | The five sequential agents and their tasks (details in `docs/engineering/agents-and-workflows.md`). |
 | `MCP` | `mcp_server/server.py` | Exposes the shared tool logic over stdio as two MCP tools. |
-| `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading and uploads-folder confinement. |
 | `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
 | `S8` | `careercrew/models.py` | Approved prep bundle: `ApplicationPackage` carries the bundle id, role, company, summary, and the `do_not_claim` list. The detail lives beside it in `PipelineResult` (profile, requirements, gaps, feedback, prep plan). Nothing is submitted. |
@@ -63,6 +61,9 @@ flowchart TD
 | `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with transcript and scores in context). |
 | `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, review decisions, interview sessions and turns, and both chat channels. The UI reads back the current package and the latest interview; chat history is write-only. |
 | `K` | `knowledge/` | `resume_guidelines.md` (writing + honesty) and `interview_guidelines.md` (prep, interviewer, and coaching conduct). |
+
+`careercrew/document_tools.py` is not a separate node: it is the shared implementation
+behind both the MCP server and the deterministic fallback.
 
 ## 3. HITL review loop
 
@@ -83,6 +84,12 @@ default 2). In the UI the three transitions are the **Approve prep bundle**,
 **Request changes**, and **Reject** buttons. Approval is reframed around the
 prep bundle: nothing is ever submitted to an employer.
 
+Approval also **gates downstream use**: the mock interview and both coaching
+chats call `_is_approved()` (`careercrew/callbacks_interview.py`), which reads the
+persisted `packages.status` and refuses to run unless it is `APPROVED`. The
+analysis results stay readable while pending, because the candidate needs them in
+order to decide.
+
 ## 4. Key design decisions
 
 1. **Sequential crew, not hierarchical.** The analysis pipeline is linear
@@ -95,8 +102,10 @@ prep bundle: nothing is ever submitted to an employer.
 3. **SQLite for memory.** Standard library only, survives restarts, no
    infrastructure. Each agent already receives the previous task's output,
    so the crew does not also store a separate short-term memory.
-4. **Gap-based fallback.** The app works without `OPENAI_API_KEY`
-   (a prep plan derived from the gaps); the UI banner says so.
+4. **Limited mode without a key.** The app runs without `OPENAI_API_KEY`, but
+   the crew is skipped: profile, requirements, and gaps stay empty, so the match
+   report is empty and the prep plan carries only the seniority band and themes
+   (no focus areas — there are no gaps to derive them from). The UI banner says so.
 5. **Evidence grounding.** Every factual claim traces to a supplied resume
    fact. Unsupported claims go to `do_not_claim` instead of being invented.
 

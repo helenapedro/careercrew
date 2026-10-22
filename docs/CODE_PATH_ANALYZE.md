@@ -73,7 +73,7 @@ sequenceDiagram
 | 9a | If `settings.has_llm` | `pipeline._run_crew` → `crew.build_crew` → `crew.kickoff` | CrewAI sequential + OpenAI HTTPS | Full five-agent path |
 | 9b | MCP tools during crew | `mcp_client` + `mcp_server/server.py` | stdio subprocess to FastMCP | Real MCP (course requirement) |
 | 9c | Parse task JSON → models | `extract_json`, `_coerce_model`, `_parse_crew_outputs` | In-memory | Typed contracts for tabs/guardrails |
-| 10 | Fallback if no key / crew fail | `prep.build_fallback_plan` | Gap math | Demo works offline; never invents experience |
+| 10 | Fallback if no key / crew fail | `prep.build_fallback_plan` | Deterministic plan from gap verdicts | Page stays usable offline; with no gaps it yields band + themes only, and never invents experience |
 | 11 | Output guardrails | `validate_package`, `validate_prep_plan` | Fail closed on package; prep → warnings | Honesty story |
 | 12 | Return `PipelineResult` | `pipeline.run_analysis` | In-memory | Bundle for UI |
 | 13 | HITL submit | `review.submit_for_review` → `SessionStore.save_package` | **Write** SQLite `packages`; status `PENDING_REVIEW` | Survives a refresh |

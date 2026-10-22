@@ -3,8 +3,11 @@
 Two full-memory chat windows. Same context builder; post-interview channel
 adds the mock interview transcript, evaluations, and score.
 
-**Prerequisite:** Analyze (`ctx_state`). Post-interview coach is most useful
-after a completed mock interview (`iv_state`).  
+**Prerequisite:** Analyze (`ctx_state`) **and** an approved prep bundle. Both
+channels call `_is_approved(ctx_state)`, which reads the persisted
+`packages.status`, and reply with the "approve the prep bundle first" message
+until the bundle is `APPROVED`. Post-interview coach is most useful after a
+completed mock interview (`iv_state`).  
 **UI tabs:** **Prep coach**, **Post-interview coach**.
 
 ---

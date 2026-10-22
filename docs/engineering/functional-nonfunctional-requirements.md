@@ -1,3 +1,5 @@
+# Functional and Nonfunctional Requirements
+
 ## 1. Functional Requirements
 
 Each requirement below was checked against the `dev` implementation; the evidence
@@ -20,7 +22,7 @@ column names the source and the tests that cover it.
 | FR-13 | The system shall support preparation and post-interview coaching. | Implemented | `careercrew/coach.py`; `tests/test_coach.py` |
 | FR-14 | The system shall persist preparation packages, interview sessions, and coaching chat turns in SQLite, and retrieve a package or the latest interview session for continued work. | Implemented | `careercrew/session_store.py` (SQLite: `save_package`, `get_package`, `save_interview`, `latest_interview`, `add_chat_message`); `tests/test_review_workflow.py`, `tests/test_app_smoke.py` |
 | FR-15 | The system shall expose document tools through the configured MCP integration, with a documented deterministic fallback. | Implemented | `mcp_server/server.py`, `careercrew/mcp_client.py`; `tests/test_mcp_integration.py` |
-| FR-16 | The system shall present understandable status and error messages for invalid input, failed dependencies, and unsuccessful analysis. | Implemented | `careercrew/callbacks_analyze.py` (`fail()` helper), `careercrew/pipeline.py` (gap-based fallback); `tests/test_pipeline.py` — error paths verified |
+| FR-16 | The system shall present understandable status and error messages for invalid input, failed dependencies, and unsuccessful analysis. | Implemented | `careercrew/callbacks_analyze.py` (`fail()` helper), `careercrew/pipeline.py` (limited-mode warning and prep fallback); `tests/test_pipeline.py` — error paths verified |
 | FR-17 | The system shall not submit job applications to employers on the user's behalf. | Implemented | `config/agents.yaml` header comment ("nothing is auto-submitted anywhere"); no submission code paths |
 
 ## 2. Proposed Nonfunctional Requirements
@@ -42,4 +44,4 @@ column names the source and the tests that cover it.
 
 **Note:** These are proposed quality requirements. Privacy retention/deletion behavior, latency targets, production security, accessibility, and reliability are not established merely by an architecture description; they require implementation evidence and tests.
 
-**Note:** Assessed against `dev` on 2026-10-21. Test suite: 130 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). E2E demo path not yet run.
+**Note:** Assessed against `dev` on 2026-10-21. Test suite: 131 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). The end-to-end demo path is covered by `tests/test_app_smoke.py` (analyze → approve → interview start/submit, plus coach gating).

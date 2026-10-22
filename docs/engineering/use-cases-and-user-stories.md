@@ -1,8 +1,11 @@
+# Use Cases and User Stories
+
 ## 1. Use Cases
 
-These diagrams present the intended use cases at a glance. They are **product-level drafts**; confirm which actions are implemented in `dev` before treating them as verified functionality.
+These diagrams present the use cases at a glance. The verification checklist at
+the end of this section records what has been confirmed against the code (2026-10-21).
 
-### 3.1 Use-case overview by user group
+### 1.1 Use-case overview by user group
 
 ```mermaid
 flowchart TB
@@ -60,7 +63,7 @@ flowchart TB
 
 > **Audience note:** The job seeker and student/early-career workflows align with the individual-preparation concept. Career advisors and university career services are a potential institutional audience; multi-user or advisor-specific functionality needs validation before it is presented as an existing feature.
 
-### 3.2 UC-01 — Prepare for a target job
+### 1.2 UC-01 — Prepare for a target job
 
 ```mermaid
 flowchart TD
@@ -91,7 +94,7 @@ flowchart TD
 **Outcome:** A reviewed preparation package grounded in the user's supplied experience, when the workflow succeeds.  
 **Boundary:** CareerCrew prepares the user; it does not submit an application.
 
-### 3.3 UC-02 — Practice for an interview
+### 1.3 UC-02 — Practice for an interview
 
 ```mermaid
 flowchart TD
@@ -111,7 +114,7 @@ flowchart TD
 **Outcome:** Practice and actionable feedback where the relevant interview workflow is implemented.  
 **Implementation check:** Confirm voice support, evaluation format, session summaries, and persistence in `dev`.
 
-### 3.3 UC-03 — Career advisor supports job seekers (potential use case)
+### 1.4 UC-03 — Career advisor supports job seekers (potential use case)
 
 ```mermaid
 flowchart TD
@@ -130,7 +133,7 @@ flowchart TD
 **Actor:** Career advisor or university career-services staff  
 **Status:** This diagram captures a possible future workflow, **not a claim that advisor accounts, multi-user management, or advisor dashboards currently exist**. Validate this audience and its needs before adding it to the implemented feature set.
 
-### 3.4 Use-case relationships at a glance
+### 1.5 Use-case relationships at a glance
 
 ```mermaid
 flowchart TB

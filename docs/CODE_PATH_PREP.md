@@ -22,6 +22,10 @@ Both must:
 - Keep `suggested_share_pct` totaling ~100  
 - Never advise claiming experience absent from the resume  
 
+Note: the fallback builds its focus areas by looping `gaps.verdicts`. When the
+crew never ran (no key), the gap report is empty, so the offline plan contains
+the inferred seniority band and `_BAND_EMPHASIS` themes but **zero focus areas**.
+
 ---
 
 ## 2. Crew path (agent 5)

@@ -46,9 +46,11 @@ Run the MCP server standalone (for a manual smoke test):
 python -m mcp_server.server
 ```
 
-The app runs without an `OPENAI_API_KEY`: the crew is skipped, the match report
-stays empty, and a deterministic gap-based prep plan is produced. The UI banner
-says so. Add a key for the full crew and the voice interview.
+The app runs without an `OPENAI_API_KEY`, in **limited mode**: the page, the review
+dock, and the persistence all work, but the crew is skipped, so the match report
+stays empty and the prep plan has seniority band + themes only (no focus areas,
+because there are no gap verdicts to derive them from). The UI banner says so.
+Add a key for the full crew and the voice interview.
 
 ## Input rules
 
