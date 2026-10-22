@@ -23,8 +23,8 @@ after any refactor that moves code.
 
 ### Last recorded run
 
-- **Date:** 2026-10-21; **branch:** `dev`; **Python:** 3.12.3
-- **Result: 131 passed, 0 failed**
+- **Date:** 2026-10-22; **branch:** `dev`; **Python:** 3.12.3
+- **Result: 132 passed, 0 failed**
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -33,7 +33,7 @@ after any refactor that moves code.
 | `test_coach.py` | 24 | Preparation and post-interview coaching replies, analysis-anchored scope detection, typo tolerance |
 | `test_document_tools.py` | 15 | Resume/JD reading, PII redaction, upload confinement |
 | `test_guardrails.py` | 23 | Input, tool, and output guardrails, including citation validation |
-| `test_interview.py` | 6 | Mock-interview question generation and answer evaluation |
+| `test_interview.py` | 7 | Mock-interview question generation and per-answer evaluation |
 | `test_llm.py` | 6 | Chat helper: retries, timeouts, models that reject `temperature` |
 | `test_mcp_integration.py` | 3 | Real MCP round-trips for both document tools |
 | `test_models.py` | 9 | Pydantic contracts for agent outputs and the prep bundle |
@@ -47,7 +47,7 @@ Environment note: in sandboxes that set proxy variables, `httpx` can fail at imp
 
 These gates must all pass before merging `dev` into `main`:
 
-1. The automated test suite is green (`tests/`). — Last run 2026-10-21: 131 passed, 0 failed.
+1. The automated test suite is green (`tests/`). — Last run 2026-10-22: 132 passed, 0 failed.
 2. Documentation citations resolve (`python tools/verify_doc_refs.py`). — Verified 2026-10-22: all 41 code citations match their files and line ranges.
 3. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn. — Verified 2026-10-21 via `tests/test_app_smoke.py` (analyze → approve → interview start/submit) and the coach gating test.
 4. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — Audited 2026-10-21: **passes**. `.env` is git-ignored and untracked; only `.env.example` (placeholder values) is committed, and no key-shaped string appears in tracked files.

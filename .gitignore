@@ -7,3 +7,6 @@ uploads/
 .pytest_cache/
 .ruff_cache/
 *.tar.gz
+
+# One-off local helper scripts (not part of the project)
+_*.py

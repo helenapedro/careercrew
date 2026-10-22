@@ -20,7 +20,7 @@ The agents run sequentially (`Process.sequential`, `allow_delegation: false`,
 
 ### Supporting workflows (not part of the crew)
 
-- **Mock-interview workflow:** `careercrew/interview.py` asks questions, accepts text and/or voice answers, keeps a transcript, and produces per-answer and overall evaluation.
+- **Mock-interview workflow:** `careercrew/interview.py` asks questions, accepts text and/or voice answers, keeps a transcript, and produces per-answer evaluation.
 - **Preparation coach:** `careercrew/coach.py` answers follow-up questions using the resume and preparation context.
 - **Post-interview coach:** `careercrew/coach.py` supports reflection using the preparation context, transcript, and evaluation results.
 - **Shared guardrails and persistence:** `careercrew/guardrails.py` validates inputs and outputs; `careercrew/session_store.py` persists packages, interviews, and chats on the UI path.
