@@ -59,7 +59,7 @@ Read this first; every row is a section below with the full code.
 | 6.9 | Deterministic prep plan when the crew produced none | [`prep.py`](../careercrew/prep.py) | 81-145 |
 | 6.10 | Output guardrails: fail closed vs warn | [`guardrails.py`](../careercrew/guardrails.py) | 271-295 |
 | 6.11 | Return the `PipelineResult` | [`pipeline.py`](../careercrew/pipeline.py) | 473-484 |
-| 7 | Save the bundle as awaiting review | [`review.py`](../careercrew/review.py) | 64-80 |
+| 7 | Save the bundle as awaiting review | [`review.py`](../careercrew/review.py) | 66-82 |
 | 8 | The final yield paints every result tab | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 228-252 |
 
 ### A3. The whole click on one diagram
@@ -1644,7 +1644,7 @@ the loop **returns** it, which becomes `StopIteration.value` at
         )
 ```
 
-```startLine:64:80:careercrew/review.py
+```startLine:66:82:careercrew/review.py
     def submit_for_review(
         self,
         inputs: dict,
@@ -1704,12 +1704,12 @@ duplicating:
 - **216-225** — the `inputs` dict is the **resolved inputs**, not the original
   widget values. Saving them here is what lets "Apply updates & re-analyze"
   replay the run later without asking the user to re-upload.
-- **`review.py:73`** — `_check_transition(DRAFT, PENDING_REVIEW)`. The legal
-  transitions are declared in one table (`review.py:39-41`), so an already
+- **`review.py:75`** — `_check_transition(DRAFT, PENDING_REVIEW)`. The legal
+  transitions are declared in one table (`review.py:26-36`), so an already
   approved package cannot be resubmitted.
-- **`review.py:74`** — `save_package` writes the row (status is initially
+- **`review.py:76`** — `save_package` writes the row (status is initially
   `DRAFT`, see `session_store.py:153`).
-- **`review.py:75`** — `update_status` flips it to `PENDING_REVIEW`. Two writes are
+- **`review.py:77`** — `update_status` flips it to `PENDING_REVIEW`. Two writes are
   fine here because they are idempotent upserts.
 - **`session_store.py:136-144`** — `ON CONFLICT(package_id) DO UPDATE` means one
   package row per id, updated in place. `created_at` is not in the update list,

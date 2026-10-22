@@ -9,6 +9,16 @@ the Analyze path where every step shows its full code with the file and line
 range (verified by `python tools/verify_doc_refs.py`), see
 [`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md).
 
+The other three buttons have the same treatment:
+
+| Button | Walkthrough |
+|--------|-------------|
+| Analyze match | [`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md) |
+| Apply updates & re-analyze | [`../REVISION_BUTTON_WALKTHROUGH.md`](../REVISION_BUTTON_WALKTHROUGH.md) |
+| Start interview / Submit answer | [`../MOCK_INTERVIEW_WALKTHROUGH.md`](../MOCK_INTERVIEW_WALKTHROUGH.md) |
+| Prep coach Send | [`../PREP_COACH_WALKTHROUGH.md`](../PREP_COACH_WALKTHROUGH.md) |
+| Post-interview coach Send | [`../POST_INTERVIEW_COACH_WALKTHROUGH.md`](../POST_INTERVIEW_COACH_WALKTHROUGH.md) |
+
 For the system picture first — context, layers, request lifecycle, agent
 handoffs, review state machine, guardrails, and persistence, each as a diagram
 with a short explanation — start with

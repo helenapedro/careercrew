@@ -102,6 +102,12 @@ Add a key for the full crew and the voice interview.
 - **Flow narratives** — [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md)
   (step-by-step Analyze trace: full code per step with file and line range, checked
   by `python tools/verify_doc_refs.py`), then
+  [`REVISION_BUTTON_WALKTHROUGH`](docs/REVISION_BUTTON_WALKTHROUGH.md) (the
+  "Apply updates & re-analyze" click),
+  [`MOCK_INTERVIEW_WALKTHROUGH`](docs/MOCK_INTERVIEW_WALKTHROUGH.md),
+  [`PREP_COACH_WALKTHROUGH`](docs/PREP_COACH_WALKTHROUGH.md), and
+  [`POST_INTERVIEW_COACH_WALKTHROUGH`](docs/POST_INTERVIEW_COACH_WALKTHROUGH.md) —
+  the same treatment for the other three tabs. Diagram-first companions:
   [`CODE_PATH_ANALYZE`](docs/CODE_PATH_ANALYZE.md),
   [`CODE_PATH_PREP`](docs/CODE_PATH_PREP.md),
   [`CODE_PATH_HITL`](docs/CODE_PATH_HITL.md),
