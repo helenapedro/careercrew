@@ -96,7 +96,7 @@ Optional variables, only if you want to override the defaults in `.env.example`:
 
 | Name | Default in code |
 |------|-----------------|
-| `OPENAI_MODEL` | `gpt-4o-mini` |
+| `OPENAI_MODEL` | `gpt-6-luna` |
 | `CAREERCREW_STT_MODEL` | `whisper-1` |
 | `CAREERCREW_TTS_MODEL` | `tts-1` |
 | `CAREERCREW_TTS_VOICE` | `alloy` |

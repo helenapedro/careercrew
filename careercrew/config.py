@@ -68,7 +68,7 @@ def get_settings() -> Settings:
     return Settings(
         openai_api_key=os.getenv("OPENAI_API_KEY") or None,
         openai_base_url=os.getenv("OPENAI_BASE_URL") or None,
-        openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+        openai_model=os.getenv("OPENAI_MODEL") or "gpt-6-luna",
         stt_model=os.getenv("CAREERCREW_STT_MODEL") or "whisper-1",
         tts_model=os.getenv("CAREERCREW_TTS_MODEL") or "tts-1",
         tts_voice=os.getenv("CAREERCREW_TTS_VOICE") or "alloy",
