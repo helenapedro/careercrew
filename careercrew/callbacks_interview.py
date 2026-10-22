@@ -14,10 +14,34 @@ from careercrew.models import (
     InterviewQuestion,
     InterviewTurnRole,
     MockInterviewSession,
+    ReviewStatus,
 )
 from careercrew.services import SETTINGS as _SETTINGS
 from careercrew.services import STORE as _STORE
 from careercrew.ui_html import _alert_html, _esc
+
+#: Shown when a downstream feature is used before the bundle is approved.
+_APPROVAL_REQUIRED = (
+    "Approve the prep bundle first. The mock interview and coaching chats use the "
+    "reviewed package, so open **1 · Analyze match** and press **Approve prep bundle**."
+)
+
+
+def _is_approved(ctx_state) -> bool:
+    """True when the analyzed package has been approved by a human.
+
+    The mock interview and both coaching chats are gated on approval: they consume
+    the reviewed bundle, so they must not run on an unreviewed draft. Returns
+    ``False`` when there is no context or no stored package.
+    """
+    context = _load_context(ctx_state)
+    if not context:
+        return False
+    package_id = context.get("package_id") or ""
+    if not package_id:
+        return False
+    stored = _STORE.get_package(package_id)
+    return bool(stored) and stored.get("status") == ReviewStatus.APPROVED.value
 
 
 def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
@@ -121,6 +145,26 @@ def interview_start(ctx_state, count: int) -> tuple:
             "",
             None,
         )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            None,
+        )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            None,
+        )
     models = _context_models(context)
     questions = interview.generate_questions(
         models["profile"],
@@ -179,6 +223,26 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, done=True),
             None,
             [],
+            "",
+            "",
+            iv_state,
+        )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, done=True),
+            None,
+            [],
+            "",
+            "",
+            iv_state,
+        )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, done=True),
+            None,
+            _turns_to_messages(session),
             "",
             "",
             iv_state,
@@ -281,6 +345,8 @@ def _render_prep_chat(history, message: str, ctx_state):
     """Prep coach: resume improvement + preparation chat."""
     history = history or []
     context = _load_context(ctx_state)
+    if not _is_approved(ctx_state):
+        return history + [{"role": "assistant", "content": _APPROVAL_REQUIRED}], ""
     context_text = coach.build_context() if context else "No analysis yet."
     if context:
         models = _context_models(context)
@@ -310,6 +376,10 @@ def _render_post_chat(history, message: str, ctx_state, iv_state):
     """Post-interview coach: everything about JD, resume, and interview results."""
     history = history or []
     context = _load_context(ctx_state)
+    if not _is_approved(ctx_state):
+        return history + [{"role": "assistant", "content": _APPROVAL_REQUIRED}], ""
+    if not _is_approved(ctx_state):
+        return history, _APPROVAL_REQUIRED
     session = _load_interview(iv_state) or _STORE.latest_interview()
     if context:
         models = _context_models(context)

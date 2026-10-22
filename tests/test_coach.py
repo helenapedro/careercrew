@@ -261,7 +261,9 @@ def test_prep_coach_redirects_out_of_scope_without_calling_llm():
     def fail_llm(prompt: str) -> str:
         raise AssertionError("LLM must not be called for out-of-scope questions")
 
-    reply, warnings = coach.prep_coach_reply("What is the capital of France?", "ctx", llm=fail_llm)
+    reply, warnings = coach.prep_coach_reply(
+        "What is the capital of France?", _analysis_context(), llm=fail_llm
+    )
     assert "resume" in reply
     assert "job description" in reply
     assert "interview preparation" in reply
@@ -269,6 +271,6 @@ def test_prep_coach_redirects_out_of_scope_without_calling_llm():
 
 
 def test_prep_coach_answers_in_scope_question():
-    reply, _ = coach.prep_coach_reply("How do I prepare for the interview?", "ctx")
+    reply, _ = coach.prep_coach_reply("How do I prepare for the interview?", _analysis_context())
     assert reply
     assert "three things" not in reply  # not the redirect

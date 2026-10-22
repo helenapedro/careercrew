@@ -98,6 +98,11 @@ trace.
 ## 6. Talking points
 
 - HITL is real persistence, not a fake button  
+- **Approval gates downstream use**: the mock interview and both coaching chats
+  check `_is_approved()` (`careercrew/callbacks_interview.py`) and refuse to run
+  while the bundle is `PENDING_REVIEW`, telling the user to press **Approve prep
+  bundle**. The gate reads the persisted `packages.status`, so it survives a
+  session reload.
 - Approve does **not** call any employer API  
 - Revise without notes is rejected by the service  
 - **Request changes** means “I have experience that wasn’t on my resume” → merge into resume → re-analyze → refresh Match / Prep  

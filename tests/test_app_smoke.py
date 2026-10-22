@@ -369,7 +369,62 @@ def test_context_round_trip_and_interview_start_work_offline(monkeypatch, tmp_pa
     assert isinstance(models["gaps"], GapReport)
     assert isinstance(models["prep_plan"], InterviewPrepPlan)
 
-    # Starting the interview produces grounded questions without any API key.
+    # The mock interview is gated on human approval of the prep bundle.
+    blocked = app.interview_start(context, 3)
+    assert blocked[1], "a message must render"
+    assert blocked[6] is None, "an unapproved bundle must not start an interview"
+
+    # Approve the bundle, then the interview produces grounded questions offline.
+    from careercrew.models import ReviewStatus
+
+    package_id = _context_models(__import__("json").loads(context))["package_id"]
+    app._STORE.update_status(package_id, ReviewStatus.APPROVED)
+
     started = app.interview_start(context, 3)
     assert started[1], "an interviewer question must render"
     assert started[6], "the session must be serialized for the next turn"
+
+
+def test_coach_chats_are_gated_on_approval(monkeypatch, tmp_path):
+    """Both coaching chats refuse to answer until the bundle is approved."""
+    monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    import importlib
+
+    import app
+
+    importlib.reload(app)
+
+    outputs = _drain(
+        app.analyze(
+            None,
+            "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale.",
+            None,
+            "We need a Python backend engineer with FastAPI and AWS.",
+        )
+    )
+    context = _out(outputs, "context")
+    assert context is not None
+
+    history, box = app._render_prep_chat([], "How do I improve my resume?", context)
+    assert box == ""
+    assert history and "pprove" in history[-1]["content"]
+
+    history, box = app._render_post_chat([], "How did I do?", context, None)
+    assert box == ""
+    assert history and "pprove" in history[-1]["content"]
+
+    # After approval the prep coach answers normally.
+    from careercrew.callbacks_analyze import _context_models as _cm
+    from careercrew.models import ReviewStatus
+
+    app._STORE.update_status(
+        _cm(__import__("json").loads(context))["package_id"], ReviewStatus.APPROVED
+    )
+    history, box = app._render_prep_chat([], "How do I improve my resume?", context)
+    assert history and history[-1]["content"]
+    assert "pprove the prep bundle" not in history[-1]["content"]
