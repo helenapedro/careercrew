@@ -46,8 +46,6 @@ CREATE TABLE IF NOT EXISTS interview_sessions (
     package_id      TEXT,
     role_title      TEXT NOT NULL DEFAULT '',
     session_json    TEXT NOT NULL,
-    overall_score   INTEGER NOT NULL DEFAULT 0,
-    completed       INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -216,12 +214,10 @@ class SessionStore:
                 """
                 INSERT INTO interview_sessions
                     (session_id, package_id, role_title, session_json,
-                     overall_score, completed, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     session_json = excluded.session_json,
-                    overall_score = excluded.overall_score,
-                    completed = excluded.completed,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -229,8 +225,6 @@ class SessionStore:
                     package_id,
                     session.role_title,
                     session.model_dump_json(),
-                    int(session.overall_score),
-                    1 if session.completed else 0,
                     now,
                     now,
                 ),

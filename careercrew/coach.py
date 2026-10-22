@@ -38,8 +38,8 @@ def build_context(
 ) -> str:
     """Assemble the bounded system context shared by both chat channels.
 
-    ``include_interview`` adds the mock interview transcript, evaluations, and
-    score (used by the post-interview coach). The result is trimmed to
+    ``include_interview`` adds the mock interview transcript and per-answer
+    evaluations (used by the post-interview coach). The result is trimmed to
     ``MAX_CONTEXT_CHARS`` from the end, keeping the most recent material.
     """
     parts: list[str] = ["# CareerCrew coaching context"]
@@ -74,11 +74,7 @@ def build_context(
             f"improve: {'; '.join(e.improvements)}"
             for e in interview.evaluations
         )
-        parts.append(
-            f"## Mock interview evaluations\n{evaluations}\n\n"
-            f"## Overall mock interview score: {interview.overall_score}/100\n"
-            f"{interview.overall_summary}"
-        )
+        parts.append(f"## Mock interview evaluations\n{evaluations}")
 
     guidelines = _guidelines()
     if guidelines:
@@ -604,8 +600,8 @@ def post_coach_reply(
         persona=(
             "You are the CareerCrew post-interview coach. You have the job "
             "description, the resume, the gap report, the prep plan, the full mock "
-            "interview transcript, the per-question evaluations, and the overall "
-            "score. Answer any follow-up question about performance and next steps, "
+            "interview transcript, and the per-question evaluations. Answer any "
+            "follow-up question about performance and next steps, "
             "grounded only in that material."
         ),
         llm=llm,

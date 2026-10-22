@@ -1,8 +1,8 @@
-"""Practice interview: questions, per-answer scores, and an overall score.
+"""Practice interview: questions and per-answer scoring.
 
 What it does: writes questions from the gaps and scores the candidate's answers.
 Who calls it: the mock-interview callbacks in callbacks_interview.py.
-What it returns: questions, an evaluation, and a session score. Practice only.
+What it returns: questions and an evaluation for each answer. Practice only.
 """
 
 from __future__ import annotations
@@ -314,53 +314,3 @@ def append_turn(
         logger.warning("invalid transcript turn: %s", problems)
     session.turns.append(turn)
     return turn
-
-
-def overall_evaluation(session: MockInterviewSession, *, llm=None) -> tuple[int, str]:
-    """Return (overall_score, summary) for a finished session."""
-    scores = [e.score for e in session.evaluations]
-    base = round(sum(scores) / len(scores)) if scores else 0
-    all_improvements: list[str] = []
-    for evaluation in session.evaluations:
-        all_improvements.extend(evaluation.improvements)
-
-    if llm is not None:
-        try:
-            raw = llm(_build_overall_prompt(session, base))
-            summary = _parse_overall(raw) or _fallback_summary(session, base)
-            return base, summary
-        except Exception:  # noqa: BLE001
-            pass
-    return base, _fallback_summary(session, base)
-
-
-def _build_overall_prompt(session: MockInterviewSession, base: int) -> str:
-    transcript = "\n".join(f"{turn.role.value.upper()}: {turn.text}" for turn in session.turns)
-    return (
-        "You are an interview coach. Summarize this mock interview in 3-5 sentences: "
-        "overall performance, the strongest signals, and the top 2 priorities to "
-        "improve. Return plain text only. Do not invent experience.\n\n"
-        f"ROUGHLY AVERAGED SCORE: {base}\n\nTRANSCRIPT:\n{transcript}\n"
-    )
-
-
-def _parse_overall(raw: str) -> str:
-    if not raw:
-        return ""
-    return raw.strip().strip("`").strip()
-
-
-def _fallback_summary(session: MockInterviewSession, base: int) -> str:
-    strength = ""
-    weak = ""
-    for evaluation in session.evaluations:
-        if evaluation.strengths and not strength:
-            strength = evaluation.strengths[0]
-        if evaluation.improvements and not weak:
-            weak = evaluation.improvements[0]
-    parts = [f"You scored an average of {base}/100 across {len(session.evaluations)} answer(s)."]
-    if strength:
-        parts.append(f"Strongest signal: {strength}")
-    if weak:
-        parts.append(f"Top priority to improve: {weak}")
-    return " ".join(parts)

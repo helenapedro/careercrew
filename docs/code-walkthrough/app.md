@@ -39,7 +39,7 @@ Four tabs, in the order the user works:
 |-----|----------|
 | `1 · Analyze match` | Resume input, job input, **Analyze match**, **Clear**, stage tracker, Match report / Interview prep plan sub-tabs, decision dock (Approve / Apply updates / Reject) |
 | `2 · Prep coach` | Chatbot + question box |
-| `3 · Mock interview` | Start, question slider, audio player, mic or typed answer, live transcript, feedback, overall score |
+| `3 · Mock interview` | Start, question slider, audio player, mic or typed answer, live transcript, per-answer feedback |
 | `4 · Post-interview coach` | Chatbot + question box |
 
 ---

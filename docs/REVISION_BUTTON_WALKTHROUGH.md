@@ -26,7 +26,7 @@ You type your missing experience into the dock and press the button. Gradio call
 `request_revision` (`careercrew/callbacks_analyze.py:394`), a **generator** like
 `analyze`. It rebuilds the package from `state`, checks the notes are non-empty,
 and asks `PackageReviewService.apply_decision` for a `REVISE` decision
-(`careercrew/review.py:84`), which enforces two rules: the package must be
+(`careercrew/review.py:86`), which enforces two rules: the package must be
 `PENDING_REVIEW`, and the revision count must not exceed the limit. It then **reads
 the original resume and JD back out of SQLite** — the UI no longer has them —
 appends the notes to the resume as a candidate-attested block
@@ -128,7 +128,7 @@ Appendix C.
 
 **The code**
 
-```startLine:507:512:app.py
+```startLine:504:509:app.py
         revise_btn.click(
             request_revision,
             inputs=[state, feedback],
@@ -149,7 +149,7 @@ Appendix C.
 
 For contrast, the first Analyze click takes four inputs:
 
-```startLine:397:402:app.py
+```startLine:396:401:app.py
         run_btn.click(
             analyze,
             inputs=[resume_file, resume_text, jd_file, jd_text],
@@ -209,7 +209,7 @@ would silently stop being refreshed on revision.
 - **216-218** — the placeholder is the canonical example: a specific, dated,
   technology-scoped claim.
 
-The same `feedback` widget is an output of `analyze` (`app.py:374`) and of
+The same `feedback` widget is an output of `analyze` (`app.py:373`) and of
 `request_revision` (`callbacks_analyze.py:492`), which is why it is cleared after a
 successful run and pre-filled while one is in flight.
 
@@ -509,7 +509,7 @@ onto this dict.
 
 `get_package` is where the JSON becomes usable:
 
-```startLine:192:208:careercrew/session_store.py
+```startLine:190:206:careercrew/session_store.py
     def get_package(self, package_id: str) -> dict | None:
         """Return a package row (with parsed package) or None."""
         with self._connect() as conn:
@@ -987,7 +987,7 @@ revision count.
 | 2nd | 2 | `DRAFT` then `PENDING_REVIEW` | yes |
 | 3rd | 3 > 2 | unchanged | **no**, `ReviewError` |
 
-The limit is checked **in the service** (`careercrew/review.py:122-127`), so raising it
+The limit is checked **in the service** (`careercrew/review.py:124-129`), so raising it
 is an environment change, not a code change. The user-facing message on refusal is
 "Cannot revise: revision limit reached (2); approve, reject, or start a new analysis."
 (`careercrew/callbacks_analyze.py:446-447`).
@@ -1060,13 +1060,13 @@ rg -n "request_revision|apply_decision|revision_notes|_apply_revision_experience
 
 | Question | Answer, with the place to look |
 |----------|-------------------------------|
-| Where does the click enter Python? | `revise_btn.click(...)` at `app.py:507-512`; handler at `careercrew/callbacks_analyze.py:394` |
+| Where does the click enter Python? | `revise_btn.click(...)` at `app.py:504-509`; handler at `careercrew/callbacks_analyze.py:394` |
 | Why only two inputs? | The files were consumed by the first Analyze; the handler re-reads them from SQLite (`careercrew/callbacks_analyze.py:450`) |
 | Where were the inputs saved? | `analyze` calls `submit_for_review` with an `inputs` dict (`careercrew/callbacks_analyze.py:216-223`), stored as `inputs_json` |
-| What stops a revision without notes? | Two checks: `careercrew/callbacks_analyze.py:426` and `careercrew/review.py:120-121` |
-| How many revisions are allowed? | `CAREERCREW_MAX_REVISIONS`, default 2 (`careercrew/config.py:78`), enforced at `careercrew/review.py:122-127` |
-| What status must the package be in? | `PENDING_REVIEW` (`careercrew/review.py:96-97`); the revision moves it to `DRAFT` |
-| Can you revise an approved package? | No. `APPROVED` has no outgoing transitions (`careercrew/review.py:38-39`) |
+| What stops a revision without notes? | Two checks: `careercrew/callbacks_analyze.py:426` and `careercrew/review.py:122-123` |
+| How many revisions are allowed? | `CAREERCREW_MAX_REVISIONS`, default 2 (`careercrew/config.py:78`), enforced at `careercrew/review.py:124-129` |
+| What status must the package be in? | `PENDING_REVIEW` (`careercrew/review.py:98-99`); the revision moves it to `DRAFT` |
+| Can you revise an approved package? | No. `APPROVED` has no outgoing transitions (`careercrew/review.py:38-41`) |
 | How do the notes reach the agents? | Appended to the resume text at `careercrew/callbacks_analyze.py:384-390`, then passed as `resume_text` at `:475` |
 | What is `revision_notes` for, then? | The deterministic path: it feeds `_apply_revision_experience` (`careercrew/pipeline.py:125-190`) and the crew prompt (`:257-258`) |
 | Does a revision re-score the gaps offline? | Yes, by token matching: `out_of_scope` verdicts become `covered` (`careercrew/pipeline.py:157-179`) |

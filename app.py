@@ -327,7 +327,6 @@ def build_app() -> gr.Blocks:
                             elem_id="cc-iv-transcript",
                         )
                 iv_feedback_html = gr.HTML("")
-                iv_overall_html = gr.HTML("")
 
             # ------------------------------------------------------------------ #
             # Tab 4 — Post-interview coach
@@ -435,7 +434,7 @@ def build_app() -> gr.Blocks:
 
         # --- mock interview wiring ------------------------------------------ #
         # show_progress="hidden" for the same reason as Analyze: these handlers
-        # return 7 outputs, and Gradio's default progress mode would draw one
+        # return 6 outputs, and Gradio's default progress mode would draw one
         # banner per output component, stacking into a wall of spinners.
         iv_start_btn.click(
             interview_start,
@@ -446,7 +445,6 @@ def build_app() -> gr.Blocks:
                 iv_audio,
                 iv_chatbot,
                 iv_feedback_html,
-                iv_overall_html,
                 iv_state,
             ],
             show_progress="hidden",
@@ -460,7 +458,6 @@ def build_app() -> gr.Blocks:
                 iv_audio,
                 iv_chatbot,
                 iv_feedback_html,
-                iv_overall_html,
                 iv_state,
             ],
             show_progress="hidden",

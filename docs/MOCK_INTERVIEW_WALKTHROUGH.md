@@ -24,21 +24,23 @@ Scope: **the voice/text practice interview only.** Approval is covered by
 ### A1. The answer in one paragraph
 
 You press **Start interview**. Gradio calls `interview_start`
-(`careercrew/callbacks_interview.py:144`), a plain function (not a generator). It
+(`careercrew/callbacks_interview.py:130`), a plain function (not a generator). It
 reads the Analyze context out of `ctx_state`, refuses to run unless the stored
 package is `APPROVED`, and asks `interview.generate_questions`
 (`careercrew/interview.py:31`) for N questions. That helper tries the LLM once and
 falls back to a deterministic question bank built from the gap report
 (`careercrew/interview.py:101`). A `MockInterviewSession` is created and
-`_ask_question` (`careercrew/callbacks_interview.py:195`) speaks the first question
+`_ask_question` (`careercrew/callbacks_interview.py:178`) speaks the first question
 with `tts-1`, appends an interviewer turn, saves the session to SQLite, and returns
-a **7-tuple** of UI updates. Every press of **Submit answer** calls
-`interview_submit` (`:215`), which transcribes the recording with `whisper-1`
+a **6-tuple** of UI updates. Every press of **Submit answer** calls
+`interview_submit` (`:197`), which transcribes the recording with `whisper-1`
 (or takes the typed text), guardrails the answer, scores it with
 `interview.evaluate_answer`, **appends the evaluation** — which is how the cursor
-advances — and either asks the next question or scores the whole session.
+advances — and either asks the next question or keeps the last answer's feedback on
+screen.
 
-The whole tab is **one cursor, one session object, one 7-tuple contract**.
+The whole tab is **one cursor, one session object, one 6-tuple contract**. There is
+no end-of-interview report card: feedback is per answer, delivered in real time.
 
 ### A2. The step map
 
@@ -46,24 +48,24 @@ Read this first; every row is a section below with the full code.
 
 | # | What happens | File | Lines |
 |--:|--------------|------|-------|
-| 1 | Two buttons are bound to two handlers | [`app.py`](../app.py) | 440-467 |
-| 2 | The tab's components and their fixed order | [`app.py`](../app.py) | 270-330 |
+| 1 | Two buttons are bound to two handlers | [`app.py`](../app.py) | 439-466 |
+| 2 | The tab's components and their fixed order | [`app.py`](../app.py) | 270-329 |
 | 3 | The approval gate reads SQLite | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 30-44 |
-| 4 | `interview_start` runs three gates, then builds the session | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 144-192 |
+| 4 | `interview_start` runs three gates, then builds the session | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 130-175 |
 | 5 | Questions: LLM first, deterministic bank second | [`interview.py`](../careercrew/interview.py) | 31-55 |
 | 5.1 | The deterministic question bank | [`interview.py`](../careercrew/interview.py) | 101-164 |
-| 6 | `_ask_question` speaks, appends, saves, renders | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 195-212 |
+| 6 | `_ask_question` speaks, appends, saves, renders | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 178-194 |
 | 6.1 | TTS: `tts-1` -> temp mp3 or `None` | [`audio.py`](../careercrew/audio.py) | 65-93 |
 | 6.2 | The interviewer card and its three states | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 56-84 |
-| 7 | `interview_submit` — the four early exits | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 215-250 |
-| 8 | Answer in: STT first, typed text second, then guardrails | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 252-267 |
-| 9 | Scoring the answer | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 269-279 |
+| 7 | `interview_submit` — the four early exits | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 197-231 |
+| 8 | Answer in: STT first, typed text second, then guardrails | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 233-246 |
+| 9 | Scoring the answer | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 248-258 |
 | 9.1 | `evaluate_answer`: LLM, then the heuristic scorer | [`interview.py`](../careercrew/interview.py) | 167-184 |
 | 9.2 | The heuristic scorer, in full | [`interview.py`](../careercrew/interview.py) | 225-294 |
-| 10 | Advancing the cursor and asking the next question | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 280-305 |
-| 11 | The last answer: overall score and completion | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 306-321 |
-| 12 | Persistence: one row per session, rebuilt turn rows | [`session_store.py`](../careercrew/session_store.py) | 211-251 |
-| 13 | The three renderers the tab uses | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 87-130 |
+| 10 | Advancing the cursor and asking the next question | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 259-279 |
+| 11 | The last answer: keep the feedback, stop asking | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 281-290 |
+| 12 | Persistence: one row per session, rebuilt turn rows | [`session_store.py`](../careercrew/session_store.py) | 209-245 |
+| 13 | The two renderers the tab uses | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 47-116 |
 
 ### A3. The whole tab on one diagram
 
@@ -74,7 +76,7 @@ a double submit cannot evaluate the same question twice.
 ```mermaid
 flowchart TD
     Start["Start interview"] --> Gate{"ctx_state?<br/>status APPROVED?"}
-    Gate -->|no| Blocked["blocked card + alert<br/>7-tuple, nothing saved"]
+    Gate -->|no| Blocked["blocked card + alert<br/>6-tuple, nothing saved"]
     Gate -->|yes| Gen["generate_questions<br/>interview.py:31"]
     Gen --> Bank["_fallback_questions<br/>gaps -> skills -> behavioral"]
     Gen --> Session["MockInterviewSession<br/>int-xxxxxxxx"]
@@ -84,7 +86,7 @@ flowchart TD
     Ask --> TTS["audio.speak<br/>tts-1 -> tmp mp3"]
     TTS --> Turn["append interviewer turn"]
     Turn --> Save[("SQLite<br/>interview_sessions<br/>interview_turns")]
-    Save --> Tuple["7-tuple -> iv_state"]
+    Save --> Tuple["6-tuple -> iv_state"]
 
     Tuple --> Submit["Submit answer"]
     Submit --> STT["audio.transcribe<br/>whisper-1"]
@@ -95,8 +97,7 @@ flowchart TD
     Eval --> Append["evaluations.append<br/>= cursor advance"]
     Append --> More{"more questions?"}
     More -->|yes| Ask
-    More -->|no| Overall["overall_evaluation<br/>completed = True"]
-    Overall --> Final["7-tuple: feedback + score"]
+    More -->|no| Final["6-tuple: last answer's<br/>feedback stays on screen"]
 ```
 
 ### A4. How to read the steps
@@ -126,7 +127,7 @@ Appendix C.
 
 **The code**
 
-```startLine:440:467:app.py
+```startLine:439:466:app.py
         iv_start_btn.click(
             interview_start,
             inputs=[ctx_state, iv_questions],
@@ -136,7 +137,6 @@ Appendix C.
                 iv_audio,
                 iv_chatbot,
                 iv_feedback_html,
-                iv_overall_html,
                 iv_state,
             ],
             show_progress="hidden",
@@ -150,7 +150,6 @@ Appendix C.
                 iv_audio,
                 iv_chatbot,
                 iv_feedback_html,
-                iv_overall_html,
                 iv_state,
             ],
             show_progress="hidden",
@@ -159,19 +158,24 @@ Appendix C.
 
 **Line by line**
 
-- **440-451** — `Start interview` passes **two** inputs: the Analyze context and the
-  question-count slider. It writes **seven** outputs.
-- **454-467** — `Submit answer` passes **four** inputs: context, the live session,
-  the typed text, and the recorded-file path. It writes the **same seven** outputs,
+- **439-450** — `Start interview` passes **two** inputs: the Analyze context and the
+  question-count slider. It writes **six** outputs.
+- **452-466** — `Submit answer` passes **four** inputs: context, the live session,
+  the typed text, and the recorded-file path. It writes the **same six** outputs,
   in the same order.
-- **451, 467** — `show_progress="hidden"` suppresses Gradio's per-output spinner.
-  These handlers return 7 outputs, so the default mode would stack seven progress
+- **450, 466** — `show_progress="hidden"` suppresses Gradio's per-output spinner.
+  These handlers return 6 outputs, so the default mode would stack six progress
   strips.
 
 Two facts are load-bearing. First, **`ctx_state` and `iv_state` are different
 Gradio `gr.State`s**: the first holds the Analyze JSON blob, the second holds the
 interview JSON. Second, **the order of `outputs` is the tuple contract** — every
-return statement in both handlers must produce these seven values positionally.
+return statement in both handlers must produce these six values positionally.
+
+There is deliberately **no end-of-interview card** in that list. The five visible
+slots are the alert banner, the question card, the audio player, the transcript, and
+the per-answer feedback. Feedback is replaced on every answer, and the last answer's
+feedback simply stays visible when the questions run out.
 
 **In -> Out:** live widget objects -> two registrations Gradio will call on click.
 
@@ -189,7 +193,7 @@ other's interview, and a reload simply starts with `None`.
 
 **The code**
 
-```startLine:270:330:app.py
+```startLine:270:329:app.py
             with gr.Tab("3 · Mock interview"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Voice mock interview</h3>"
@@ -250,7 +254,6 @@ other's interview, and a reload simply starts with `None`.
                             elem_id="cc-iv-transcript",
                         )
                 iv_feedback_html = gr.HTML("")
-                iv_overall_html = gr.HTML("")
 ```
 
 **Line by line**
@@ -268,10 +271,10 @@ other's interview, and a reload simply starts with `None`.
   works with no microphone and no API key.
 - **316-322** — the submit button. It is **not** disabled while a request is in
   flight, which is a known rough edge (see Appendix E).
-- **325-329** — the transcript. `Chatbot` takes a list of `{"role", "content"}`
+- **323-328** — the transcript. `Chatbot` takes a list of `{"role", "content"}`
   dicts, which `_turns_to_messages` produces.
-- **329-330** — two empty HTML blocks: the per-answer feedback card and the overall
-  scorecard. They stay empty mid-interview.
+- **329** — one empty HTML block: the per-answer feedback card. It is the **only**
+  feedback surface in the tab; there is no second card at the end.
 
 **In -> Out:** nothing; this step only constructs components.
 
@@ -334,7 +337,7 @@ answer instead of at the next page load.
 
 **The code**
 
-```startLine:144:192:careercrew/callbacks_interview.py
+```startLine:130:175:careercrew/callbacks_interview.py
 def interview_start(ctx_state, count: int) -> tuple:
     """Begin a mock interview: generate questions and ask the first one."""
     context = _load_context(ctx_state)
@@ -345,7 +348,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             None,
             [],
             "",
-            "",
             None,
         )
     if not _is_approved(ctx_state):
@@ -354,7 +356,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             _question_html(None, blocked=True),
             None,
             [],
-            "",
             "",
             None,
         )
@@ -374,7 +375,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             None,
             [],
             "",
-            "",
             None,
         )
 
@@ -388,7 +388,7 @@ def interview_start(ctx_state, count: int) -> tuple:
 
 **Line by line**
 
-- **146-156** — gate 1: no Analyze context. The 7-tuple is `(alert, blocked card,
+- **133-141** — gate 1: no Analyze context. The 6-tuple is `(alert, blocked card,
   None, [], "", "", None)`; the last slot is `iv_state`, and `None` means **no
   session exists yet**.
 - **157-166** — gate 2: the bundle is not approved. Same shape, different alert.
@@ -404,10 +404,10 @@ def interview_start(ctx_state, count: int) -> tuple:
 - **192** — the first question is asked by the same helper that asks all the
   others.
 
-**In -> Out:** `(ctx_state, slider_value)` -> the 7-tuple for question 0.
+**In -> Out:** `(ctx_state, slider_value)` -> the 6-tuple for question 0.
 
 **Why it is built this way:** the three early returns are ordered cheapest-first,
-and every one of them returns the **full** 7-tuple. A short tuple would make Gradio
+and every one of them returns the **full** 6-tuple. A short tuple would make Gradio
 throw a "handler did not return enough outputs" error instead of showing the gate
 message.
 
@@ -573,7 +573,7 @@ verbatim from the analysis, which is what later lets the heuristic scorer say
 
 **The code**
 
-```startLine:195:212:careercrew/callbacks_interview.py
+```startLine:178:194:careercrew/callbacks_interview.py
 def _ask_question(session: MockInterviewSession, index: int, *, error: str = "") -> tuple:
     """Append the interviewer's question turn, synthesize audio, and render."""
     question = session.questions[index]
@@ -589,14 +589,13 @@ def _ask_question(session: MockInterviewSession, index: int, *, error: str = "")
         audio_path or None,
         _turns_to_messages(session),
         "",
-        "",
         session.model_dump_json(),
     )
 ```
 
 **Line by line**
 
-- **198** — TTS. `or ""` normalises `None` to the empty string so the model holds a
+- **181** — TTS. `or ""` normalises `None` to the empty string so the model holds a
   `str`, not `Optional[str]`.
 - **200-202** — the interviewer's line is recorded in the transcript. Note the turn
   is appended **after** the audio is produced, so a failed synthesis still leaves a
@@ -609,7 +608,7 @@ def _ask_question(session: MockInterviewSession, index: int, *, error: str = "")
   answer's feedback card when a new question arrives.
 - **211** — slot `[6]`, `iv_state`, is the whole session serialized.
 
-**In -> Out:** a session plus a question index -> the 7-tuple for that question.
+**In -> Out:** a session plus a question index -> the 6-tuple for that question.
 
 **Why it is built this way:** one helper for "ask question N" is what makes the
 submit handler's middle path a single call. The alternative — inline rendering in
@@ -702,7 +701,7 @@ def _question_html(
         return (
             "<div class='cc-card'><h3>Interview complete</h3>"
             "<div class='cc-empty'><strong>You finished the mock interview</strong>"
-            "Review your score and the per-question feedback below, then ask the "
+            "Review the feedback on your last answer below, then ask the "
             "post-interview coach anything you like.</div></div>"
         )
     return (
@@ -745,7 +744,7 @@ own copy.
 
 **The code**
 
-```startLine:215:252:careercrew/callbacks_interview.py
+```startLine:197:231:careercrew/callbacks_interview.py
 def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
     """Evaluate the candidate's answer, then move to the next question."""
     context = _load_context(ctx_state)
@@ -757,7 +756,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             None,
             [],
             "",
-            "",
             iv_state,
         )
     if not _is_approved(ctx_state):
@@ -766,7 +764,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, blocked=True),
             None,
             _turns_to_messages(session),
-            "",
             "",
             iv_state,
         )
@@ -778,8 +775,7 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, done=True),
             None,
             _turns_to_messages(session),
-            "",
-            _overall_html(session),
+            _evaluation_html(session.evaluations[-1] if session.evaluations else None),
             session.model_dump_json(),
         )
 
@@ -788,20 +784,20 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
 
 **Line by line**
 
-- **217-218** — the session is rehydrated from `iv_state` by
-  `_load_interview` (`:324`), which returns `None` on invalid JSON.
-- **219-228** — no context or no session: tell the user to start. `iv_state` is
+- **199-200** — the session is rehydrated from `iv_state` by
+  `_load_interview` (`:293`), which returns `None` on invalid JSON.
+- **201-209** — no context or no session: tell the user to start. `iv_state` is
   handed back **unchanged**, so nothing is lost.
-- **229-238** — the approval gate again, on every single answer. Note it still
+- **210-218** — the approval gate again, on every single answer. Note it still
   renders the existing transcript.
-- **240** — **the cursor.** `len(session.evaluations)` is the index of the next
+- **220** — **the cursor.** `len(session.evaluations)` is the index of the next
   question. There is no counter field anywhere in the model.
-- **241-250** — completion guard: if the cursor is past the end, show the overall
-  score instead of crashing on `questions[index]`. This makes a late double-click
-  harmless.
-- **252** — only now is the current question read.
+- **221-229** — completion guard: if the cursor is past the end, re-render the last
+  answer's feedback instead of crashing on `questions[index]`. This makes a late
+  double-click harmless.
+- **231** — only now is the current question read.
 
-**In -> Out:** four widget values -> either an early 7-tuple or the question being
+**In -> Out:** four widget values -> either an early 6-tuple or the question being
 answered.
 
 **Why it is built this way:** deriving the cursor from `evaluations` makes the
@@ -819,7 +815,7 @@ twice it would advance twice, so the guard at 240-241 is the safety net, and the
 
 **The code**
 
-```startLine:252:268:careercrew/callbacks_interview.py
+```startLine:231:246:careercrew/callbacks_interview.py
     question = session.questions[index]
 
     # Prefer the transcript of the recorded audio; fall back to typed text.
@@ -834,20 +830,19 @@ twice it would advance twice, so the guard at 240-241 is the safety net, and the
             None,
             _turns_to_messages(session),
             _evaluation_html(session.evaluations[-1] if session.evaluations else None),
-            "",
             session.model_dump_json(),
         )
 ```
 
 **Line by line**
 
-- **255** — `transcribe` is called only when a recording exists. It returns `""` for
+- **234** — `transcribe` is called only when a recording exists. It returns `""` for
   a missing path, no key, or any API error (see `careercrew/audio.py:38-59`).
-- **256** — the precedence is explicit: **recording, then typed text**. An empty
+- **235** — the precedence is explicit: **recording, then typed text**. An empty
   transcript (silence, or a failed call) falls through to whatever was typed.
-- **258** — one guardrail call covers empty, over 6000 characters, and
+- **237** — one guardrail call covers empty, over 6000 characters, and
   instruction-injection patterns (`careercrew/guardrails.py:196-211`).
-- **260-267** — the rejection tuple. Two details matter: the **same** question is
+- **238-246** — the rejection tuple. Two details matter: the **same** question is
   re-rendered (no advance, because nothing was appended to `evaluations`), and the
   previous answer's feedback is re-shown rather than cleared.
 
@@ -868,7 +863,7 @@ be acceptable", which is the property that actually matters.
 
 **The code**
 
-```startLine:270:279:careercrew/callbacks_interview.py
+```startLine:248:258:careercrew/callbacks_interview.py
     models = _context_models(context)
     context_bundle = {
         "role": models["requirements"].model_dump(),
@@ -883,11 +878,11 @@ be acceptable", which is the property that actually matters.
 
 **Line by line**
 
-- **270-275** — a **narrowed** context. The evaluator gets the role, the gaps, and
+- **248-253** — a **narrowed** context. The evaluator gets the role, the gaps, and
   the prep plan, but deliberately **not** the whole candidate profile. Fewer tokens,
   and no chance of the scorer inventing a fact it half-read.
-- **276-278** — one call, which internally handles LLM and fallback.
-- **279** — output guardrail. Note what happens next: the result is **carried
+- **254-256** — one call, which internally handles LLM and fallback.
+- **257** — output guardrail. Note what happens next: the result is **carried
   forward**, not acted on here. It surfaces only on the final answer (step 11).
 
 **In -> Out:** question, answer, context -> an `AnswerEvaluation` in 0-100.
@@ -1054,7 +1049,7 @@ every deployment.
 
 **The code**
 
-```startLine:280:305:careercrew/callbacks_interview.py
+```startLine:258:279:careercrew/callbacks_interview.py
     session.evaluations.append(evaluation)
     interview.append_turn(
         session,
@@ -1066,9 +1061,6 @@ every deployment.
 
     next_index = index + 1
     if next_index < len(session.questions):
-        session.overall_score = round(
-            sum(e.score for e in session.evaluations) / len(session.evaluations)
-        )
         _STORE.save_interview(session)
         question_out = _ask_question(session, next_index)
         # Splice the evaluation feedback into the returned tuple.
@@ -1078,29 +1070,28 @@ every deployment.
             question_out[2],
             question_out[3],
             _evaluation_html(evaluation),
-            "",
-            question_out[6],
+            question_out[5],
         )
 ```
 
 **Line by line**
 
-- **280** — **the cursor advances here and only here.** Everything after this line
+- **258** — **the cursor advances here and only here.** Everything after this line
   sees a session that has moved on.
-- **281-287** — the candidate's turn, with `question_index=index` so the transcript
+- **259-265** — the candidate's turn, with `question_index=index` so the transcript
   can be paired with the evaluation.
-- **289** — the next index. A local variable, not stored.
-- **290-292** — the running average, recomputed from scratch each time. Cheap, and
-  impossible to drift.
-- **293** — saved **before** the next question is asked, so a crash inside
+- **267** — the next index. A local variable, not stored.
+- **268** — still questions left? Note there is no score bookkeeping here any more:
+  the average used to be maintained on the session and is simply gone.
+- **269** — saved **before** the next question is asked, so a crash inside
   `_ask_question` still leaves a consistent session.
-- **294** — TTS, append, save for question N+1.
-- **297-304** — the splice. **This is the subtle part:** `_ask_question` returns an
+- **270** — TTS, append, save for question N+1.
+- **272-279** — the splice. **This is the subtle part:** `_ask_question` returns an
   empty slot `[4]` because it has no feedback to show. Here that slot is overwritten
   with `_evaluation_html(evaluation)` so the user sees feedback for the answer they
-  *just gave* alongside the *next* question. Slot `[5]` stays empty until the end.
+  *just gave* alongside the *next* question.
 
-**In -> Out:** the evaluated session -> the 7-tuple for question N+1, with N's
+**In -> Out:** the evaluated session -> the 6-tuple for question N+1, with N's
 feedback in slot `[4]`.
 
 **Why it is built this way:** the splice exists because two different things are
@@ -1111,18 +1102,14 @@ coupled the "ask" helper to the "score" concern for the sake of one field.
 
 ---
 
-### Step 11. The last answer: overall score and completion
+### Step 11. The last answer: keep the feedback, stop asking
 
 **Runs when:** `next_index >= len(session.questions)`.
 
 **The code**
 
-```startLine:307:321:careercrew/callbacks_interview.py
-    # Final answer: finish the session and score it.
-    score, summary = interview.overall_evaluation(session, llm=llm.callable_or_none())
-    session.overall_score = score
-    session.overall_summary = summary
-    session.completed = True
+```startLine:281:290:careercrew/callbacks_interview.py
+    # Final answer: finish the session and keep the last answer's feedback.
     _STORE.save_interview(session)
     return (
         _alert_html("; ".join(eval_problems)) if eval_problems else _audio_status(),
@@ -1130,52 +1117,31 @@ coupled the "ask" helper to the "score" concern for the sake of one field.
         None,
         _turns_to_messages(session),
         _evaluation_html(evaluation),
-        _overall_html(session),
         session.model_dump_json(),
     )
 ```
 
 **Line by line**
 
-- **308** — `overall_evaluation` (`careercrew/interview.py:319-334`) returns the plain
-  mean of all scores, plus an LLM-written 3-5 sentence summary or a deterministic
-  one.
-- **311** — `completed = True` is what makes `_overall_html` render at all.
-- **314** — the only place `eval_problems` from step 9 is shown. If the evaluator
+- **282** — the last save. Nothing else is written: there is no overall score to
+  compute and no summary to store, because the product no longer shows one.
+- **284** — the only place `eval_problems` from step 9 is shown. If the evaluator
   produced something out of bounds, the user learns about it here.
-- **315** — the card flips to "Interview complete".
-- **316** — audio cleared.
-- **318-319** — the final answer's feedback **and** the overall score are shown
-  together, which is the only moment both are visible at once.
+- **285** — the card flips to "Interview complete".
+- **286** — audio cleared, since there is no next question to read out.
+- **288** — **the final answer's feedback is still rendered here.** The tab ends on
+  the same per-answer card the user has seen after every other answer; it is simply
+  not replaced by anything afterwards.
+- **289** — the session goes back to `iv_state`, so the post-interview coach can
+  read the full transcript and every evaluation.
 
-The overall scorer:
-
-```startLine:319:334:careercrew/interview.py
-def overall_evaluation(session: MockInterviewSession, *, llm=None) -> tuple[int, str]:
-    """Return (overall_score, summary) for a finished session."""
-    scores = [e.score for e in session.evaluations]
-    base = round(sum(scores) / len(scores)) if scores else 0
-    all_improvements: list[str] = []
-    for evaluation in session.evaluations:
-        all_improvements.extend(evaluation.improvements)
-
-    if llm is not None:
-        try:
-            raw = llm(_build_overall_prompt(session, base))
-            summary = _parse_overall(raw) or _fallback_summary(session, base)
-            return base, summary
-        except Exception:  # noqa: BLE001
-            pass
-    return base, _fallback_summary(session, base)
-```
-
-Note that the **score is always the plain mean**, even with an LLM. The model only
-writes the prose. That keeps the number reproducible.
-
-**In -> Out:** the completed session -> the final 7-tuple.
+**In -> Out:** the last evaluated session -> the final 6-tuple, whose feedback slot
+holds the last answer's evaluation.
 
 **Why it is built this way:** completion is derived from the question list, not from
-a "finished" button. The user cannot end early, and cannot overrun.
+a "finished" button. The user cannot end early, and cannot overrun. Ending with the
+per-answer card rather than a summary card keeps one feedback surface in the tab,
+which is easier to explain and impossible to contradict.
 
 **Hands off to:** the Post-interview coach, which reads this same session in
 [`POST_INTERVIEW_COACH_WALKTHROUGH.md`](POST_INTERVIEW_COACH_WALKTHROUGH.md).
@@ -1188,7 +1154,7 @@ a "finished" button. The user cannot end early, and cannot overrun.
 
 **The code**
 
-```startLine:211:251:careercrew/session_store.py
+```startLine:209:245:careercrew/session_store.py
     def save_interview(self, session, package_id: str | None = None) -> None:
         """Insert or update a mock interview session (with its transcript turns)."""
         now = _now()
@@ -1197,12 +1163,10 @@ a "finished" button. The user cannot end early, and cannot overrun.
                 """
                 INSERT INTO interview_sessions
                     (session_id, package_id, role_title, session_json,
-                     overall_score, completed, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     session_json = excluded.session_json,
-                    overall_score = excluded.overall_score,
-                    completed = excluded.completed,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -1210,8 +1174,6 @@ a "finished" button. The user cannot end early, and cannot overrun.
                     package_id,
                     session.role_title,
                     session.model_dump_json(),
-                    int(session.overall_score),
-                    1 if session.completed else 0,
                     now,
                     now,
                 ),
@@ -1234,26 +1196,24 @@ a "finished" button. The user cannot end early, and cannot overrun.
 
 **Line by line**
 
-- **217-225** — upsert on `session_id`. `created_at` is written only on insert;
+- **215-218** — upsert on `session_id`. `created_at` is written only on insert;
   `updated_at` is refreshed on every save.
-- **231** — the **whole session** goes into `session_json`. The other columns are
-  denormalised copies for querying, not the source of truth.
-- **238-239** — delete then re-insert the turns. The session object is the source of
+- **227** — the **whole session** goes into `session_json`. That one column is the
+  source of truth: everything else in the row is a lookup key.
+- **232-233** — delete then re-insert the turns. The session object is the source of
   truth; the table is a mirror, so rebuilding is always correct and never doubles a
   row.
-- **241-250** — one row per turn with `question_index`, so a query can reconstruct
+- **234-245** — one row per turn with `question_index`, so a query can reconstruct
   the transcript in order.
 
 The two tables:
 
-```startLine:44:63:careercrew/session_store.py
+```startLine:44:61:careercrew/session_store.py
 CREATE TABLE IF NOT EXISTS interview_sessions (
     session_id      TEXT PRIMARY KEY,
     package_id      TEXT,
     role_title      TEXT NOT NULL DEFAULT '',
     session_json    TEXT NOT NULL,
-    overall_score   INTEGER NOT NULL DEFAULT 0,
-    completed       INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -1276,7 +1236,8 @@ package would need a one-word change at each call site.
 **In -> Out:** the in-memory session -> two tables.
 
 **Why it is built this way:** one upsert per save means crash-consistency is trivial.
-`latest_interview` (`careercrew/session_store.py:253-263`) reads
+There is no denormalised score column, because nothing needs to sort or filter
+sessions by score any more. `latest_interview` reads
 `ORDER BY updated_at DESC LIMIT 1`, which is what lets the post-interview coach
 recover a session after a page refresh destroyed `iv_state`.
 
@@ -1284,7 +1245,7 @@ recover a session after a page refresh destroyed `iv_state`.
 
 ---
 
-### Step 13. The three renderers the tab uses
+### Step 13. The two renderers the tab uses
 
 **Runs when:** every render.
 
@@ -1335,22 +1296,8 @@ def _evaluation_html(evaluation: AnswerEvaluation | None) -> str:
     )
 ```
 
-The overall scorecard:
-
-```startLine:119:130:careercrew/callbacks_interview.py
-def _overall_html(session: MockInterviewSession) -> str:
-    if not session.completed:
-        return ""
-    return (
-        "<div class='cc-card'><h3>Overall performance</h3>"
-        "<div class='cc-meter'><div class='cc-meter-top'>"
-        f"<div class='cc-score'>{int(session.overall_score)}<small>/100</small></div>"
-        "<div class='cc-meter-label'>Average across your answers</div></div>"
-        f"<div class='cc-bar'><span style='width:{int(session.overall_score)}%'></span></div></div>"
-        f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.6'>{_esc(session.overall_summary)}</p>"
-        "</div>"
-    )
-```
+There is no third renderer: the overall scorecard that used to follow this block is
+gone, together with `_overall_html` and the model fields it read.
 
 **Line by line**
 
@@ -1360,11 +1307,10 @@ def _overall_html(session: MockInterviewSession) -> str:
   angle brackets cannot break the markup.
 - **101, 106, 111** — each section is omitted when empty, so the card never shows a
   heading with nothing under it.
-- **120-121** — the scorecard is hidden until `completed`.
 
 **In -> Out:** session or evaluation -> HTML strings.
 
-**Why it is built this way:** all three are pure functions of the models. They can be
+**Why it is built this way:** both are pure functions of the models. They can be
 unit-tested without Gradio, and the callbacks stay about orchestration.
 
 **Hands off to:** the browser.
@@ -1381,8 +1327,9 @@ A compact trace, so the document stays honest without doubling in length.
    return `None` / `""` without a network call.
 3. `_ask_question` therefore renders `_audio_status()`, the "Text-only practice
    mode" banner, in slot `[0]`.
-4. `evaluate_answer` returns `_fallback_evaluation`, the heuristic scorer.
-5. `overall_evaluation` returns the mean plus `_fallback_summary`.
+4. `evaluate_answer` returns `_fallback_evaluation`, the heuristic scorer. There is
+   no second aggregation step: every answer is scored on its own and that is the
+   only feedback the tab reports.
 
 | Area | With key | Without key |
 |------|----------|-------------|
@@ -1390,8 +1337,7 @@ A compact trace, so the document stays honest without doubling in length.
 | Interviewer voice | `tts-1`, autoplaying mp3 | text card only, banner explains |
 | Answer capture | `whisper-1` transcript or typing | typing only |
 | Per-answer score | model critique | heuristic: length + digits + action-result |
-| Overall score | plain mean either way | plain mean |
-| Summary | model prose | deterministic sentence |
+| Per-answer feedback | model-written sections | deterministic sections, same shape |
 
 Nothing in the tab is unreachable offline. Voice is the only missing capability.
 
@@ -1412,13 +1358,13 @@ cursor = len(session.evaluations)
 | Ask question | `turns` grows | unchanged |
 | Submit rejected answer | nothing | unchanged |
 | Submit accepted answer | `evaluations` grows by 1, `turns` grows by 1 | +1 |
-| Final answer | `completed = True` | equal to `len(questions)` |
+| Final answer | `turns` grows by 1 | equal to `len(questions)` |
 
 Consequences worth stating out loud:
 
 - A guardrail rejection cannot skip a question, because nothing was appended.
-- A duplicate submit of the last answer hits the completion guard (`:241`) and
-  re-renders the overall card instead of raising `IndexError`.
+- A duplicate submit of the last answer hits the completion guard (`:221`) and
+  re-renders the last answer's feedback instead of raising `IndexError`.
 - The count in "Question N of the mock interview" always matches the stored
   evaluations, so the UI cannot disagree with the database.
 
@@ -1439,7 +1385,7 @@ body does not match the source.
 Print one cited range:
 
 ```powershell
-python -c "import pathlib; ls=pathlib.Path('careercrew/callbacks_interview.py').read_text(encoding='utf-8').splitlines(); [print('%4d| %s' % (i+1, ls[i])) for i in range(143, 193)]"
+python -c "import pathlib; ls=pathlib.Path('careercrew/callbacks_interview.py').read_text(encoding='utf-8').splitlines(); [print('%4d| %s' % (i+1, ls[i])) for i in range(142, 181)]"
 ```
 
 Find a call site:
@@ -1460,26 +1406,26 @@ rg -n "_is_approved|save_interview|latest_interview|_ask_question" careercrew ap
 | 2 | Questions from the gaps | 4-5.1 | The fallback bank is ordered by real priority, so the hardest question comes first |
 | 3 | One cursor, no counter | 7, 10 | The index is `len(evaluations)`; that is why a rejected answer cannot skip a question |
 | 4 | Voice is optional | 2, 6.1, 8 | Browser captures the mic, Whisper transcribes, but typed text is always accepted |
-| 5 | Scored and persisted | 11-12 | The score is the plain mean; the session survives a refresh in SQLite |
+| 5 | Feedback per answer, not a report card | 11-12 | Every answer gets its own card; the last one stays on screen when the questions end |
 
 ### Questions an examiner is likely to ask
 
 | Question | Answer, with the place to look |
 |----------|-------------------------------|
-| Where does the click enter Python? | `iv_start_btn.click(...)` at `app.py:440-451`; handler at `careercrew/callbacks_interview.py:144` |
+| Where does the click enter Python? | `iv_start_btn.click(...)` at `app.py:439-450`; handler at `careercrew/callbacks_interview.py:130` |
 | Why is `interview_start` not a generator? | It has nothing to stream — one question generation call, then one render. `analyze` needs a generator because the crew takes 30-90 s |
-| Where is the "must be approved" rule? | `_is_approved` (`careercrew/callbacks_interview.py:30-44`), called at `:157`, `:229`, `:337`, `:368` |
+| Where is the "must be approved" rule? | `_is_approved` (`careercrew/callbacks_interview.py:30-44`), called at `:142`, `:210`, `:306`, `:337` |
 | Does the gate use UI state or the database? | The database: `_STORE.get_package(package_id)["status"]` (`:44`) |
 | Who generates the questions? | `interview.generate_questions` (`careercrew/interview.py:31-55`); fallback bank at `:101-164` |
-| Where are the questions stored? | Inside `MockInterviewSession.questions`, serialized to `session_json` (`careercrew/session_store.py:231`) |
+| Where are the questions stored? | Inside `MockInterviewSession.questions`, serialized to `session_json` (`careercrew/session_store.py:227`) |
 | Where does the mic get opened? | The browser, via `gr.Audio(sources=["microphone"])` at `app.py:304-308`. No custom JS in this repo |
 | What model does STT/TTS use? | `whisper-1` and `tts-1` with voice `alloy`, from `careercrew/config.py:72-74` |
-| Where is the current question tracked? | Nowhere — it is `len(session.evaluations)` at `careercrew/callbacks_interview.py:240` |
-| What if the answer is empty or injected? | `validate_interview_answer` (`careercrew/guardrails.py:196-211`); the handler returns at `:260` without advancing |
+| Where is the current question tracked? | Nowhere — it is `len(session.evaluations)` at `careercrew/callbacks_interview.py:220` |
+| What if the answer is empty or injected? | `validate_interview_answer` (`careercrew/guardrails.py:196-211`); the handler returns at `:238` without advancing |
 | How is an answer scored without an API key? | `_fallback_evaluation` (`careercrew/interview.py:225-294`): base 55, +12 length, +10 digits, +12 action-result |
-| Is the overall score model-generated? | No. It is the plain mean (`careercrew/interview.py:321-322`); the model only writes the summary |
-| How does the post-interview coach find this session after a refresh? | `_STORE.latest_interview()` (`careercrew/session_store.py:253-263`), used at `careercrew/callbacks_interview.py:370` |
-| Why are turns deleted before insert? | The session object is the source of truth; rebuilding avoids duplicate rows (`careercrew/session_store.py:238-239`) |
+| Is there an overall score at the end? | No. The tab keeps per-answer feedback only; `_overall_html` and the mean were removed. The Post-interview coach can still discuss the whole transcript |
+| How does the post-interview coach find this session after a refresh? | `_STORE.latest_interview()` (`careercrew/session_store.py:247-259`), used at `careercrew/callbacks_interview.py:339` |
+| Why are turns deleted before insert? | The session object is the source of truth; rebuilding avoids duplicate rows (`careercrew/session_store.py:232-233`) |
 | Is anything submitted to an employer? | No. Practice only; the tab copy says so at `app.py:273-276` |
 
 ---
@@ -1491,10 +1437,10 @@ Honest notes, so the document is not a sales brochure.
 | Observation | Where | Effect |
 |-------------|-------|--------|
 | `audio.cleanup()` is defined but never called | `careercrew/audio.py:99` | One temp `.mp3` per question accumulates in the OS temp folder |
-| `eval_problems` is computed but deferred | `careercrew/callbacks_interview.py:279` | A mid-interview guardrail warning is dropped; only the last is shown at `:314` |
-| `package_id` is never passed to `save_interview` | `careercrew/session_store.py:212` | The column stays `NULL`, so sessions are not linked to bundles |
-| Submit is not disabled while running | `app.py:316-322` | A very fast double-click can race; the completion guard at `:241` is the backstop |
-| Typed text is ignored when a recording exists | `careercrew/callbacks_interview.py:255-256` | Recording wins by design, but a user who records silence relies on Whisper returning `""` |
+| `eval_problems` is computed but deferred | `careercrew/callbacks_interview.py:257` | A mid-interview guardrail warning is dropped; only the last is shown at `:284` |
+| `package_id` is never passed to `save_interview` | `careercrew/session_store.py:209` | The column stays `NULL`, so sessions are not linked to bundles |
+| Submit is not disabled while running | `app.py:316-322` | A very fast double-click can race; the completion guard at `:221` is the backstop |
+| Typed text is ignored when a recording exists | `careercrew/callbacks_interview.py:234-235` | Recording wins by design, but a user who records silence relies on Whisper returning `""` |
 
 ---
 

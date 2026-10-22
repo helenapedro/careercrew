@@ -61,14 +61,20 @@ def test_evaluate_answer_fallback_rewards_specifics():
     assert strong.what_interviewer_wanted
 
 
-def test_overall_evaluation_summarises():
+def test_evaluation_is_kept_per_answer():
     session = MockInterviewSession(session_id="s1")
     profile, requirements, gaps = _inputs()
     question = interview.generate_questions(profile, requirements, gaps, None, 1)[0]
     session.evaluations.append(interview.evaluate_answer(question, "A short answer.", {}))
-    score, summary = interview.overall_evaluation(session)
-    assert 0 <= score <= 100
-    assert summary
+    assert 0 <= session.evaluations[0].score <= 100
+    assert session.evaluations[0].improvements
+
+
+def test_session_has_no_overall_score_fields():
+    session = MockInterviewSession(session_id="s1")
+    assert not hasattr(session, "overall_score")
+    assert not hasattr(session, "overall_summary")
+    assert not hasattr(interview, "overall_evaluation")
 
 
 def test_append_turn_validates_and_records():

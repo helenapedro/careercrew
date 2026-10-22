@@ -32,9 +32,6 @@ def _context() -> str:
                 improvements=["Add a concrete example"],
             )
         ],
-        overall_score=40,
-        overall_summary="Needs more specifics.",
-        completed=True,
     )
     return coach.build_context(
         profile=CandidateProfile(full_name="Alex", skills=["Python"]),
@@ -54,7 +51,7 @@ def test_build_context_includes_everything():
     assert "Job requirements" in context
     assert "gap report" in context
     assert "Mock interview transcript" in context
-    assert "Overall mock interview score" in context
+    assert "Mock interview evaluations" in context
     assert "Coaching guidelines" in context
 
 

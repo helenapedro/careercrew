@@ -24,12 +24,12 @@ part makes the differences obvious.
 ### A1. The answer in one paragraph
 
 You press **Send** (or Enter). Gradio calls `_render_post_chat`
-(`careercrew/callbacks_interview.py:364`), which takes **four** inputs instead of
+(`careercrew/callbacks_interview.py:333`), which takes **four** inputs instead of
 three — the extra one is `iv_state`, the mock interview. It gates on approval, loads
 the interview session from `iv_state` **or falls back to the most recent session in
 SQLite**, and calls `coach.build_context` with `include_interview=True` so the
-transcript, every per-question evaluation, and the overall score all enter the prompt.
-The reply comes from `coach.post_coach_reply` (`careercrew/coach.py:592`), which is
+transcript and every per-question evaluation all enter the prompt.
+The reply comes from `coach.post_coach_reply` (`careercrew/coach.py:588`), which is
 `coach._reply` **without a `scope_redirect`** — that single omission is why this
 channel answers broader questions than the prep coach. Both messages are appended to
 the visible thread and written to `chat_messages` with `channel="post"`.
@@ -110,7 +110,7 @@ Appendix C.
 
 **The code**
 
-```startLine:482:493:app.py
+```startLine:479:490:app.py
         post_msg.submit(
             _render_post_chat,
             inputs=[post_chat, post_msg, ctx_state, iv_state],
@@ -129,7 +129,7 @@ Appendix C.
 
 - **482, 488** — two triggers, one handler.
 - **484, 490** — **four inputs.** Compare with the prep coach's three
-  (`app.py:470-481`): the fourth is `iv_state`.
+  (`app.py:467-478`): the fourth is `iv_state`.
 - **485, 491** — still only two outputs. The handler cannot repaint anything outside
   this tab.
 
@@ -156,7 +156,7 @@ a module global so that two browser sessions cannot see each other's interviews.
 
 **The code**
 
-```startLine:335:358:app.py
+```startLine:334:355:app.py
             with gr.Tab("4 · Post-interview coach"):
                 gr.HTML(
                     "<div class='cc-panel-head'><h3>Post-interview coach</h3>"
@@ -246,7 +246,7 @@ section, and the prompt handles it.
 
 **The code**
 
-```startLine:364:398:careercrew/callbacks_interview.py
+```startLine:333:367:careercrew/callbacks_interview.py
 def _render_post_chat(history, message: str, ctx_state, iv_state):
     """Post-interview coach: everything about JD, resume, and interview results."""
     history = history or []
@@ -322,7 +322,7 @@ reply.
 
 **The code**
 
-```startLine:324:331:careercrew/callbacks_interview.py
+```startLine:293:299:careercrew/callbacks_interview.py
 def _load_interview(iv_state) -> MockInterviewSession | None:
     if not iv_state:
         return None
@@ -336,7 +336,7 @@ def _load_interview(iv_state) -> MockInterviewSession | None:
 
 - **325-326** — no state at all means no session.
 - **328** — the session round-trips through its own JSON. This is the same string the
-  interview tab writes into slot `[6]` of its 7-tuple.
+  interview tab writes into slot `[5]` of its 6-tuple.
 - **329-330** — malformed JSON returns `None` rather than raising, which is what makes
   the `or` on line 370 safe.
 
@@ -356,7 +356,7 @@ stack trace in the chat.
 
 **The code**
 
-```startLine:253:263:careercrew/session_store.py
+```startLine:247:257:careercrew/session_store.py
     def latest_interview(self):
         """Return the most recently updated mock interview session, or None."""
         from careercrew.models import MockInterviewSession
@@ -405,24 +405,22 @@ deployment it is a cross-session leak — see Appendix E.
             f"improve: {'; '.join(e.improvements)}"
             for e in interview.evaluations
         )
-        parts.append(
-            f"## Mock interview evaluations\n{evaluations}\n\n"
-            f"## Overall mock interview score: {interview.overall_score}/100\n"
-            f"{interview.overall_summary}"
-        )
+        parts.append(f"## Mock interview evaluations\n{evaluations}")
 ```
 
 **Line by line**
 
 - **67** — the double condition. The flag must be set **and** a session must exist.
-  The caller sets the flag from the session (`callbacks_interview.py:379`), so in
+  The caller sets the flag from the session (`callbacks_interview.py:348`), so in
   practice the two agree.
 - **68-70** — the transcript, one line per turn, role uppercased (`INTERVIEWER` /
-  `CANDIDATE`). This is the same format `interview._build_overall_prompt` uses.
+  `CANDIDATE`).
 - **71-76** — the evaluations, flattened to **one line per question**:
   `Q<n> score <s>: <what they wanted> | improve: <list>`. Flattening matters: the raw
   JSON would be several times longer and would push the context past the cap sooner.
-- **77-81** — the overall score and the summary, appended to the same section.
+- **77** — closes the evaluations section. **There is no overall score or
+  summary any more:** the mock interview reports per answer only, so the coach
+  works from the transcript and the individual evaluations.
 
 This block is inserted **after** the prep plan and **before** the guidelines, so the
 full ordering is: header, anchor topics, profile, requirements, gaps, prep plan,
@@ -447,7 +445,7 @@ each is a few hundred characters as lines, versus several thousand as JSON.
 
 **The code**
 
-```startLine:592:612:careercrew/coach.py
+```startLine:588:608:careercrew/coach.py
 def post_coach_reply(
     message: str,
     context: str,
@@ -463,8 +461,8 @@ def post_coach_reply(
         persona=(
             "You are the CareerCrew post-interview coach. You have the job "
             "description, the resume, the gap report, the prep plan, the full mock "
-            "interview transcript, the per-question evaluations, and the overall "
-            "score. Answer any follow-up question about performance and next steps, "
+            "interview transcript, and the per-question evaluations. Answer any "
+            "follow-up question about performance and next steps, "
             "grounded only in that material."
         ),
         llm=llm,
@@ -482,7 +480,7 @@ def post_coach_reply(
 Compare the two signatures at the call site — this is the entire behavioural
 difference between the tabs:
 
-```startLine:583:589:careercrew/coach.py
+```startLine:579:585:careercrew/coach.py
             "role, answer it helpfully instead of asking them to rephrase. "
             "Use only the context provided. Be specific and honest; "
             "never invent experience."
@@ -510,7 +508,7 @@ gate off without forking the code.
 
 **The code**
 
-```startLine:615:663:careercrew/coach.py
+```startLine:611:659:careercrew/coach.py
 def _reply(
     message: str,
     context: str,
@@ -627,7 +625,7 @@ def validate_coaching_reply(reply: str, *, context_text: str = "") -> list[str]:
 
 Warnings become visible via the handler:
 
-```startLine:387:388:careercrew/callbacks_interview.py
+```startLine:356:357:careercrew/callbacks_interview.py
     if warnings:
         reply += "\n\n_" + " ".join(warnings) + "_"
 ```
@@ -647,14 +645,14 @@ positive on the word "lie" would otherwise swallow a legitimate reply.
 
 **The code**
 
-```startLine:396:397:careercrew/callbacks_interview.py
+```startLine:365:366:careercrew/callbacks_interview.py
     _STORE.add_chat_message(session_id, "post", "user", prompt)
     _STORE.add_chat_message(session_id, "post", "assistant", reply)
 ```
 
 and the writer:
 
-```startLine:266:273:careercrew/session_store.py
+```startLine:260:267:careercrew/session_store.py
     def add_chat_message(self, session_id: str, channel: str, role: str, content: str) -> None:
         """Append one chat turn for a channel ('prep' or 'post')."""
         with self._connect() as conn:
@@ -703,7 +701,7 @@ record. Restoring it would need a `demo.load` handler that does not exist.
 | Answer | model, grounded in the transcript | keyword bucket ("score"/"performance" maps to the evaluation advice) |
 | Warning | only if something is off | always |
 
-The "score"/"performance" bucket in `_fallback_reply` (`careercrew/coach.py:677-682`)
+The "score"/"performance" bucket in `_fallback_reply` (`careercrew/coach.py:673-678`)
 was written for exactly this channel: it points the user at the per-question
 evaluations and the action-result structure.
 
@@ -766,18 +764,18 @@ rg -n "post_coach_reply|latest_interview|include_interview|channel=\"post\"|\"po
 
 | Question | Answer, with the place to look |
 |----------|-------------------------------|
-| Where does the click enter Python? | `post_msg.submit(...)` at `app.py:482-487`; handler at `careercrew/callbacks_interview.py:364` |
+| Where does the click enter Python? | `post_msg.submit(...)` at `app.py:479-484`; handler at `careercrew/callbacks_interview.py:333` |
 | What is different from the prep coach's handler? | One extra input (`iv_state`), a session lookup, `include_interview=True`, and `channel="post"` |
-| Does this tab require an approved bundle? | Yes, `_is_approved` at `careercrew/callbacks_interview.py:368` |
+| Does this tab require an approved bundle? | Yes, `_is_approved` at `careercrew/callbacks_interview.py:337` |
 | Does it require a completed interview? | No. Without a session, `include_interview` is `False` and the context is analysis-only (`:371-380`) |
-| How does it find the interview after a refresh? | `_STORE.latest_interview()` at `:370`, defined at `careercrew/session_store.py:253-263` |
+| How does it find the interview after a refresh? | `_STORE.latest_interview()` at `:370`, defined at `careercrew/session_store.py:247-257` |
 | Is that lookup scoped to this user? | **No.** `ORDER BY updated_at DESC LIMIT 1` with no `WHERE` clause |
-| Why is the prep coach scoped and this one not? | `scope_redirect` is passed at `careercrew/coach.py:587` for prep and omitted at `:609` for post |
-| Where is the scope gate implemented in `_reply`? | The `if scope_redirect is not None and detect_scope(...) is None` check at `careercrew/coach.py:638-640` |
+| Why is the prep coach scoped and this one not? | `scope_redirect` is passed at `careercrew/coach.py:583` for prep and omitted at `:609` for post |
+| Where is the scope gate implemented in `_reply`? | The `if scope_redirect is not None and detect_scope(...) is None` check at `careercrew/coach.py:634-636` |
 | Is the transcript sent verbatim? | Yes, one line per turn (`careercrew/coach.py:68-70`), including the candidate's own words |
 | Are evaluations sent as JSON? | No, flattened to `Q<n> score <s>: ... | improve: ...` (`careercrew/coach.py:71-76`) to fit the cap |
-| What gets trimmed if the context is too long? | The **front** (`careercrew/coach.py:88-89`), so the transcript survives and the profile can be cut |
-| Do warnings block the reply? | No. They are appended in italics (`careercrew/callbacks_interview.py:387-388`) |
+| What gets trimmed if the context is too long? | The **front** (`careercrew/coach.py:84-85`), so the transcript survives and the profile can be cut |
+| Do warnings block the reply? | No. They are appended in italics (`careercrew/callbacks_interview.py:356-357`) |
 | Does chat history persist across refresh? | The rows do (`channel="post"`); the visible thread does not |
 | Is anything sent to an employer? | No. Both tabs are practice only |
 
@@ -787,11 +785,11 @@ rg -n "post_coach_reply|latest_interview|include_interview|channel=\"post\"|\"po
 
 | Observation | Where | Effect |
 |-------------|-------|--------|
-| `latest_interview()` has no user or package filter | `careercrew/session_store.py:258-260` | In a shared deployment the post coach can attach another user's interview |
-| The fallback is silent | `careercrew/callbacks_interview.py:370` | The user cannot tell whether the transcript came from their session or from the database |
-| `scope_redirect` defaulting to `None` is undocumented at call sites | `careercrew/coach.py:621, 609` | A reader of `post_coach_reply` cannot see that a gate exists elsewhere |
-| The no-context branch builds interview-only context | `careercrew/callbacks_interview.py:381-382` | Unusual but reachable; the reply then lacks resume and JD grounding |
-| Post-chat rows group by interview, prep rows by package | `careercrew/callbacks_interview.py:393-397` | A future history feature needs to know the key differs per channel |
+| `latest_interview()` has no user or package filter | `careercrew/session_store.py:252-254` | In a shared deployment the post coach can attach another user's interview |
+| The fallback is silent | `careercrew/callbacks_interview.py:339` | The user cannot tell whether the transcript came from their session or from the database |
+| `scope_redirect` defaulting to `None` is undocumented at call sites | `careercrew/coach.py:617, 605` | A reader of `post_coach_reply` cannot see that a gate exists elsewhere |
+| The no-context branch builds interview-only context | `careercrew/callbacks_interview.py:350-351` | Unusual but reachable; the reply then lacks resume and JD grounding |
+| Post-chat rows group by interview, prep rows by package | `careercrew/callbacks_interview.py:362-366` | A future history feature needs to know the key differs per channel |
 
 ---
 

@@ -1,6 +1,6 @@
 # Walkthrough: `careercrew/interview.py`
 
-**File purpose:** Mock interviewer **logic** (questions, evaluate, overall, turns). Gradio wiring is in `app.py`.
+**File purpose:** Mock interviewer **logic** (questions, evaluate, turns). Gradio wiring is in `app.py`.
 
 **Flow:** [CODE_PATH_MOCK_INTERVIEW.md](../CODE_PATH_MOCK_INTERVIEW.md)
 
@@ -38,13 +38,6 @@ Same pattern as questions: try LLM, repair JSON, else deterministic.
 
 **What:** Append `TranscriptTurn`; optionally validate via guardrails.  
 **Why:** Live synchronized transcript source of truth in the session object.
-
----
-
-## `overall_evaluation(session, llm=None)`
-
-**What:** Average per-question scores; LLM or `_fallback_summary` for narrative.  
-**Sets:** Used by app to mark `completed=True`.
 
 ---
 

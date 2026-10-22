@@ -10,7 +10,7 @@
 |-------|------|
 | `packages` | Prep bundle JSON + inputs + trace + status + revision_count |
 | `decisions` | Append-only APPROVE/REJECT/REVISE history |
-| `interview_sessions` | Full session JSON + score + completed flag |
+| `interview_sessions` | Full session JSON + timestamps |
 | `interview_turns` | Per-turn transcript rows (rebuilt on each save) |
 | `chat_messages` | Prep/post coach turns (`channel` = prep\|post) |
 

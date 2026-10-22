@@ -608,8 +608,6 @@ erDiagram
         TEXT package_id FK
         TEXT role_title
         TEXT session_json
-        INTEGER overall_score
-        INTEGER completed
     }
     interview_turns {
         INTEGER id PK

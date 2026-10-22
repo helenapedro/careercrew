@@ -18,7 +18,7 @@ Read `COACHING_GUIDELINES_PATH` (interview guidelines markdown).
 
 ## `build_context(profile=..., requirements=..., gaps=..., prep_plan=..., interview=..., include_interview=False)`
 
-**What:** Assemble markdown sections from model JSON; if `include_interview`, append transcript + evaluations + overall score; append guidelines; trim to last `MAX_CONTEXT_CHARS`.  
+**What:** Assemble markdown sections from model JSON; if `include_interview`, append transcript + evaluations; append guidelines; trim to last `MAX_CONTEXT_CHARS`.  
 **Why:** Post coach needs full memory; prep coach stays focused; prompts stay bounded.  
 
 ### `_history_text(history)`

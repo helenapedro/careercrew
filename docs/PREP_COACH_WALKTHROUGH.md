@@ -23,7 +23,7 @@ share `coach.build_context` and `coach._reply`, so read this one first.
 ### A1. The answer in one paragraph
 
 You press **Send** (or Enter). Gradio calls `_render_prep_chat`
-(`careercrew/callbacks_interview.py:333`), a **plain function** returning exactly two
+(`careercrew/callbacks_interview.py:302`), a **plain function** returning exactly two
 values: the new chat history and an empty textbox. It refuses to run unless the
 stored package is `APPROVED`. Then it rebuilds the four typed models from
 `ctx_state`, packs them into one bounded context string with
@@ -115,7 +115,7 @@ Appendix C.
 
 **The code**
 
-```startLine:470:481:app.py
+```startLine:467:478:app.py
         prep_msg.submit(
             _render_prep_chat,
             inputs=[prep_chat, prep_msg, ctx_state],
@@ -258,7 +258,7 @@ the interview). Fixing the wording once fixes all three.
 
 **The code**
 
-```startLine:333:361:careercrew/callbacks_interview.py
+```startLine:302:330:careercrew/callbacks_interview.py
 def _render_prep_chat(history, message: str, ctx_state):
     """Prep coach: resume improvement + preparation chat."""
     history = history or []
@@ -342,8 +342,8 @@ def build_context(
 ) -> str:
     """Assemble the bounded system context shared by both chat channels.
 
-    ``include_interview`` adds the mock interview transcript, evaluations, and
-    score (used by the post-interview coach). The result is trimmed to
+    ``include_interview`` adds the mock interview transcript and per-answer
+    evaluations (used by the post-interview coach). The result is trimmed to
     ``MAX_CONTEXT_CHARS`` from the end, keeping the most recent material.
     """
     parts: list[str] = ["# CareerCrew coaching context"]
@@ -378,11 +378,7 @@ def build_context(
             f"improve: {'; '.join(e.improvements)}"
             for e in interview.evaluations
         )
-        parts.append(
-            f"## Mock interview evaluations\n{evaluations}\n\n"
-            f"## Overall mock interview score: {interview.overall_score}/100\n"
-            f"{interview.overall_summary}"
-        )
+        parts.append(f"## Mock interview evaluations\n{evaluations}")
 
     guidelines = _guidelines()
     if guidelines:
@@ -432,7 +428,7 @@ question has no explicit prep keyword.
 
 **The code**
 
-```startLine:414:462:careercrew/coach.py
+```startLine:410:458:careercrew/coach.py
 def context_anchors(*, profile=None, requirements=None, gaps=None, prep_plan=None) -> set[str]:
     """Terms that identify *this* analysis: skills, requirements, gaps, titles.
 
@@ -518,7 +514,7 @@ mention "resume" constantly) would poison the set.
 
 **The code**
 
-```startLine:93:102:careercrew/coach.py
+```startLine:89:98:careercrew/coach.py
 def _history_text(history: list[dict] | None) -> str:
     if not history:
         return "(no previous messages)"
@@ -566,7 +562,7 @@ cost flat.
 
 **The code**
 
-```startLine:555:589:careercrew/coach.py
+```startLine:551:585:careercrew/coach.py
 def prep_coach_reply(
     message: str,
     context: str,
@@ -630,7 +626,7 @@ each had its own `_reply`, every guardrail fix would need to be made twice.
 
 **The code**
 
-```startLine:615:663:careercrew/coach.py
+```startLine:611:659:careercrew/coach.py
 def _reply(
     message: str,
     context: str,
@@ -721,7 +717,7 @@ an off-topic question costs zero tokens.
 
 **The code**
 
-```startLine:502:552:careercrew/coach.py
+```startLine:498:548:careercrew/coach.py
 def detect_scope(message: str, context: str | None = None) -> str | None:
     """Classify a prep-chat question into one of the three supported scopes.
 
@@ -791,7 +787,7 @@ def detect_scope(message: str, context: str | None = None) -> str | None:
 
 The three keyword tables:
 
-```startLine:108:170:careercrew/coach.py
+```startLine:104:160:careercrew/coach.py
 SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "resume": (
         "resume",
@@ -853,7 +849,7 @@ SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
 
 The typo tolerance, which is what keeps "preperation" from being redirected:
 
-```startLine:373:412:careercrew/coach.py
+```startLine:369:407:careercrew/coach.py
 def _within_one_typo(token: str, keyword: str) -> bool:
     """True when ``token`` is ``keyword`` with at most one edit.
 
@@ -925,7 +921,7 @@ is redirected.
 The scope gate is deterministic only because it has three literal tables. The three
 literal tables:
 
-```startLine:220:244:careercrew/coach.py
+```startLine:216:238:careercrew/coach.py
 SCOPE_REDIRECT = (
     "I can help with three things: your resume, the job description, "
     "or interview preparation. Could you ask about one of those?"
@@ -957,7 +953,7 @@ and cannot be overridden by a keyword hit.
 
 The fallback when no key is configured is not a redirect — it is a real answer:
 
-```startLine:666:695:careercrew/coach.py
+```startLine:662:691:careercrew/coach.py
 def _fallback_reply(message: str, context: str) -> str:
     """A deterministic, honest reply when no LLM is available."""
     lower = message.lower()
@@ -1049,7 +1045,7 @@ def validate_coaching_reply(reply: str, *, context_text: str = "") -> list[str]:
 
 The warnings then land under the reply, in italics, from step 4:
 
-```startLine:352:353:careercrew/callbacks_interview.py
+```startLine:321:322:careercrew/callbacks_interview.py
     if warnings:
         reply += "\n\n_" + " ".join(warnings) + "_"
 ```
@@ -1070,7 +1066,7 @@ would look like a bug to the user.
 
 **The code**
 
-```startLine:266:273:careercrew/session_store.py
+```startLine:260:267:careercrew/session_store.py
     def add_chat_message(self, session_id: str, channel: str, role: str, content: str) -> None:
         """Append one chat turn for a channel ('prep' or 'post')."""
         with self._connect() as conn:
@@ -1083,7 +1079,7 @@ would look like a bug to the user.
 
 and the table it writes:
 
-```startLine:65:72:careercrew/session_store.py
+```startLine:63:70:careercrew/session_store.py
 CREATE TABLE IF NOT EXISTS chat_messages (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id  TEXT NOT NULL,
@@ -1146,10 +1142,10 @@ One prompt string, four labelled blocks, in this exact order:
 
 | Block | Source | Line |
 |-------|--------|------|
-| Persona | `prep_coach_reply` argument | `careercrew/coach.py:574-585` |
-| Context | `build_context` return value, max 12 000 chars | `careercrew/coach.py:88-89` |
-| Conversation so far | last 12 history entries | `careercrew/coach.py:97` |
-| Candidate question | the trimmed message | `careercrew/coach.py:650` |
+| Persona | `prep_coach_reply` argument | `careercrew/coach.py:570-581` |
+| Context | `build_context` return value, max 12 000 chars | `careercrew/coach.py:84-85` |
+| Conversation so far | last 12 history entries | `careercrew/coach.py:93` |
+| Candidate question | the trimmed message | `careercrew/coach.py:646` |
 
 And the context itself, in order: header, `## Topics in this analysis`, candidate
 profile, job requirements, gap report, prep plan, coaching guidelines.
@@ -1196,19 +1192,19 @@ rg -n "prep_coach_reply|detect_scope|build_context|add_chat_message" careercrew 
 
 | Question | Answer, with the place to look |
 |----------|-------------------------------|
-| Where does Enter enter Python? | `prep_msg.submit(...)` at `app.py:470-475`; handler at `careercrew/callbacks_interview.py:333` |
+| Where does Enter enter Python? | `prep_msg.submit(...)` at `app.py:467-472`; handler at `careercrew/callbacks_interview.py:302` |
 | Why not a generator? | One model call, two outputs. Generators exist for streaming, which this tab does not do |
-| Is the chat gated on approval? | Yes: `_is_approved` at `careercrew/callbacks_interview.py:338`, gate defined at `:30-44` |
-| What context does the model get? | `careercrew/coach.py:30-90` — profile, requirements, gaps, prep plan, guidelines, capped at 12 000 chars |
-| Does the prep coach see the mock interview? | No. `include_interview` is `False` at `careercrew/callbacks_interview.py:341-347`; the post coach passes `True` |
-| Where is the scope rule? | `detect_scope` (`careercrew/coach.py:502-551`), enabled by the `scope_redirect` argument at `:587` |
+| Is the chat gated on approval? | Yes: `_is_approved` at `careercrew/callbacks_interview.py:307`, gate defined at `:30-44` |
+| What context does the model get? | `careercrew/coach.py:30-86` — profile, requirements, gaps, prep plan, guidelines, capped at 12 000 chars |
+| Does the prep coach see the mock interview? | No. `include_interview` is `False` at `careercrew/callbacks_interview.py:310-316`; the post coach passes `True` |
+| Where is the scope rule? | `detect_scope` (`careercrew/coach.py:498-547`), enabled by the `scope_redirect` argument at `:587` |
 | Why is the prep coach scoped but the post coach not? | The post coach's answer space is naturally bounded by the session; the prep coach could otherwise answer anything |
-| How are typos handled? | `_within_one_typo` (`careercrew/coach.py:373-397`), one edit or one transposition, only for keywords of 7+ characters |
-| What if the model calls fail? | `answer = ""` at `careercrew/coach.py:652`, then `_fallback_reply` at `:657` |
-| Is the fallback honest? | Yes — each bucket gives advice grounded in the context, with no invented facts (`careercrew/coach.py:666-694`) |
-| Are warnings blocking? | No. They are appended in italics to the reply at `careercrew/callbacks_interview.py:353-354` |
+| How are typos handled? | `_within_one_typo` (`careercrew/coach.py:369-393`), one edit or one transposition, only for keywords of 7+ characters |
+| What if the model calls fail? | `answer = ""` at `careercrew/coach.py:648`, then `_fallback_reply` at `:657` |
+| Is the fallback honest? | Yes — each bucket gives advice grounded in the context, with no invented facts (`careercrew/coach.py:662-690`) |
+| Are warnings blocking? | No. They are appended in italics to the reply at `careercrew/callbacks_interview.py:322-323` |
 | Is chat history restored after refresh? | No. Rows persist in `chat_messages`, but nothing reads them back |
-| Why cap history at 12 turns? | Token budget. The visible thread is unbounded; only the prompt is trimmed (`careercrew/coach.py:97`) |
+| Why cap history at 12 turns? | Token budget. The visible thread is unbounded; only the prompt is trimmed (`careercrew/coach.py:93`) |
 | Can a user override the persona or scope? | No. Neither is exposed in the UI (`app.py:243-265`) |
 
 ---
@@ -1217,11 +1213,11 @@ rg -n "prep_coach_reply|detect_scope|build_context|add_chat_message" careercrew 
 
 | Observation | Where | Effect |
 |-------------|-------|--------|
-| Context is rebuilt from JSON on every message | `careercrew/callbacks_interview.py:341-348` | Correct after a revision, but wastes a few milliseconds per send |
-| `build_context` trims from the front | `careercrew/coach.py:88-89` | A very large profile plus prep plan can push the profile summary out of the prompt while keeping the guidelines |
-| `chat_messages` is write-only | `careercrew/session_store.py:266-273` | No history restore, so a refresh loses the visible thread |
-| Fallback triggers on empty string, not on no-key | `careercrew/coach.py:656` | A model that returns `""` silently becomes the canned reply, with a warning |
-| Session id is the literal `"session"` without context | `careercrew/callbacks_interview.py:359` | Rows from different users can share that id in the table |
+| Context is rebuilt from JSON on every message | `careercrew/callbacks_interview.py:310-317` | Correct after a revision, but wastes a few milliseconds per send |
+| `build_context` trims from the front | `careercrew/coach.py:84-85` | A very large profile plus prep plan can push the profile summary out of the prompt while keeping the guidelines |
+| `chat_messages` is write-only | `careercrew/session_store.py:260-267` | No history restore, so a refresh loses the visible thread |
+| Fallback triggers on empty string, not on no-key | `careercrew/coach.py:652` | A model that returns `""` silently becomes the canned reply, with a warning |
+| Session id is the literal `"session"` without context | `careercrew/callbacks_interview.py:328` | Rows from different users can share that id in the table |
 
 ---
 

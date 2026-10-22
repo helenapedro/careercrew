@@ -1,7 +1,7 @@
 # Code path: Virtual mock interviewer
 
 Voice (or text) practice interview grounded in the Analyze result: questions,
-live transcript, per-question feedback, overall score. **Practice only — nothing
+live transcript, and per-answer feedback. **Practice only — nothing
 is submitted.**
 
 **Prerequisite:** Analyze must have run (`ctx_state` populated) **and** the prep
@@ -17,7 +17,7 @@ bundle must be approved. `_is_approved(ctx_state)` reads the persisted
 | Module | Role |
 |--------|------|
 | [`careercrew/callbacks_interview.py`](../careercrew/callbacks_interview.py) `interview_start`, `interview_submit`, `_ask_question` | Gradio handlers |
-| [`careercrew/interview.py`](../careercrew/interview.py) | Questions, evaluate, overall score, turns |
+| [`careercrew/interview.py`](../careercrew/interview.py) | Questions, evaluate, turns |
 | [`careercrew/audio.py`](../careercrew/audio.py) | `whisper-1` STT, `tts-1` TTS |
 | [`careercrew/llm.py`](../careercrew/llm.py) | Chat completions for Q/eval (optional) |
 | [`careercrew/guardrails.py`](../careercrew/guardrails.py) | `validate_interview_answer`, `validate_evaluation`, `validate_transcript_turn` |
@@ -72,7 +72,7 @@ UI: mic recorder and/or typed text → **Submit answer**.
 | 5 | Eval guardrail | `validate_evaluation(evaluation)` | Warnings; score 0–100 |
 | 6 | Append candidate turn | `append_turn(..., CANDIDATE, answer, audio_ref=...)` | Session |
 | 7a | More questions? | `_ask_question(session, next_index)` + show `_evaluation_html` | TTS + DB |
-| 7b | Last answer? | `overall_evaluation(session)` → `completed=True` | Optional LLM summary |
+| 7b | Last answer? | `_evaluation_html(evaluation)` stays on screen | No aggregate score |
 
 **Evaluation fields** (`AnswerEvaluation`): `score`, `what_interviewer_wanted`, `strengths`, `improvements`, `model_answer_outline`.
 
@@ -84,7 +84,7 @@ UI: mic recorder and/or typed text → **Submit answer**.
 
 | Table | Purpose |
 |-------|---------|
-| `interview_sessions` | `session_id`, optional `package_id`, `session_json`, `overall_score`, `completed`, timestamps |
+| `interview_sessions` | `session_id`, optional `package_id`, `session_json`, timestamps |
 | `interview_turns` | Per turn: `session_id`, `question_index`, `role` (interviewer/candidate), `text` |
 
 Gradio also keeps `iv_state` as `session.model_dump_json()` for the live round-trip.

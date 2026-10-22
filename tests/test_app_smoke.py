@@ -48,9 +48,9 @@ def test_custom_theme_and_css_exist():
 def test_every_multi_output_listener_hides_progress_chrome():
     """One progress banner is drawn per output, so no multi-output event may draw it.
 
-    The Mock interview start/submit handlers return 7 outputs each; without
+    The Mock interview start/submit handlers return 6 outputs each; without
     ``show_progress="hidden"`` Gradio paints a spinner over the error box, the
-    question card, the audio player, the transcript, and the score panels at once.
+    question card, the audio player, the transcript, and the feedback panel at once.
     Analyze, revise, approve, reject, and the two coach chats stack the same way.
     """
     import app
@@ -380,7 +380,7 @@ def test_context_round_trip_and_interview_start_work_offline(monkeypatch, tmp_pa
     # The mock interview is gated on human approval of the prep bundle.
     blocked = app.interview_start(context, 3)
     assert blocked[1], "a message must render"
-    assert blocked[6] is None, "an unapproved bundle must not start an interview"
+    assert blocked[5] is None, "an unapproved bundle must not start an interview"
 
     # Approve the bundle, then the interview produces grounded questions offline.
     from careercrew.models import ReviewStatus
@@ -390,7 +390,7 @@ def test_context_round_trip_and_interview_start_work_offline(monkeypatch, tmp_pa
 
     started = app.interview_start(context, 3)
     assert started[1], "an interviewer question must render"
-    assert started[6], "the session must be serialized for the next turn"
+    assert started[5], "the session must be serialized for the next turn"
 
 
 def test_coach_chats_are_gated_on_approval(monkeypatch, tmp_path):

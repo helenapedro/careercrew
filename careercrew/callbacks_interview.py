@@ -2,7 +2,7 @@
 
 What it does: starts a practice interview, scores each answer, and replies in the coach chats.
 Who calls it: the Mock interview and coach buttons wired in app.py.
-What it returns: Gradio updates for the question, transcript, scores, and chat history.
+What it returns: Gradio updates for the question, transcript, and per-answer feedback.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _question_html(
         return (
             "<div class='cc-card'><h3>Interview complete</h3>"
             "<div class='cc-empty'><strong>You finished the mock interview</strong>"
-            "Review your score and the per-question feedback below, then ask the "
+            "Review the feedback on your last answer below, then ask the "
             "post-interview coach anything you like.</div></div>"
         )
     return (
@@ -116,20 +116,6 @@ def _evaluation_html(evaluation: AnswerEvaluation | None) -> str:
     )
 
 
-def _overall_html(session: MockInterviewSession) -> str:
-    if not session.completed:
-        return ""
-    return (
-        "<div class='cc-card'><h3>Overall performance</h3>"
-        "<div class='cc-meter'><div class='cc-meter-top'>"
-        f"<div class='cc-score'>{int(session.overall_score)}<small>/100</small></div>"
-        "<div class='cc-meter-label'>Average across your answers</div></div>"
-        f"<div class='cc-bar'><span style='width:{int(session.overall_score)}%'></span></div></div>"
-        f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.6'>{_esc(session.overall_summary)}</p>"
-        "</div>"
-    )
-
-
 def _audio_status() -> str:
     if audio.audio_available():
         return ""
@@ -151,7 +137,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             None,
             [],
             "",
-            "",
             None,
         )
     if not _is_approved(ctx_state):
@@ -160,7 +145,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             _question_html(None, blocked=True),
             None,
             [],
-            "",
             "",
             None,
         )
@@ -179,7 +163,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             _question_html(None, done=True),
             None,
             [],
-            "",
             "",
             None,
         )
@@ -207,7 +190,6 @@ def _ask_question(session: MockInterviewSession, index: int, *, error: str = "")
         audio_path or None,
         _turns_to_messages(session),
         "",
-        "",
         session.model_dump_json(),
     )
 
@@ -223,7 +205,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             None,
             [],
             "",
-            "",
             iv_state,
         )
     if not _is_approved(ctx_state):
@@ -232,7 +213,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, blocked=True),
             None,
             _turns_to_messages(session),
-            "",
             "",
             iv_state,
         )
@@ -244,8 +224,7 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, done=True),
             None,
             _turns_to_messages(session),
-            "",
-            _overall_html(session),
+            _evaluation_html(session.evaluations[-1] if session.evaluations else None),
             session.model_dump_json(),
         )
 
@@ -263,7 +242,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             None,
             _turns_to_messages(session),
             _evaluation_html(session.evaluations[-1] if session.evaluations else None),
-            "",
             session.model_dump_json(),
         )
 
@@ -288,9 +266,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
 
     next_index = index + 1
     if next_index < len(session.questions):
-        session.overall_score = round(
-            sum(e.score for e in session.evaluations) / len(session.evaluations)
-        )
         _STORE.save_interview(session)
         question_out = _ask_question(session, next_index)
         # Splice the evaluation feedback into the returned tuple.
@@ -300,15 +275,10 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             question_out[2],
             question_out[3],
             _evaluation_html(evaluation),
-            "",
-            question_out[6],
+            question_out[5],
         )
 
-    # Final answer: finish the session and score it.
-    score, summary = interview.overall_evaluation(session, llm=llm.callable_or_none())
-    session.overall_score = score
-    session.overall_summary = summary
-    session.completed = True
+    # Final answer: finish the session and keep the last answer's feedback.
     _STORE.save_interview(session)
     return (
         _alert_html("; ".join(eval_problems)) if eval_problems else _audio_status(),
@@ -316,7 +286,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
         None,
         _turns_to_messages(session),
         _evaluation_html(evaluation),
-        _overall_html(session),
         session.model_dump_json(),
     )
 

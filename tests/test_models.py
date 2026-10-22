@@ -96,8 +96,6 @@ def test_mock_interview_session_roundtrip():
         questions=[InterviewQuestion(index=0, text="Tell me about yourself.")],
         turns=[TranscriptTurn(role=InterviewTurnRole.INTERVIEWER, text="Tell me about yourself.")],
         evaluations=[AnswerEvaluation(question_index=0, score=70, improvements=["add a metric"])],
-        overall_score=70,
-        completed=True,
     )
     restored = MockInterviewSession.model_validate_json(session.model_dump_json())
     assert restored.session_id == "int-1"

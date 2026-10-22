@@ -137,7 +137,7 @@ Appendix C.
 
 **The code**
 
-```startLine:365:402:app.py
+```startLine:364:401:app.py
         named = {
             "error": error_box,
             "status": status,
@@ -1667,7 +1667,7 @@ the loop **returns** it, which becomes `StopIteration.value` at
 The write itself is an upsert, so a later revision overwrites rather than
 duplicating:
 
-```startLine:130:158:careercrew/session_store.py
+```startLine:128:156:careercrew/session_store.py
             conn.execute(
                 """
                 INSERT INTO packages
@@ -1940,7 +1940,7 @@ rg -n "submit_for_review|kickoff|extract_text" careercrew mcp_server app.py
 
 | Question | Answer, with the place to look |
 |----------|-------------------------------|
-| Where exactly does the click enter Python? | `run_btn.click(analyze, ...)` at `app.py:397-402`; handler at `callbacks_analyze.py:132` |
+| Where exactly does the click enter Python? | `run_btn.click(analyze, ...)` at `app.py:396-401`; handler at `callbacks_analyze.py:132` |
 | Where is the resume actually parsed from PDF? | `document_tools.extract_text:78-94` dispatches to `_read_pdf:59-63` (`pypdf` page loop) |
 | Why is the JD read twice? | Once directly for fast, specific errors (`pipeline.py:337-358`), once inside the crew through MCP (`server.py:22-37`). Explained at `pipeline.py:345-347` |
 | Who reads the resume: agent or Python? | Python validates it first; the **Profile Extractor** re-reads it through the MCP tool |

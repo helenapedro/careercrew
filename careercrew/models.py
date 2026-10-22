@@ -305,6 +305,3 @@ class MockInterviewSession(BaseModel):
     questions: list[InterviewQuestion] = Field(default_factory=list)
     turns: list[TranscriptTurn] = Field(default_factory=list)
     evaluations: list[AnswerEvaluation] = Field(default_factory=list)
-    overall_score: int = Field(ge=0, le=100, default=0)
-    overall_summary: str = ""
-    completed: bool = False

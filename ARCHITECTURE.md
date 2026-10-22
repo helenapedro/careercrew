@@ -58,7 +58,7 @@ flowchart TD
 | `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
 | `S8` | `careercrew/models.py` | Approved prep bundle: `ApplicationPackage` carries the bundle id, role, company, summary, and the `do_not_claim` list. The detail lives beside it in `PipelineResult` (profile, requirements, gaps, feedback, prep plan). Nothing is submitted. |
-| `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
+| `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-answer evaluation. |
 | `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with transcript and scores in context). |
 | `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, review decisions, interview sessions and turns, and both chat channels. The UI reads back the current package and the latest interview; chat history is write-only. |
 | `K` | `knowledge/` | `resume_guidelines.md` (writing + honesty) and `interview_guidelines.md` (prep, interviewer, and coaching conduct). |

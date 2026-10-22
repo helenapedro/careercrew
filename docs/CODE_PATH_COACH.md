@@ -33,7 +33,7 @@ completed mock interview (`iv_state`).
 | Job requirements JSON | If present | Analyze |
 | Gap report JSON | If present | Analyze |
 | Interview prep plan JSON | If present | Analyze / fallback |
-| Mock transcript + evals + overall score | Only if `include_interview=True` | Mock session |
+| Mock transcript + evals | Only if `include_interview=True` | Mock session |
 | Coaching guidelines markdown | If file readable | `knowledge/interview_guidelines.md` |
 
 Bounded to **`MAX_CONTEXT_CHARS` (12_000)** — trims from the front, keeps the tail (recent material).
@@ -70,7 +70,7 @@ Same shape, plus:
 | Entry | `post_coach_reply(...)` |
 | Channel | `channel="post"` in SQLite |
 
-Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcript**, per-question evals, overall score.
+Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcript**, and per-question evals.
 
 ---
 

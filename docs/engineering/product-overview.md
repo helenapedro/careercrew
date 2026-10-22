@@ -56,7 +56,7 @@ These are proposed goals. Quantitative targets should be set after a baseline is
 | G-01 | Improve job-specific preparation | Percentage of valid resume/job-description inputs that produce a complete, usable preparation package |
 | G-02 | Keep recommendations evidence-grounded | Percentage of factual recommendations with traceable supporting evidence; number of unsupported claims reaching the final output |
 | G-03 | Focus preparation on relevant gaps | Percentage of preparation plans that address identified role-specific gaps and the selected experience level |
-| G-04 | Support interview practice | Percentage of completed mock interviews that produce actionable feedback and a final evaluation, where supported |
+| G-04 | Support interview practice | Percentage of mock-interview answers that produce actionable per-answer feedback, where supported |
 | G-05 | Provide continuity | Successful retrieval rate for saved preparation and practice history, where persistence is implemented |
 | G-06 | Handle failures safely | Percentage of invalid inputs and dependency failures handled without silently treating invalid output as success |
 ## 4. Key Features
