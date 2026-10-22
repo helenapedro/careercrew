@@ -34,7 +34,7 @@ From `careercrew-product-draft-v0.1.md`. All gates must pass before merging `dev
 
 1. The automated test suite is green (`tests/`). — Last run 2026-10-21: 123 passed, 0 failed.
 2. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn where voice is claimed. — Not yet run.
-3. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — `.env.example` documents the pattern; not yet audited.
+3. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — Audited 2026-10-21: **passes**. `.env` is git-ignored and untracked; only `.env.example` (placeholder values) is committed, and no key-shaped string appears in tracked files.
 4. `README.md` and `ARCHITECTURE.md` describe the released behavior. — Not yet confirmed.
 5. The merge PR is reviewed and approved. — Pending.
 6. After merge: smoke-test `main` and record the release commit. — Pending.
