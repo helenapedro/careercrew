@@ -34,6 +34,29 @@ Thin wrappers around `_reply` with different **persona** strings (prep vs perfor
 
 ---
 
+## Scope guardrail (prep channel only)
+
+`SCOPE_KEYWORDS` maps the three allowed topics to keyword tuples: `resume`,
+`job_description`, `interview_prep`. `detect_scope(message)` normalizes the text
+(lowercase, accent stripping, whitespace collapse) and returns the first matching
+scope or `None`.
+
+**Why it is tolerant:** candidates type quickly. Matching is token-based, not raw
+substring, so `"technical"` does not match inside `"technically"`. Words of 7+
+characters also accept **one edit** (substitution, insertion, deletion, or adjacent
+transposition) plus simple plural/gerund variants — so a slip like `"preperation"`
+or `"intreview"` still lands in `interview_prep` instead of being redirected.
+Multi-word phrases such as `"walk through"` match as normalized substrings.
+
+**Say this:** “Scope is a cheap deterministic gate — no LLM call — and it forgives
+typos so a real question never gets bounced to the redirect.”
+
+When the message is out of scope, `_reply` returns `SCOPE_REDIRECT` without calling
+the LLM. The post-interview coach passes no `scope_redirect`, so it answers any
+performance question.
+
+---
+
 ## `_reply(message, context, history, persona, llm)`
 
 **What:**
