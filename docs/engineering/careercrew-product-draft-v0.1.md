@@ -37,7 +37,7 @@ Answered 2026-10-16 against `dev` at `61d7506`; remaining open items are marked.
 - **What human-review actions are available in the current UI?** Approve prep bundle, Request changes, Reject — all wired to the `PackageReviewService` state machine in `app.py`.
 - **Which artifacts are persisted, where, and for how long?** SQLite via `careercrew/session_store.py` (`CAREERCREW_DB_PATH`, default `careercrew.db`): preparation packages, review history, interview sessions and turns, chat messages. Retention/deletion policy: **open**.
 - **Which mock-interview and coaching paths are fully functional?** Voice mock interview (`careercrew/interview.py` + `audio.py`) with explicit text fallback; prep coach and post-interview coach (`careercrew/coach.py`).
-- **What are the current test results and known failure modes?** 108 passed, 0 failed (2026-10-20). Known environment quirk: sandbox proxy variables break `httpx` at import during `test_app_smoke.py` collection; unset them to run. See `testing-and-release.md`.
+- **What are the current test results and known failure modes?** 116 passed, 0 failed (2026-10-21). Known environment quirk: sandbox proxy variables break `httpx` at import during `test_app_smoke.py` collection; unset them to run. See `testing-and-release.md`.
 - **What measurable success thresholds should be adopted after establishing a baseline?** **Open** — needs a team decision (see `product-overview.md` goals G-01..G-06).
 
 ---

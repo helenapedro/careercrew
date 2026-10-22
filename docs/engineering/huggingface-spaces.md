@@ -1,8 +1,8 @@
 # Deploy CareerCrew to Hugging Face Spaces
 
-> The demo path is AWS, not Spaces. A Docker Space needs a paid Hugging Face
-> plan before the free CPU Basic machine can be created. Use
-> [aws-ec2.md](aws-ec2.md). This page stays as the Spaces alternative.
+> A Docker Space needs a paid Hugging Face plan before the free CPU Basic
+> machine can be created. Any plain Docker host avoids that requirement; the
+> image below is the same one you would run there.
 
 CareerCrew is a Gradio app (`app.py`) that already listens on `0.0.0.0:7860`.
 The `Dockerfile` in the repo root is written for a **Docker Space**: it installs

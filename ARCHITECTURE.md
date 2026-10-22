@@ -102,22 +102,24 @@ prep bundle: nothing is ever submitted to an employer.
 
 ## 5. Deployment
 
-> **Demo target:** one AWS EC2 instance (`t3.medium`, about $1.20 for 24 hours). A Hugging Face Docker Space needs a paid Pro plan before its free CPU can be used, so Spaces is the alternative, not the demo path. Steps: [`docs/engineering/aws-ec2.md`](docs/engineering/aws-ec2.md).
+One container image, one port. Any Docker host works: a small cloud VM, a
+university machine, or a Hugging Face Docker Space. Steps and cost notes:
+[`docs/engineering/huggingface-spaces.md`](docs/engineering/huggingface-spaces.md).
 
 ```mermaid
 flowchart LR
     USER["Candidate<br/>(browser)"] --> APP["app.py — Gradio UI<br/>listens on 0.0.0.0:7860"]
-    subgraph EC2["AWS EC2 t3.medium — Docker"]
+    subgraph HOST["Docker host"]
         APP <--> MCPD["mcp_server<br/>stdio, in-process<br/>no second service"]
         APP --> DBD[("SQLite — /data<br/>careercrew.db + uploads")]
     end
-    SEC[".env on the instance<br/>OPENAI_API_KEY"] -.-> APP
+    SEC[".env on the host<br/>OPENAI_API_KEY"] -.-> APP
 ```
 
 `Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app
 and `samples/`, runs as non-root `appuser` with a writable `/data` directory,
 healthchecks the Gradio root, `CMD ["python", "app.py"]`. The OpenAI key stays
-in `.env` on the instance, never in the repo.
+in `.env` on the host, never in the repo.
 
 ## 6. Architecture verification checklist
 

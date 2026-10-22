@@ -87,8 +87,7 @@ says so. Add a key for the full crew and the voice interview.
   - `functional-nonfunctional-requirements.md` — requirements with
     implementation evidence
   - `setup.md` — install, configuration, run instructions
-  - `aws-ec2.md` — demo deploy on a small EC2 instance (about $1.20 for 24 hours)
-  - `huggingface-spaces.md` — Spaces alternative; creating a Docker Space needs a paid Hugging Face plan
+  - `huggingface-spaces.md` — deploy the Docker image to a Space, and what is free vs paid
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
   - `careercrew-product-draft-v0.1.md` — product draft with verification notes

@@ -48,9 +48,6 @@ class Settings:
     upload_dir: str
     db_path: str
     max_revisions: int
-    request_timeout_s: float
-    fetch_timeout_s: float
-    max_retries: int
     app_port: int
     log_level: str
 
@@ -79,9 +76,6 @@ def get_settings() -> Settings:
         upload_dir=os.getenv("CAREERCREW_UPLOAD_DIR") or "uploads",
         db_path=os.getenv("CAREERCREW_DB_PATH") or "careercrew.db",
         max_revisions=_env_int("CAREERCREW_MAX_REVISIONS", 2),
-        request_timeout_s=float(os.getenv("CAREERCREW_REQUEST_TIMEOUT", "120")),
-        fetch_timeout_s=float(os.getenv("CAREERCREW_FETCH_TIMEOUT", "20")),
-        max_retries=_env_int("CAREERCREW_MAX_RETRIES", 2),
         app_port=_env_int("PORT", 7860),
         log_level=os.getenv("CAREERCREW_LOG_LEVEL", "INFO"),
     )

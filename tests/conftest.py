@@ -20,19 +20,3 @@ def upload_dir(tmp_path, monkeypatch):
     config.reset_settings_cache()
     yield tmp_path
     config.reset_settings_cache()
-
-
-@pytest.fixture
-def sample_resume_text() -> str:
-    return (
-        "ALEX RIVERA Backend Software Engineer. Skills: Python, FastAPI, PostgreSQL, "
-        "Docker, AWS, Kafka. Built REST APIs in FastAPI serving 2M requests per day."
-    )
-
-
-@pytest.fixture
-def sample_jd_text() -> str:
-    return (
-        "We are hiring a Python backend engineer with FastAPI, PostgreSQL, and AWS "
-        "experience. Senior level. Nice to have: Kubernetes."
-    )

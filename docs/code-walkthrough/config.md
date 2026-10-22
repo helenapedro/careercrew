@@ -31,7 +31,6 @@
 | `interview_question_count` | default 5 | Mock interview slider default |
 | `upload_dir` / `db_path` | uploads / careercrew.db | Files + SQLite |
 | `max_revisions` | default 2 | HITL revise limit |
-| `request_timeout_s` | MCP/client timeouts | |
 | `app_port` | `PORT` or 7860 | Gradio |
 | `log_level` | INFO | logging |
 

@@ -1,6 +1,7 @@
-## 1. Proposed Functional Requirements
+## 1. Functional Requirements
 
-The following are candidate requirements for implementation review, not a claim that each one is currently satisfied.
+Each requirement below was checked against the `dev` implementation; the evidence
+column names the source and the tests that cover it.
 
 | ID | Requirement | Status | Evidence |
 |---|---|---|---|
@@ -41,4 +42,4 @@ The following are candidate requirements for implementation review, not a claim 
 
 **Note:** These are proposed quality requirements. Privacy retention/deletion behavior, latency targets, production security, accessibility, and reliability are not established merely by an architecture description; they require implementation evidence and tests.
 
-**Note:** Assessed against `dev` on 2026-10-20. Test suite: 108 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). E2E demo path not yet run.
+**Note:** Assessed against `dev` on 2026-10-21. Test suite: 116 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). E2E demo path not yet run.
