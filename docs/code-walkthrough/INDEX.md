@@ -9,9 +9,8 @@ This folder answers: **what does each function/block do and why?**
 ## How to use
 
 1. Start from [`../SPEAKER_CHEATSHEET.md`](../SPEAKER_CHEATSHEET.md) for minute order  
-2. Optional: open a [presentation notebook](../../notebooks/README.md) for big-screen explanations + offline demos  
-3. Open the source file named below  
-4. Follow the matching walkthrough page function-by-function  
+2. Open the source file named below  
+3. Follow the matching walkthrough page function-by-function  
 
 ## Talk order → files
 

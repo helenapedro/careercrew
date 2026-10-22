@@ -2,9 +2,6 @@
 
 Use this live. Open the file named in each minute block; scroll to the symbol.
 
-**Presentation notebooks:** [../notebooks/README.md](../notebooks/README.md)
-(`00_overview` → `01_voice_and_transcript` → `02_mock_interview_flow` → `03_analyze_pipeline` → `04_hitl_and_coaches`)
-
 **Per-file professor guides:** [code-walkthrough/INDEX.md](code-walkthrough/INDEX.md)
 
 **Flow docs:** [CODE_PATH_ANALYZE.md](CODE_PATH_ANALYZE.md) · [CODE_PATH_PREP.md](CODE_PATH_PREP.md) ·

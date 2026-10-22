@@ -42,8 +42,6 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Generated presentation notebooks are teaching material, not app source.
-extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
