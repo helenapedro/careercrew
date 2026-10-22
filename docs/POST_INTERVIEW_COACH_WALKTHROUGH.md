@@ -43,14 +43,14 @@ The whole tab is **one function, one wider context, two return values**.
 | 1 | Enter and Send both bind four inputs | [`app.py`](../app.py) | 482-493 |
 | 2 | The tab's two components | [`app.py`](../app.py) | 335-358 |
 | 3 | The approval gate, shared with the other tabs | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 30-44 |
-| 4 | `_render_post_chat` — the whole turn | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 364-399 |
-| 5 | How the session is found | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 324-331 |
+| 4 | `_render_post_chat` — the whole turn | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 333-367 |
+| 5 | How the session is found | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 293-299 |
 | 5.1 | The SQLite fallback when `iv_state` is empty | [`session_store.py`](../careercrew/session_store.py) | 253-263 |
-| 6 | `build_context` with the interview folded in | [`coach.py`](../careercrew/coach.py) | 67-82 |
-| 7 | `post_coach_reply` — no scope gate | [`coach.py`](../careercrew/coach.py) | 592-612 |
-| 8 | `_reply`, as it runs for this channel | [`coach.py`](../careercrew/coach.py) | 615-663 |
-| 9 | The output guardrail | [`guardrails.py`](../careercrew/guardrails.py) | 247-267 |
-| 10 | Persistence under `channel="post"` | [`session_store.py`](../careercrew/session_store.py) | 266-273 |
+| 6 | `build_context` with the interview folded in | [`coach.py`](../careercrew/coach.py) | 30-86 |
+| 7 | `post_coach_reply` — no scope gate | [`coach.py`](../careercrew/coach.py) | 588-608 |
+| 8 | `_reply`, as it runs for this channel | [`coach.py`](../careercrew/coach.py) | 611-659 |
+| 9 | The output guardrail | [`guardrails.py`](../careercrew/guardrails.py) | 247-268 |
+| 10 | Persistence under `channel="post"` | [`session_store.py`](../careercrew/session_store.py) | 260-267 |
 
 ### A3. The whole turn on one diagram
 

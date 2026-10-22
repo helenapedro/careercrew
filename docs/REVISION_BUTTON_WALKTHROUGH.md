@@ -48,17 +48,17 @@ injected at two places.
 | 2 | The dock: one textbox shared by three buttons | [`app.py`](../app.py) | 208-223 |
 | 3 | `request_revision` starts and defines its error exit | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 394-423 |
 | 4 | The two cheap rejection gates | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 422-431 |
-| 5 | `apply_decision` with `REVISE` | [`review.py`](../careercrew/review.py) | 119-140 |
-| 6 | The state machine and its allowed transitions | [`review.py`](../careercrew/review.py) | 28-43 |
+| 5 | `apply_decision` with `REVISE` | [`review.py`](../careercrew/review.py) | 84-140 |
+| 6 | The state machine and its allowed transitions | [`review.py`](../careercrew/review.py) | 27-43 |
 | 7 | The original inputs are read back from SQLite | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 450-468 |
-| 7.1 | `get_package` returns the parsed inputs | [`session_store.py`](../careercrew/session_store.py) | 192-208 |
+| 7.1 | `get_package` returns the parsed inputs | [`session_store.py`](../careercrew/session_store.py) | 190-206 |
 | 8 | The notes are merged into the resume text | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 367-391 |
 | 9 | The request is rebuilt with `revision_notes` | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 470-478 |
 | 10 | Progress is painted and the pipeline runs again | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 480-515 |
 | 11 | `revision_notes` inside the pipeline, part 1: the prompt | [`pipeline.py`](../careercrew/pipeline.py) | 248-259 |
 | 12 | Inside the pipeline, part 2: deterministic gap promotion | [`pipeline.py`](../careercrew/pipeline.py) | 125-190 |
 | 13 | Inside the pipeline, part 3: the offline feedback fallback | [`pipeline.py`](../careercrew/pipeline.py) | 416-434 |
-| 14 | Re-submission and the final yield | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 517-556 |
+| 14 | Re-submission and the final yield | [`callbacks_analyze.py`](../careercrew/callbacks_analyze.py) | 517-555 |
 
 ### A3. The whole click on one diagram
 

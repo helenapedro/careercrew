@@ -45,17 +45,17 @@ Read this first; every row is a section below with the full code.
 | 1 | Both `Enter` and `Send` are bound to one handler | [`app.py`](../app.py) | 470-481 |
 | 2 | The tab's two components | [`app.py`](../app.py) | 243-265 |
 | 3 | The approval gate, again | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 30-44 |
-| 4 | `_render_prep_chat` — the whole turn | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 333-361 |
-| 5 | `build_context` assembles the bounded prompt body | [`coach.py`](../careercrew/coach.py) | 30-90 |
-| 5.1 | The analysis anchors that make scope work | [`coach.py`](../careercrew/coach.py) | 414-462 |
-| 5.2 | History is capped, not unbounded | [`coach.py`](../careercrew/coach.py) | 93-101 |
-| 6 | `prep_coach_reply` is a persona plus a scope redirect | [`coach.py`](../careercrew/coach.py) | 555-589 |
-| 7 | `_reply` — the four gates | [`coach.py`](../careercrew/coach.py) | 615-663 |
-| 8 | The scope classifier | [`coach.py`](../careercrew/coach.py) | 502-551 |
-| 8.1 | Off-topic words, keyword scopes, and typo tolerance | [`coach.py`](../careercrew/coach.py) | 108-244 |
-| 9 | The offline fallback reply | [`coach.py`](../careercrew/coach.py) | 666-694 |
-| 10 | The output guardrail | [`guardrails.py`](../careercrew/guardrails.py) | 247-267 |
-| 11 | Persistence into `chat_messages` | [`session_store.py`](../careercrew/session_store.py) | 266-273 |
+| 4 | `_render_prep_chat` — the whole turn | [`callbacks_interview.py`](../careercrew/callbacks_interview.py) | 302-330 |
+| 5 | `build_context` assembles the bounded prompt body | [`coach.py`](../careercrew/coach.py) | 30-86 |
+| 5.1 | The analysis anchors that make scope work | [`coach.py`](../careercrew/coach.py) | 410-458 |
+| 5.2 | History is capped, not unbounded | [`coach.py`](../careercrew/coach.py) | 89-98 |
+| 6 | `prep_coach_reply` is a persona plus a scope redirect | [`coach.py`](../careercrew/coach.py) | 551-585 |
+| 7 | `_reply` — the four gates | [`coach.py`](../careercrew/coach.py) | 611-659 |
+| 8 | The scope classifier | [`coach.py`](../careercrew/coach.py) | 498-548 |
+| 8.1 | Off-topic words, keyword scopes, and typo tolerance | [`coach.py`](../careercrew/coach.py) | 104-160 |
+| 9 | The offline fallback reply | [`coach.py`](../careercrew/coach.py) | 662-691 |
+| 10 | The output guardrail | [`guardrails.py`](../careercrew/guardrails.py) | 247-268 |
+| 11 | Persistence into `chat_messages` | [`session_store.py`](../careercrew/session_store.py) | 260-267 |
 
 ### A3. The whole turn on one diagram
 
