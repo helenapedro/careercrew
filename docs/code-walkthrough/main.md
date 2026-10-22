@@ -25,7 +25,6 @@ Defines flags: `--resume`, `--resume-text`, `--jd`, `--jd-file`, `--seniority`.
 
 **Why copy to uploads:** Same confinement rules as the web UI / MCP tools.  
 **I/O:** Disk copy, then full pipeline (MCP/LLM).  
-**Say this:** “CLI proves the pipeline without the Gradio shell.”
 
 ---
 

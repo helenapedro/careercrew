@@ -114,7 +114,7 @@ Updated after every ask/submit so the transcript stays synchronized with voice.
 
 ---
 
-## 8. Talking points
+## Design notes
 
 - Interviewer is **agentic practice**, not an authenticated human interviewer  
 - Questions are grounded in JD / resume / gaps / **prep plan**  

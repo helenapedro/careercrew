@@ -1,54 +1,55 @@
-# Code walkthrough index (professor live talk)
+# Code walkthrough
 
-Open the **`.py` / `.yaml` on the left** and this guide (or the linked page) on the right.
-Flow narrative (what happens after Analyze) lives in [`../CODE_PATH_*.md`](../CODE_PATH_ANALYZE.md).
-For a single-click trace with verified line numbers, start with
+Per-file reference pages: what each module and function does, and why it is built
+that way. Each page is self-contained and links back to the matching flow document.
+
+Flow narratives (what happens after each button) live in
+[`../CODE_PATH_*.md`](../CODE_PATH_ANALYZE.md). For a single continuous trace of
+the Analyze path with verified line numbers, see
 [`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md).
-This folder answers: **what does each function/block do and why?**
 
-## How to use
+## Reading order
 
-1. Start from [`../SPEAKER_CHEATSHEET.md`](../SPEAKER_CHEATSHEET.md) for minute order  
-2. Open the source file named below  
-3. Follow the matching walkthrough page function-by-function  
+The order below follows the data: an input arrives, the crew runs, the result is
+validated and persisted, then it is used for practice.
 
-## Talk order → files
-
-| When | Open source | Walkthrough |
-|------|-------------|-------------|
-| Intro / honesty | `ARCHITECTURE.md`, `GLOSSARY.md`, `docs/CODE_TOUR.md` | (flow) CODE_PATH + ARCHITECTURE |
-| Analyze click | `app.py` wires `callbacks_analyze.analyze` | [app.md](app.md) |
+| Area | Source | Reference page |
+|------|--------|----------------|
+| Page and event wiring | `app.py` → `callbacks_analyze.analyze` | [app.md](app.md) |
 | Orchestrator | `careercrew/pipeline.py` → `run_analysis` | [pipeline.md](pipeline.md) |
 | Five agents | `careercrew/crew.py`, `config/*.yaml` | [crew.md](crew.md), [config_agents_tasks.md](config_agents_tasks.md) |
-| Tools + MCP | `document_tools.py`, `mcp_server/server.py`, `mcp_client.py` | [document_tools.md](document_tools.md), [mcp.md](mcp.md) |
+| Tools and MCP | `document_tools.py`, `mcp_server/server.py`, `mcp_client.py` | [document_tools.md](document_tools.md), [mcp.md](mcp.md) |
 | Contracts | `careercrew/models.py` | [models.md](models.md) |
 | Guardrails | `careercrew/guardrails.py` | [guardrails.md](guardrails.md) |
 | Prep advisor | `careercrew/prep.py` | [prep.md](prep.md) |
-| HITL + DB | `review.py`, `session_store.py` | [review.md](review.md), [session_store.md](session_store.md) |
+| HITL and storage | `review.py`, `session_store.py` | [review.md](review.md), [session_store.md](session_store.md) |
 | Mock interview | `interview.py`, `audio.py`, `llm.py` | [interview.md](interview.md), [audio.md](audio.md), [llm.md](llm.md) |
 | Coaches | `careercrew/coach.py` | [coach.md](coach.md) |
-| CLI / settings | `main.py`, `config.py` | [main.md](main.md), [config.md](config.md) |
+| CLI and settings | `main.py`, `config.py` | [main.md](main.md), [config.md](config.md) |
 
-## Page list (all modules)
+## Page list
 
 - [app.md](app.md) — Gradio page layout and event wiring
 - [pipeline.md](pipeline.md) — analysis orchestrator
 - [crew.md](crew.md) — CrewAI assembly
 - [config_agents_tasks.md](config_agents_tasks.md) — YAML roles and tasks
 - [document_tools.md](document_tools.md) — resume and job-description readers
-- [mcp.md](mcp.md) — MCP server + client
+- [mcp.md](mcp.md) — MCP server and client
 - [models.md](models.md) — Pydantic contracts
-- [guardrails.md](guardrails.md) — input/output/tool checks
-- [prep.md](prep.md) — Interview Prep Advisor fallback
+- [guardrails.md](guardrails.md) — input, output, and tool checks
+- [prep.md](prep.md) — Interview Prep Advisor and fallback
 - [review.md](review.md) — HITL state machine
 - [session_store.md](session_store.md) — SQLite persistence
 - [interview.md](interview.md) — mock interviewer logic
-- [audio.md](audio.md) — STT/TTS
+- [audio.md](audio.md) — speech-to-text and text-to-speech
 - [llm.md](llm.md) — chat helper
-- [coach.md](coach.md) — prep + post coaches
+- [coach.md](coach.md) — prep and post-interview coaches
 - [main.md](main.md) — CLI
-- [config.md](config.md) — settings / env
+- [config.md](config.md) — settings and environment
 
-## Scope note
+## Scope
 
-`ui_css.py`, `tests/`, and Docker are out of scope for this pass (presentation-critical Python + YAML only).
+These pages cover the application modules and configuration. `ui_css.py` is
+styling only; `tests/` and the `Dockerfile` are documented in
+[`../engineering/testing-and-release.md`](../engineering/testing-and-release.md)
+and [`../engineering/huggingface-spaces.md`](../engineering/huggingface-spaces.md).

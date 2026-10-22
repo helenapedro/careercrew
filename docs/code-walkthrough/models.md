@@ -29,8 +29,6 @@
 | `FeedbackDraft` | rewritten_bullets, talking_points, do_not_claim | Match report rewrites |
 | `ApplicationPackage` | package_id, role/company, summary, do_not_claim | Prep bundle / HITL entity |
 
-**Say this:** “Typed outputs are the honesty backbone.”
-
 ---
 
 ## Review state machine
@@ -43,8 +41,6 @@
 | `TraceEvent` | step, actor, detail, status, duration_ms |
 | `ExecutionTrace` | list of events; `.add(...)` appends one |
 
-**Say this:** “Trace is the audit trail of one run.”
-
 ---
 
 ## Interview preparation
@@ -56,8 +52,6 @@
 | `SeniorityAssessment` | band, target/detected years, confidence, rationale |
 | `PrepFocus` | area, priority, suggested_share_pct, why, evidence (must cite gap) |
 | `InterviewPrepPlan` | seniority + focus_areas + themes + strengths + risk_areas |
-
-**Say this:** “Prep advice is structured so we can validate shares and evidence.”
 
 ---
 

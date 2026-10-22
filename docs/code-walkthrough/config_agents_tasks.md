@@ -18,8 +18,6 @@ Each block has: `role`, `goal`, `backstory`, `allow_delegation: false`, `verbose
 
 **Why `allow_delegation: false`:** Agents must not hand work to each other outside the fixed sequential task graph.
 
-**Say this:** “These YAML blocks are the agents’ job descriptions; the Python crew attaches tools and typed outputs.”
-
 ---
 
 ## `tasks.yaml` — five tasks
@@ -33,8 +31,6 @@ Placeholders like `{resume_path}`, `{jd_text}`, and `{seniority}` are filled by 
 | `analyze_gaps` | Gap Analyst | `GapReport` | Score 0–100; per-requirement verdicts |
 | `write_feedback` | Feedback Writer | `FeedbackDraft` | 5–8 bullets + talking points + do_not_claim |
 | `build_prep_plan` | Interview Prep Advisor | `InterviewPrepPlan` | Shares ~100%; evidence = requirement text |
-
-**Say this:** “Task text is the prompt template; expected_output is what Pydantic validation expects.”
 
 ---
 

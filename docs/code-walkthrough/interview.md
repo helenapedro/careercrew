@@ -15,7 +15,6 @@
 
 **What:** If `llm` → prompt + `_parse_questions`; if empty/fail → `_fallback_questions` from risks, requirements, prep themes.  
 **Why:** Grounded questions even offline.  
-**Say this:** “Questions come from gaps and the prep plan, not random trivia.”
 
 ### `_build_question_prompt` / `_parse_questions` / `_fallback_questions`
 

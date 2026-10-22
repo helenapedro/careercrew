@@ -1,14 +1,14 @@
 # Code tour
 
-One page for the live code talk. The longer function-by-function notes stay in `docs/code-walkthrough/`. Words used on this page are defined in `GLOSSARY.md`.
+A one-page map of the codebase. Longer function-by-function notes live in `docs/code-walkthrough/`. Terms used here are defined in `GLOSSARY.md`.
 
 ## File map
 
-| Open this | One sentence |
+| File | Role |
 |-----------|----------------|
 | `app.py` | Builds the page and wires each button to a callback. |
 | `careercrew/ui_html.py` | Turns data into HTML. No buttons, no database. |
-| `careercrew/ui_css.py` | Styling only. Skip it during the code talk. |
+| `careercrew/ui_css.py` | Styling only. |
 | `careercrew/ui_state.py` | The Analyze outputs, named, instead of `outputs[5]`. |
 | `careercrew/callbacks_analyze.py` | Analyze, Approve, Reject, and Request changes. |
 | `careercrew/callbacks_interview.py` | Mock interview and the two coach chats. |
@@ -31,7 +31,7 @@ One page for the live code talk. The longer function-by-function notes stay in `
 | `careercrew/services.py` | The one settings object, database, and review service. |
 | `main.py` | The same pipeline, from the command line. |
 
-## What happens when you press Analyze match
+## How an analysis run flows
 
 ```mermaid
 flowchart LR
@@ -59,4 +59,5 @@ flowchart LR
 4. Feedback Writer — bullet rewrites that cite a resume fact.
 5. Interview Prep Advisor — where to spend prep time.
 
-There is no sixth agent. Screening answers and the answer bank were removed because the page no longer collects or shows them, so `ApplicationPackage` is just the reviewable bundle (role, company, summary, do-not-claim list).
+The crew has exactly five agents. `ApplicationPackage` is the reviewable bundle
+(role, company, summary, and the do-not-claim list) and nothing more.

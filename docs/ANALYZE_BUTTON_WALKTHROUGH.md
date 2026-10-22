@@ -1,10 +1,9 @@
-# What happens when you press **Analyze match**
+# The Analyze match path
 
-A line-by-line trace of one click. Every line number below was verified against
-the working tree on 2026-10-21.
+A step-by-step trace of one Analyze click. Every line number below was verified
+against the working tree on 2026-10-21.
 
-**Audience:** explaining the codebase out loud. Read top to bottom; each step
-names the file, the line, and *why* the code does it that way.
+Each step names the file, the line, and why the code does it that way.
 
 ---
 
@@ -25,8 +24,8 @@ The whole thing is **one generator function**: `analyze` in
 
 ## 0a. Where the resume and job description go, and how agents pass results
 
-Read this section first if the question is "which agent gets the resume, and
-how does agent 1's result reach the next agent?"
+This section explains which agent receives the resume, and how agent 1's result
+reaches the next agent.
 
 **Agent 2 does not receive agent 1's result.** The Profile Extractor reads the
 resume. The JD Analyzer reads the job description. They do not share output.
@@ -46,24 +45,24 @@ The button passes four Gradio values, in this order (`app.py:396-401`):
 | `jd_file` | uploaded posting | a file name inside `uploads/`, or `None` |
 | `jd_text` | pasted posting | a string, or `None` |
 
-`analyze` (`callbacks_analyze.py:135`) turns those into one request:
+`analyze` (`callbacks_analyze.py:132`) turns those into one request:
 
 | Line | Call | Result |
 |------|------|--------|
-| **166** | `_resolve_resume(resume_file, resume_text)` | `(resume_path, pasted_resume)` |
+| **161** | `_resolve_resume(resume_file, resume_text)` | `(resume_path, pasted_resume)` |
 | **179** | `_resolve_upload(jd_file, jd_text, "job description")` | `(jd_path, pasted_jd)` |
-| **192** | `AnalysisRequest(...)` | the object the pipeline runs |
+| **187** | `AnalysisRequest(...)` | the object the pipeline runs |
 
-`_resolve_upload` (`callbacks_analyze.py:107`) is shared by both documents:
+`_resolve_upload` (`callbacks_analyze.py:106`) is shared by both documents:
 
-- **122-129** — an upload is checked, copied into `uploads/`, and only the **file name** is returned. Agents never see a full disk path.
-- **130-131** — pasted text is kept as a string after `guardrails.redact_pii`.
+- **122-126** — an upload is checked, copied into `uploads/`, and only the **file name** is returned. Agents never see a full disk path.
+- **128** — pasted text is kept as a string after `guardrails.redact_pii`.
 
 Exactly one side of each pair is set. A file upload leaves the text argument `None`, and pasted text leaves the path `None`.
 
 ### The dict the crew actually receives
 
-`_run_crew` (`pipeline.py:234`) builds that dict and starts the crew:
+`_run_crew` (`pipeline.py:240`) builds that dict and starts the crew:
 
 ```startLine:248:263:careercrew/pipeline.py
     inputs = crew_inputs(
@@ -306,7 +305,7 @@ What `_resolve_upload` does, in order:
 | **128** | `shutil.copyfile(...)` into `uploads/`, then return **only the basename**. |
 | **130-131** | No file? Use pasted text, passed through `guardrails.redact_pii` first. |
 
-Two deliberate choices worth saying out loud:
+Two deliberate security choices:
 
 - The agents receive a **basename**, not an absolute path. `document_tools`
   re-joins it against the uploads folder, so an agent cannot be tricked into
@@ -600,7 +599,7 @@ def _run_crew(
     result = crew.kickoff(inputs=inputs)
 ```
 
-Two things to explain:
+Two notable details:
 
 - **The `import` is inside the function** (line 246). `crewai` is heavy; importing
   it lazily keeps `main.py --help` and the test suite fast, and keeps the offline
@@ -883,37 +882,38 @@ CLICK (app.py:396)
 
 ---
 
-## 11. Questions you will likely be asked
+## 11. Design notes
 
-**"Why a generator instead of a normal function?"**
-Because the crew takes 30-90 seconds. A generator can `yield` intermediate
-updates, so the stepper animates. A plain function would freeze the UI for the
-whole run and then paint once.
+**Generator instead of a plain function.**
+The crew takes 30-90 seconds. A generator can `yield` intermediate updates, so the
+stepper animates. A plain function would freeze the UI for the whole run and then
+paint once.
 
-**"Why a separate thread?"**
+**A separate worker thread.**
 `crew.kickoff()` is blocking. On the worker thread the Gradio event loop stays
 responsive, so the polling loop can push progress updates to the browser.
 
-**"How does the result get out of the generator?"**
+**How the result leaves the generator.**
 Through `StopIteration.value`. `stream_with_progress` returns the
 `PipelineResult`; the caller catches `StopIteration` and reads `.value`.
 
-**"What if there is no API key?"**
-`settings.has_llm` is `False`, the crew block is skipped, and only the prep
-plan is built deterministically. The match report stays empty — deliberately,
-because the fallback has not read the resume and must not invent facts.
+**No API key.**
+`settings.has_llm` is `False` and the crew block is skipped. The profile,
+requirements, and gap report stay empty, so the match report is empty and the prep
+plan carries only the seniority band and its themes. This is deliberate: the
+fallback has not read the resume and will not invent facts.
 
-**"What if the crew returns garbage JSON?"**
+**The crew returns garbage JSON.**
 `extract_json` returns `None`, `_coerce_model` returns `None`, the model stays
-`None`, and the fallback or defaults fill in. It never raises on a bad parse.
+`None`, and the fallback or defaults fill in. A bad parse never raises.
 
-**"Where does the double-submit protection come from?"**
+**Double-submit protection.**
 Line **160**: `run_button=gr.update(interactive=False)` in the first yield.
 Every exit path (`fail()` line **149**, final yield line **253**) re-enables it.
 
-**"Why is the JD read twice — here and inside the crew?"**
-Here for fast failure and a preserved error message; inside the crew via MCP
-because the JD Analyzer agent is required to use the MCP tool. The double read
+**The JD is read twice — in the callback and inside the crew.**
+In the callback for fast failure and a preserved error message; inside the crew via
+MCP because the JD Analyzer agent is required to use the MCP tool. The double read
 is intentional (see the comment at `pipeline.py:345-347`).
 
 ---

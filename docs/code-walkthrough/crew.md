@@ -73,13 +73,11 @@
 **Why memory=False:** Each task already receives the previous task's output through `context`. CrewAI memory would add another model call after every agent.  
 **Why an explicit `llm=` on every agent:** Without it CrewAI silently uses its own built-in default model, and `OPENAI_MODEL` only affected the coach/interview helper. Building one `LLM(model=settings.openai_model, ...)` and passing it to all five agents makes the configured model govern the whole app.  
 **I/O:** YAML + knowledge files; later kickoff hits OpenAI + MCP.  
-**Say this:** “YAML is personality and prompts; this file is the wiring diagram.”
 
 ### `crew_inputs(...)`
 
 **What:** Require at least one resume source and one JD source; fill kickoff dict with placeholders like `"(none; use the read_resume tool)"` when a side is unused.  
 **Why:** Task templates always see `{resume_path}` / `{resume_text}` etc.; agents know which tool or paste to use.  
-**Say this:** “Kickoff inputs are the variables interpolated into task descriptions.”
 
 ---
 

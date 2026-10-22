@@ -43,5 +43,3 @@
 ## `get_settings()` / `reset_settings_cache()`
 
 `@lru_cache` singleton; tests clear cache after mutating env.
-
-**Say this:** “One Settings object; everything else reads get_settings().”

@@ -20,7 +20,6 @@ Read `COACHING_GUIDELINES_PATH` (interview guidelines markdown).
 
 **What:** Assemble markdown sections from model JSON; if `include_interview`, append transcript + evaluations + overall score; append guidelines; trim to last `MAX_CONTEXT_CHARS`.  
 **Why:** Post coach needs full memory; prep coach stays focused; prompts stay bounded.  
-**Say this:** “Same builder, two scopes — include_interview is the switch.”
 
 ### `_history_text(history)`
 
@@ -64,10 +63,6 @@ job description — so anchoring on the analysis answers it, while "how do I bak
 cake" shares nothing and is redirected. `detect_scope` stays deterministic: no LLM
 call, cheap to test.
 
-**Say this:** “Scope is anchored to the analysis on screen, not to a fixed keyword
-list, so real preparation questions in the candidate's own words get answered and
-unrelated topics do not.”
-
 When a message is rejected, `_reply` returns `SCOPE_REDIRECT` without calling the
 LLM. The post-interview coach passes no `scope_redirect`, so it answers any
 performance question.
@@ -84,8 +79,6 @@ performance question.
 4. Else / empty: `_fallback_reply` (keyword-routed honest advice)  
 5. `validate_coaching_reply` → warnings  
 6. Return `(answer, warnings)` — never raises  
-
-**Say this:** “Input and output guardrails on every chat turn.”
 
 ### `_fallback_reply`
 

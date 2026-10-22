@@ -40,7 +40,6 @@ Defaults `max_revisions` from settings (`CAREERCREW_MAX_REVISIONS`, default 2).
 
 **What:** Check DRAFT→PENDING_REVIEW; `save_package`; `update_status(PENDING_REVIEW)`.  
 **When:** End of Analyze.  
-**Say this:** “Analyze always parks the bundle for human review.”
 
 ### `apply_decision(package, decision, current_status, revision_count)`
 
@@ -49,8 +48,6 @@ Defaults `max_revisions` from settings (`CAREERCREW_MAX_REVISIONS`, default 2).
 - Must be PENDING_REVIEW; decision.package_id must match  
 - APPROVE / REJECT → `_persist` + outcome  
 - REVISE → require non-empty feedback; increment revision_count; refuse if > max; status → DRAFT; `needs_revision=True`  
-
-**Say this:** “Revise without notes is illegal; max two revision cycles by default.”
 
 ### `_persist`
 

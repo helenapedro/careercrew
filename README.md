@@ -93,6 +93,17 @@ Add a key for the full crew and the voice interview.
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
   - `careercrew-product-draft-v0.1.md` — product draft with verification notes
+- **Code reference** — [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md)
+  (per-file guide for every module) and [`docs/CODE_TOUR.md`](docs/CODE_TOUR.md)
+  (one-page map).
+- **Flow narratives** — [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md)
+  (step-by-step Analyze trace with verified line numbers), then
+  [`CODE_PATH_ANALYZE`](docs/CODE_PATH_ANALYZE.md),
+  [`CODE_PATH_PREP`](docs/CODE_PATH_PREP.md),
+  [`CODE_PATH_HITL`](docs/CODE_PATH_HITL.md),
+  [`CODE_PATH_MOCK_INTERVIEW`](docs/CODE_PATH_MOCK_INTERVIEW.md), and
+  [`CODE_PATH_COACH`](docs/CODE_PATH_COACH.md).
+- [`GLOSSARY.md`](GLOSSARY.md) — terms used across the docs.
 
 ## Layout
 
@@ -124,25 +135,6 @@ Add a key for the full crew and the voice interview.
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
 See `ARCHITECTURE.md` for the full walkthrough.
-
-## Technical presentation
-
-**Professor walkthrough (open `.py` + guide side-by-side):**
-
-- [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md) — index of per-file annotated guides
-- [`docs/SPEAKER_CHEATSHEET.md`](docs/SPEAKER_CHEATSHEET.md) — talk minute order
-
-**Flow narrative (what happens after each button):**
-
-- [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md) — **step-by-step Analyze trace with exact line numbers** (start here for the presentation)
-- [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end (diagram version)
-- [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
-- [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + package `pkg-…`
-- [`docs/CODE_PATH_MOCK_INTERVIEW.md`](docs/CODE_PATH_MOCK_INTERVIEW.md) — voice/text mock interviewer
-- [`docs/CODE_PATH_COACH.md`](docs/CODE_PATH_COACH.md) — Prep coach + Post-interview coach
-
-Engineering product docs (scope, requirements, setup) live under
-`docs/engineering/`.
 
 ## Deployment
 

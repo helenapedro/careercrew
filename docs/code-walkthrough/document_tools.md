@@ -2,8 +2,6 @@
 
 **File purpose:** Single source of truth for turning an upload or pasted text into plain text. Used by the MCP server and by the pipeline's fail-fast read.
 
-**Say this:** “One implementation — MCP, pipeline, and tools cannot drift.”
-
 ---
 
 ## Constants / errors
@@ -26,7 +24,6 @@ Reads `settings.upload_dir`.
 
 **What:** Reject empty / paths with directories / `../`; join under uploads; `abspath` must stay under base; must be a real file.  
 **Why:** Agents cannot read arbitrary disk paths.  
-**Say this:** “Bare filename only inside uploads — classic path-traversal defense.”
 
 ---
 
@@ -64,8 +61,6 @@ Scheme:// prefix.
 2. URL → reject with “download or paste” message (no scraping)  
 3. Bare name with supported extension → try uploads read; if missing file, treat as paste text  
 4. Else treat as pasted JD text  
-
-**Say this:** “We dropped JD URL fetch because job boards block it.”
 
 ### `_has_supported_extension(name)`
 

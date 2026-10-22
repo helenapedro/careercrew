@@ -27,9 +27,6 @@ Normalized UI/CLI inputs: `package_id`, optional `resume_path`/`resume_text`,
 optional `jd_path`/`jd_text`, `seniority`, and `revision_notes` (empty on the
 first Analyze).
 
-**Say this:** “One object carries everything Analyze needs; exactly one resume
-source and one JD source are expected.”
-
 ### `PipelineResult` (dataclass)
 
 Everything the UI needs: `package`, `profile`, `requirements`, `gaps`,
@@ -49,7 +46,6 @@ requirements → gaps → feedback → prep_plan.
 **What:** Strip → try fenced JSON → `json.loads` → if fail, slice first `{...}`
 or `[...]` → else `None`.
 **Why:** LLMs often wrap JSON in markdown fences.
-**Say this:** “Bounded repair of messy model text into JSON.”
 
 ### `_coerce_model(model_cls, data)`
 
@@ -63,7 +59,6 @@ experience, promotes matching `out_of_scope` verdicts to `covered`, and appends
 matching JD tokens to `requirements.keywords`. Recomputes `coverage_score`.
 **Why:** Offline runs skip the crew, so the attested experience has to reach the
 gaps and prep plan through code.
-**Say this:** “The candidate says they have React; the gap report has to hear it.”
 
 ### `_prepare_resume_text` / `_prepare_jd_text`
 
@@ -76,7 +71,6 @@ gaps and prep plan through code.
 `build_crew`, then `crew.kickoff(inputs=...)` — synchronous, already on a worker
 thread. Times it and records `trace.add("crew.kickoff")`.
 **Why:** Kickoff is blocking; `runner.py` already moved it off the UI thread.
-**Say this:** “This is where the five agents actually run.”
 
 ### `_parse_crew_outputs(result, request, trace)`
 
@@ -100,7 +94,6 @@ Pydantic. Returns a dict of the five models.
 
 **Why:** One place owns honesty + graceful degradation.
 **I/O:** Disk (reads), MCP, OpenAI, in-memory result (SQLite write happens later in review).
-**Say this:** “Guardrails in, crew or gap fallback, guardrails out, then typed result.”
 
 ### `make_package_id()`
 

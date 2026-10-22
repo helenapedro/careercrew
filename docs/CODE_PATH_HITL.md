@@ -95,7 +95,7 @@ trace.
 
 ---
 
-## 6. Talking points
+## Design notes
 
 - HITL is real persistence, not a fake button  
 - **Approval gates downstream use**: the mock interview and both coaching chats

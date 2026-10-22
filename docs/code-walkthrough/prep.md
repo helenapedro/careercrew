@@ -36,7 +36,6 @@ Map label → band; detect role count; confidence heuristic; build `SeniorityAss
 
 **Why:** The prep tab keeps a seniority band and question themes without inventing experience. Note that focus areas come from `gaps.verdicts`, so a run with no gap report (no key) yields band + themes with an empty focus list.  
 **Called by:** `pipeline.run_analysis` when the crew plan is missing (always, with no key).  
-**Say this:** “Gaps drive prep time — out_of_scope first.”
 
 ---
 

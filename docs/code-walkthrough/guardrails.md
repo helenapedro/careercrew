@@ -25,7 +25,6 @@
 
 **What:** Replace emails/phones with `[redacted …]`.  
 **Why:** Reduce PII before LLM calls when pasted text is used.  
-**Say this:** “We scrub contact info before it hits the model.”
 
 ### `check_upload(path)`
 
@@ -45,7 +44,6 @@
 - Resume/JD text: disallowed instruction patterns
 
 **Why:** Refuse ambiguous or malicious input before the crew.  
-**Say this:** “One resume source, one JD source — never both, never neither.”
 
 ---
 
@@ -59,7 +57,6 @@
 
 **What:** Every `cited_fact` must share meaningful tokens with profile text (skills/achievements); empty cite → error.  
 **Why:** Rewrites must not invent experience.  
-**Say this:** “No bullet without a resume fingerprint.”
 
 ### `validate_prep_plan(plan, gaps, requirements)`
 
@@ -95,7 +92,6 @@
 - Build `OutputValidationResult`  
 
 **Why:** Package validation must fail closed on invented bullets.  
-**Say this:** “If validation fails, Analyze raises — we do not hand a bad package to HITL.”
 
 ---
 
@@ -103,4 +99,4 @@
 
 - **Input:** `pipeline.run_analysis` start  
 - **Output package/prep:** end of `run_analysis`  
-- **Interview/coach:** `app.py` handlers + `coach._reply` / `interview` path  
+- **Interview/coach:** `app.py` handlers + `coach._reply` / `interview` path

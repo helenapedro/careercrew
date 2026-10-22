@@ -102,7 +102,7 @@ in Gradio `history` state for the current session only.
 
 ---
 
-## 7. Talking points
+## Design notes
 
 - Two windows on purpose: prep vs post-interview have different context scopes  
 - Full memory ≠ unbounded: character cap + history turn cap  

@@ -1,6 +1,6 @@
 # Glossary
 
-Words used in the code talk. One idea each. The product never submits an application; it prepares and practices.
+Terms used across the documentation. One idea each. The product never submits an application; it prepares and practices.
 
 ## Crew
 
