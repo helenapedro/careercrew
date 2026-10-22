@@ -19,7 +19,6 @@ from careercrew.models import (
     RewrittenBullet,
     SeniorityAssessment,
     SeniorityBand,
-    TrackerEntry,
     TranscriptTurn,
     seniority_band_from_label,
 )
@@ -54,11 +53,6 @@ def test_feedback_draft_bullets_require_citation_field():
 def test_review_enums_are_string_valued():
     assert ReviewStatus.PENDING_REVIEW.value == "PENDING_REVIEW"
     assert ReviewAction.REVISE.value == "REVISE"
-
-
-def test_tracker_entry_roundtrip():
-    entry = TrackerEntry(package_id="pkg-1", status=ReviewStatus.APPROVED)
-    assert TrackerEntry.model_validate_json(entry.model_dump_json()).status is ReviewStatus.APPROVED
 
 
 def test_seniority_band_labels_and_parser():

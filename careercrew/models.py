@@ -102,18 +102,6 @@ class ReviewDecision(BaseModel):
     decided_at: datetime = Field(default_factory=_utcnow)
 
 
-class TrackerEntry(BaseModel):
-    """A row in the session tracker: what was prepared, and its status."""
-
-    package_id: str
-    role_title: str = ""
-    company: str = ""
-    status: ReviewStatus = ReviewStatus.DRAFT
-    revision_count: int = 0
-    prepared_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
-
-
 class TraceEvent(BaseModel):
     step: str
     actor: str = "pipeline"

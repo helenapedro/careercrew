@@ -1,4 +1,4 @@
-"""Tests for the HITL review state machine and the session tracker."""
+"""Tests for the HITL review state machine."""
 
 from __future__ import annotations
 
@@ -98,14 +98,6 @@ def test_decision_package_mismatch_is_rejected():
             _package("pkg-a"),
             ReviewDecision(package_id="pkg-b", decision=ReviewAction.APPROVE),
         )
-
-
-def test_tracker_lists_packages():
-    store, service = _service()
-    service.submit_for_review({"jd_source": "x"}, _package("pkg-1"))
-    entries = store.list_packages()
-    assert len(entries) == 1
-    assert entries[0].package_id == "pkg-1"
 
 
 def test_count_revisions():

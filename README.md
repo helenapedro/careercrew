@@ -106,7 +106,7 @@ says so. Add a key for the full crew and the voice interview.
 - `careercrew/coach.py` - full-memory prep and post-interview coaching chats
 - `careercrew/audio.py` - whisper-1 transcription and tts-1 speech (graceful)
 - `careercrew/llm.py` - small OpenAI chat helper used by the interactive agents
-- `careercrew/session_store.py` - SQLite session tracker, interviews, and chats
+- `careercrew/session_store.py` - SQLite store for packages, interviews, and chats
 - `careercrew/review.py` - HITL state machine (approve / reject / revise)
 - `careercrew/guardrails.py` - input, tool, and per-agent output checks
 - `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description

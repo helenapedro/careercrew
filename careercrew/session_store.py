@@ -16,7 +16,6 @@ from careercrew.models import (
     ApplicationPackage,
     ReviewDecision,
     ReviewStatus,
-    TrackerEntry,
 )
 
 SCHEMA = """
@@ -207,27 +206,6 @@ class SessionStore:
         except (TypeError, ValueError):
             data["inputs"] = {}
         return data
-
-    def list_packages(self, limit: int = 50) -> list[TrackerEntry]:
-        """Return recent packages (most recently updated first) for the tracker."""
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT package_id, role_title, company, status, revision_count, "
-                "created_at, updated_at FROM packages ORDER BY updated_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [
-            TrackerEntry(
-                package_id=row["package_id"],
-                role_title=row["role_title"],
-                company=row["company"],
-                status=ReviewStatus(row["status"]),
-                revision_count=row["revision_count"],
-                prepared_at=datetime.fromisoformat(row["created_at"]),
-                updated_at=datetime.fromisoformat(row["updated_at"]),
-            )
-            for row in rows
-        ]
 
     def count_revisions(self, package_id: str) -> int:
         """Count how many REVISE decisions have been recorded."""

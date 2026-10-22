@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 import yaml
-from crewai import Agent, Crew, LLM, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 
 from careercrew.config import (

@@ -91,7 +91,7 @@ There is no History tab in the current UI. The prep bundle id (`pkg-…`) appear
 in the Analyze status line, in the decision dock, and in the approve / reject
 messages. The same id is the primary key of the SQLite `packages` row, so
 `_STORE.get_package("pkg-…")` returns the stored package, its inputs, and its
-trace. `_STORE.list_packages()` still exists for scripts and tests.
+trace.
 
 ---
 

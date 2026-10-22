@@ -718,7 +718,7 @@ package history (`pkg-…`), and the two coaching chats.
 
 After Analyze, the package enters a human-in-the-loop state machine. The user
 can **approve**, **request revision**, or **reject**. Every package gets an id
-like `pkg-…`, stored in SQLite and listed under History.
+like `pkg-…`, shown in the status line and stored in SQLite.
 
 CareerCrew still never auto-submits applications.
 """,
@@ -829,7 +829,6 @@ for k, v in post_interview_context.items():
 | Concern | File | Symbol |
 |---------|------|--------|
 | State machine | `review.py` | approve / revise / reject helpers |
-| History data | `session_store.py` | `list_packages`; rows built in `ui_state.py` |
 | SQLite | `session_store.py` | packages, chats, interviews |
 | Coaches | `coach.py` | prep + post-interview reply builders |
 

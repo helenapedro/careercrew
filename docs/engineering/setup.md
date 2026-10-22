@@ -31,7 +31,7 @@ Key variables (see `.env.example` for the full list):
 |---|---|---|
 | `OPENAI_API_KEY` | No | Full agent crew and voice interview. Without it the crew is skipped and a deterministic gap-based prep plan is used; the UI banner says so |
 | `CAREERCREW_UPLOAD_DIR` | No | Folder for resume/JD uploads (created automatically) |
-| `CAREERCREW_DB_PATH` | No | SQLite database for the session tracker, review history, interviews, and chats |
+| `CAREERCREW_DB_PATH` | No | SQLite database for review history, interviews, and chats |
 | `CAREERCREW_MAX_REVISIONS` | No | Bounded revision limit for the HITL review loop (default 2) |
 | `CAREERCREW_STT_MODEL` / `CAREERCREW_TTS_MODEL` | No | Mock-interview audio models (defaults: whisper-1 / tts-1) |
 

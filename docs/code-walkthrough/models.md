@@ -33,14 +33,13 @@
 
 ---
 
-## Review / tracker
+## Review state machine
 
 | Model / enum | Meaning |
 |--------------|---------|
 | `ReviewStatus` | DRAFT → PENDING_REVIEW → APPROVED / REJECTED |
 | `ReviewAction` | APPROVE / REJECT / REVISE |
 | `ReviewDecision` | package_id, decision, feedback, decided_at |
-| `TrackerEntry` | Row shape returned by `SessionStore.list_packages()` (no History tab in the UI anymore) |
 | `TraceEvent` | step, actor, detail, status, duration_ms |
 | `ExecutionTrace` | list of events; `.add(...)` appends one |
 

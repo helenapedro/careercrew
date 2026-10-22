@@ -34,10 +34,7 @@ Commit on success; shared vs per-call connection.
 | `record_decision` | INSERT decision |
 | `update_status` | UPDATE status (± revision_count) |
 | `get_package` | Row + parsed `ApplicationPackage` |
-| `list_packages` | Package history, newest first (used by scripts/tests; no History tab) |
 | `count_revisions` | Count REVISE rows |
-
-**Say this:** “`list_packages` is the package history — that’s where `pkg-…` lives, even though the UI has no History tab.”
 
 ### Interview APIs
 
