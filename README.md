@@ -96,7 +96,8 @@ Add a key for the full crew and the voice interview.
   (per-file guide for every module) and [`docs/CODE_TOUR.md`](docs/CODE_TOUR.md)
   (one-page map).
 - **Flow narratives** — [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md)
-  (step-by-step Analyze trace with verified line numbers), then
+  (step-by-step Analyze trace: full code per step with file and line range, checked
+  by `python tools/verify_doc_refs.py`), then
   [`CODE_PATH_ANALYZE`](docs/CODE_PATH_ANALYZE.md),
   [`CODE_PATH_PREP`](docs/CODE_PATH_PREP.md),
   [`CODE_PATH_HITL`](docs/CODE_PATH_HITL.md),

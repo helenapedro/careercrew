@@ -5,7 +5,8 @@ that way. Each page is self-contained and links back to the matching flow docume
 
 Flow narratives (what happens after each button) live in
 [`../CODE_PATH_*.md`](../CODE_PATH_ANALYZE.md). For a single continuous trace of
-the Analyze path with verified line numbers, see
+the Analyze path where every step shows its full code with the file and line
+range (verified by `python tools/verify_doc_refs.py`), see
 [`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md).
 
 ## Reading order

@@ -8,6 +8,19 @@ Run from the repository root:
 python -m pytest tests/ -q
 ```
 
+### Documentation citations
+
+The walkthrough quotes code with exact file and line ranges. Check every citation
+against the working tree:
+
+```
+python tools/verify_doc_refs.py
+```
+
+It verifies each `` ``startLine:endLine:path`` `` block (range and quoted content)
+and every `path:line` mention, and exits non-zero on a stale citation. Run it
+after any refactor that moves code.
+
 ### Last recorded run
 
 - **Date:** 2026-10-21; **branch:** `dev`; **Python:** 3.12.3
@@ -35,8 +48,9 @@ Environment note: in sandboxes that set proxy variables, `httpx` can fail at imp
 These gates must all pass before merging `dev` into `main`:
 
 1. The automated test suite is green (`tests/`). — Last run 2026-10-21: 131 passed, 0 failed.
-2. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn. — Verified 2026-10-21 via `tests/test_app_smoke.py` (analyze → approve → interview start/submit) and the coach gating test.
-3. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — Audited 2026-10-21: **passes**. `.env` is git-ignored and untracked; only `.env.example` (placeholder values) is committed, and no key-shaped string appears in tracked files.
-4. `README.md` and `ARCHITECTURE.md` describe the released behavior. — **Confirmed** 2026-10-21: both documents were re-checked against the code, and their diagrams, line references, and limited-mode wording were corrected.
-5. The merge PR is reviewed and approved. — Pending.
-6. After merge: smoke-test `main` and record the release commit. — Pending.
+2. Documentation citations resolve (`python tools/verify_doc_refs.py`). — Verified 2026-10-22: all 41 code citations match their files and line ranges.
+3. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn. — Verified 2026-10-21 via `tests/test_app_smoke.py` (analyze → approve → interview start/submit) and the coach gating test.
+4. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — Audited 2026-10-21: **passes**. `.env` is git-ignored and untracked; only `.env.example` (placeholder values) is committed, and no key-shaped string appears in tracked files.
+5. `README.md` and `ARCHITECTURE.md` describe the released behavior. — **Confirmed** 2026-10-21: both documents were re-checked against the code, and their diagrams, line references, and limited-mode wording were corrected.
+6. The merge PR is reviewed and approved. — Pending.
+7. After merge: smoke-test `main` and record the release commit. — Pending.
