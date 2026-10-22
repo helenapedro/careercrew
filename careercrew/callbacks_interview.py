@@ -64,9 +64,21 @@ def _evaluation_html(evaluation: AnswerEvaluation | None) -> str:
         "</div>"
         "<div class='cc-section-title'>What the interviewer was looking for</div>"
         f"<p style='color:var(--cc-ink-2);font-size:13.5px;line-height:1.55'>{_esc(evaluation.what_interviewer_wanted)}</p>"
-        + (f"<div class='cc-section-title'>What worked</div><ul class='cc-list'>{strengths}</ul>" if strengths else "")
-        + (f"<div class='cc-section-title'>What to improve</div><div class='cc-note'><ul class='cc-list'>{improvements}</ul></div>" if improvements else "")
-        + (f"<div class='cc-section-title'>A stronger answer would</div><ul class='cc-list'>{outline}</ul>" if outline else "")
+        + (
+            f"<div class='cc-section-title'>What worked</div><ul class='cc-list'>{strengths}</ul>"
+            if strengths
+            else ""
+        )
+        + (
+            f"<div class='cc-section-title'>What to improve</div><div class='cc-note'><ul class='cc-list'>{improvements}</ul></div>"
+            if improvements
+            else ""
+        )
+        + (
+            f"<div class='cc-section-title'>A stronger answer would</div><ul class='cc-list'>{outline}</ul>"
+            if outline
+            else ""
+        )
         + "</div>"
     )
 

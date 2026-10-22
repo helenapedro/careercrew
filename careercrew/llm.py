@@ -54,9 +54,7 @@ def _client():
 def _rejects_temperature(exc: Exception) -> bool:
     """True when the error says this model will not accept ``temperature``."""
     message = str(exc).lower()
-    return "temperature" in message and (
-        "unsupported" in message or "not support" in message
-    )
+    return "temperature" in message and ("unsupported" in message or "not support" in message)
 
 
 def reset_model_capabilities() -> None:
@@ -87,9 +85,7 @@ def chat_completion(prompt: str, *, system: str = "", temperature: float = 0.3) 
         except Exception as exc:  # noqa: BLE001 - inspect, maybe retry
             if "temperature" not in payload or not _rejects_temperature(exc):
                 raise
-            logger.info(
-                "model %s rejects temperature; retrying with defaults", model
-            )
+            logger.info("model %s rejects temperature; retrying with defaults", model)
             _NO_TEMPERATURE_MODELS.add(model)
             payload.pop("temperature", None)
             response = client.chat.completions.create(**payload)

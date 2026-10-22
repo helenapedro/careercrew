@@ -71,6 +71,7 @@ _bind_runtime()
 
 _SAMPLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
 
+
 def _read_sample(name: str) -> str:
     try:
         with open(os.path.join(_SAMPLES_DIR, name), encoding="utf-8") as handle:
@@ -409,7 +410,10 @@ def build_app() -> gr.Blocks:
                 *_empty_outputs(),
             ),
             outputs=[
-                resume_file, resume_text, jd_file, jd_text,
+                resume_file,
+                resume_text,
+                jd_file,
+                jd_text,
                 *analyze_outputs,
             ],
         )
@@ -431,16 +435,26 @@ def build_app() -> gr.Blocks:
             interview_start,
             inputs=[ctx_state, iv_questions],
             outputs=[
-                iv_error, iv_question_html, iv_audio, iv_chatbot,
-                iv_feedback_html, iv_overall_html, iv_state,
+                iv_error,
+                iv_question_html,
+                iv_audio,
+                iv_chatbot,
+                iv_feedback_html,
+                iv_overall_html,
+                iv_state,
             ],
         )
         iv_submit_btn.click(
             interview_submit,
             inputs=[ctx_state, iv_state, iv_answer_text, iv_answer_audio],
             outputs=[
-                iv_error, iv_question_html, iv_audio, iv_chatbot,
-                iv_feedback_html, iv_overall_html, iv_state,
+                iv_error,
+                iv_question_html,
+                iv_audio,
+                iv_chatbot,
+                iv_feedback_html,
+                iv_overall_html,
+                iv_state,
             ],
         )
 

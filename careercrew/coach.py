@@ -47,7 +47,9 @@ def build_context(
     if profile is not None:
         parts.append("## Candidate profile (from the resume)\n" + profile.model_dump_json())
     if requirements is not None:
-        parts.append("## Job requirements (from the job description)\n" + requirements.model_dump_json())
+        parts.append(
+            "## Job requirements (from the job description)\n" + requirements.model_dump_json()
+        )
     if gaps is not None:
         parts.append("## Honest gap report\n" + gaps.model_dump_json())
     if prep_plan is not None:
@@ -96,19 +98,55 @@ def _history_text(history: list[dict] | None) -> str:
 # Questions outside these scopes get a deterministic redirect instead of an answer.
 SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "resume": (
-        "resume", "cv", "bullet", "rewrite", "experience", "skill",
-        "background", "job title", "employment", "internship", "career",
+        "resume",
+        "cv",
+        "bullet",
+        "rewrite",
+        "experience",
+        "skill",
+        "background",
+        "job title",
+        "employment",
+        "internship",
+        "career",
     ),
     "job_description": (
-        "job description", "jd", "posting", "requirement", "role",
-        "responsibilities", "qualification", "mean by", "company",
+        "job description",
+        "jd",
+        "posting",
+        "requirement",
+        "role",
+        "responsibilities",
+        "qualification",
+        "mean by",
+        "company",
     ),
     "interview_prep": (
-        "interview", "prep", "prepare", "preparation", "study", "readiness",
-        "practice", "mock", "question", "nervous", "tips", "advice", "star",
-        "behavioral", "tell me about", "walk through", "gap", "weakness",
-        "strength", "technical", "coding", "whiteboard", "rehearse",
-        "get ready", "brush up",
+        "interview",
+        "prep",
+        "prepare",
+        "preparation",
+        "study",
+        "readiness",
+        "practice",
+        "mock",
+        "question",
+        "nervous",
+        "tips",
+        "advice",
+        "star",
+        "behavioral",
+        "tell me about",
+        "walk through",
+        "gap",
+        "weakness",
+        "strength",
+        "technical",
+        "coding",
+        "whiteboard",
+        "rehearse",
+        "get ready",
+        "brush up",
     ),
 }
 

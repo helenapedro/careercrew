@@ -51,9 +51,7 @@ def test_streaming_runs_hide_gradio_progress_chrome():
 
     demo = app.build_app()
     streaming = {
-        fn.show_progress
-        for fn in demo.fns.values()
-        if fn.fn in (app.analyze, app.request_revision)
+        fn.show_progress for fn in demo.fns.values() if fn.fn in (app.analyze, app.request_revision)
     }
     assert streaming == {"hidden"}
 
@@ -103,7 +101,9 @@ def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
     last = first
     for last in gen:  # noqa: B007 - keep the final yielded update
         pass
-    assert _out(last, "run_button")["interactive"] is True, "run button must come back after a failure"
+    assert _out(last, "run_button")["interactive"] is True, (
+        "run button must come back after a failure"
+    )
     assert _out(last, "clear_button")["interactive"] is True
 
     # The reset state used by Clear also leaves both buttons usable.
@@ -202,9 +202,10 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
     )
     # stages · match · prep · … · ctx
     assert "RUNNING" not in _out(outputs, "stages")
-    assert "Interview prep plan" in _out(outputs, "prep_plan") or "prep" in _out(
-        outputs, "prep_plan"
-    ).lower()
+    assert (
+        "Interview prep plan" in _out(outputs, "prep_plan")
+        or "prep" in _out(outputs, "prep_plan").lower()
+    )
     assert "prep_plan" in str(_out(outputs, "context"))
 
 

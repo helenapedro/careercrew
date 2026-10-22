@@ -66,7 +66,9 @@ def test_revise_increments_and_respects_limit():
     service.submit_for_review({"jd_source": "x"}, _package())
     outcome = service.apply_decision(
         _package(),
-        ReviewDecision(package_id="pkg-1", decision=ReviewAction.REVISE, reviewer_feedback="tighten"),
+        ReviewDecision(
+            package_id="pkg-1", decision=ReviewAction.REVISE, reviewer_feedback="tighten"
+        ),
     )
     assert outcome.needs_revision is True
     assert outcome.revision_count == 1
@@ -76,7 +78,9 @@ def test_revise_increments_and_respects_limit():
     with pytest.raises(ReviewError):
         service.apply_decision(
             _package(),
-            ReviewDecision(package_id="pkg-1", decision=ReviewAction.REVISE, reviewer_feedback="again"),
+            ReviewDecision(
+                package_id="pkg-1", decision=ReviewAction.REVISE, reviewer_feedback="again"
+            ),
             revision_count=1,
         )
 

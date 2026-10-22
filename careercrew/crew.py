@@ -87,9 +87,7 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
 
     mcp_server = crewai_mcp_server()
     knowledge = _guidelines_source(RESUME_GUIDELINES_PATH, "resume_guidelines")
-    interview_knowledge = _guidelines_source(
-        INTERVIEW_GUIDELINES_PATH, "interview_guidelines"
-    )
+    interview_knowledge = _guidelines_source(INTERVIEW_GUIDELINES_PATH, "interview_guidelines")
 
     def _agent(name: str, *, with_mcp: bool, max_iter: int) -> Agent:
         kwargs = {
@@ -112,9 +110,7 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     jd_analyzer = _agent("jd_analyzer", with_mcp=True, max_iter=6)
     gap_analyst = _agent("gap_analyst", with_mcp=False, max_iter=4)
     feedback_writer = _agent("feedback_writer", with_mcp=False, max_iter=4)
-    interview_prep_advisor = _agent(
-        "interview_prep_advisor", with_mcp=False, max_iter=4
-    )
+    interview_prep_advisor = _agent("interview_prep_advisor", with_mcp=False, max_iter=4)
     extract_profile = Task(
         name="extract_profile",
         config=tasks_cfg["extract_profile"],
@@ -201,8 +197,5 @@ def crew_inputs(
         "jd_text": jd_text or "(none; use the read_job_description tool)",
         "seniority": seniority
         or "the seniority / years of experience signaled in the job description",
-        "revision_notes": revision_notes
-        or "(none — produce the initial package)",
+        "revision_notes": revision_notes or "(none — produce the initial package)",
     }
-
-

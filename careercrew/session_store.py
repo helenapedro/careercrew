@@ -263,9 +263,7 @@ class SessionStore:
         return MockInterviewSession.model_validate_json(row["session_json"])
 
     # -- coaching chats --------------------------------------------------------
-    def add_chat_message(
-        self, session_id: str, channel: str, role: str, content: str
-    ) -> None:
+    def add_chat_message(self, session_id: str, channel: str, role: str, content: str) -> None:
         """Append one chat turn for a channel ('prep' or 'post')."""
         with self._connect() as conn:
             conn.execute(

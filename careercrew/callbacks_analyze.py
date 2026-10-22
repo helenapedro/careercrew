@@ -44,9 +44,8 @@ from careercrew.ui_state import AnalyzeOutputs
 
 logger = logging.getLogger("careercrew.app")
 
-_IDLE_STATUS = (
-    "Add your resume and the job description, then press **Analyze match**."
-)
+_IDLE_STATUS = "Add your resume and the job description, then press **Analyze match**."
+
 
 def _empty_outputs() -> AnalyzeOutputs:
     """The reset state shared by every early return in analyze and request_revision."""
@@ -116,9 +115,7 @@ def _resolve_upload(upload, pasted: str, kind: str) -> tuple[str | None, str | N
         if upload is None:
             pass
         else:
-            check_name = upload if isinstance(upload, str) else getattr(
-                upload, "name", str(upload)
-            )
+            check_name = upload if isinstance(upload, str) else getattr(upload, "name", str(upload))
             guardrails.check_upload(check_name)
             os.makedirs(_SETTINGS.upload_dir, exist_ok=True)
             base = os.path.abspath(_SETTINGS.upload_dir)
@@ -132,9 +129,7 @@ def _resolve_upload(upload, pasted: str, kind: str) -> tuple[str | None, str | N
     return None, None
 
 
-def analyze(
-    resume_file, resume_text, jd_file, jd_text
-) -> Iterator[tuple]:
+def analyze(resume_file, resume_text, jd_file, jd_text) -> Iterator[tuple]:
     """Generator callback: streams live stage progress, then the final results."""
     view = _empty_outputs()
 
@@ -240,7 +235,9 @@ def analyze(
         yield view.apply(
             error="",
             status=status,
-            stages=_stages_html(_FINAL, "All set — review your match report, prep plan, and answers."),
+            stages=_stages_html(
+                _FINAL, "All set — review your match report, prep plan, and answers."
+            ),
             match_report=_insight_html(result),
             prep_plan=_prep_html(result.prep_plan),
             approve=gr.update(interactive=True),

@@ -85,8 +85,7 @@ def test_run_analysis_infers_seniority_from_jd(monkeypatch):
         _request(
             seniority="",
             jd_text=(
-                "Senior Backend Engineer. Required: 5+ years building backend "
-                "services in Python."
+                "Senior Backend Engineer. Required: 5+ years building backend services in Python."
             ),
         )
     )

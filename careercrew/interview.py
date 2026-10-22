@@ -255,7 +255,9 @@ def _fallback_evaluation(
     else:
         improvements.append("Add a number or measurable result to make the impact concrete.")
 
-    if re.search(r"\b(i|my|we)\b", lower) and re.search(r"\b(result|impact|led|built|shipped|improved|reduced|increased)\b", lower):
+    if re.search(r"\b(i|my|we)\b", lower) and re.search(
+        r"\b(result|impact|led|built|shipped|improved|reduced|increased)\b", lower
+    ):
         score += 12
         strengths.append("Used action-and-result framing rather than just describing duties.")
     else:
@@ -264,9 +266,7 @@ def _fallback_evaluation(
         )
 
     if question.target_competency and question.target_competency.lower() not in lower:
-        improvements.append(
-            f"Connect the answer explicitly to {question.target_competency}."
-        )
+        improvements.append(f"Connect the answer explicitly to {question.target_competency}.")
 
     if not strengths:
         strengths.append("Engaged with the question directly.")
@@ -335,9 +335,7 @@ def overall_evaluation(session: MockInterviewSession, *, llm=None) -> tuple[int,
 
 
 def _build_overall_prompt(session: MockInterviewSession, base: int) -> str:
-    transcript = "\n".join(
-        f"{turn.role.value.upper()}: {turn.text}" for turn in session.turns
-    )
+    transcript = "\n".join(f"{turn.role.value.upper()}: {turn.text}" for turn in session.turns)
     return (
         "You are an interview coach. Summarize this mock interview in 3-5 sentences: "
         "overall performance, the strongest signals, and the top 2 priorities to "

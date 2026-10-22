@@ -145,9 +145,7 @@ class MCPToolClient:
         sess = session or self._session
         if sess is None:
             raise RuntimeError("MCP session is not open")
-        result = await asyncio.wait_for(
-            sess.call_tool(name, arguments), timeout=self._timeout_s
-        )
+        result = await asyncio.wait_for(sess.call_tool(name, arguments), timeout=self._timeout_s)
         if getattr(result, "isError", False):
             detail = _tool_error_text(result) or f"MCP tool {name} returned an error"
             raise RuntimeError(detail)
