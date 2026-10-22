@@ -32,7 +32,7 @@ Environment note: in sandboxes that set proxy variables, `httpx` can fail at imp
 
 ## 2. Release Gates
 
-From `careercrew-product-draft-v0.1.md`. All gates must pass before merging `dev` into `main`:
+These gates must all pass before merging `dev` into `main`:
 
 1. The automated test suite is green (`tests/`). — Last run 2026-10-21: 131 passed, 0 failed.
 2. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn. — Verified 2026-10-21 via `tests/test_app_smoke.py` (analyze → approve → interview start/submit) and the coach gating test.

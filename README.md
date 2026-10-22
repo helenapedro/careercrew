@@ -92,7 +92,6 @@ Add a key for the full crew and the voice interview.
   - `huggingface-spaces.md` — deploy the Docker image to a Space, and what is free vs paid
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
-  - `careercrew-product-draft-v0.1.md` — product draft with verification notes
 - **Code reference** — [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md)
   (per-file guide for every module) and [`docs/CODE_TOUR.md`](docs/CODE_TOUR.md)
   (one-page map).
