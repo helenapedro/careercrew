@@ -37,7 +37,7 @@ _ALLOWED: dict[ReviewStatus, set[ReviewStatus]] = {
 
 # --------------------------------------------------
 # Review Service
-# --------------------------------------------------    
+# --------------------------------------------------
 def _check_transition(current: ReviewStatus, target: ReviewStatus) -> None:
     if target not in _ALLOWED[current]:
         raise ReviewError(f"invalid transition: {current.value} -> {target.value}")
