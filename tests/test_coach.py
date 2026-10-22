@@ -118,6 +118,49 @@ def test_detect_scope_out_of_scope():
     assert coach.detect_scope("What is the capital of France?") is None
 
 
+def test_detect_scope_tolerates_misspelled_preparation():
+    # Regression: a one-letter typo ("preperation") used to fall through to the
+    # redirect because scope matching was strict substring matching.
+    assert (
+        coach.detect_scope("what I have to do for Infrastructure as Code preperation?")
+        == "interview_prep"
+    )
+
+
+def test_detect_scope_tolerates_misspelled_interview():
+    assert coach.detect_scope("my intreview is tomorrow") == "interview_prep"
+
+
+def test_detect_scope_accepts_prep_stem_and_domain_topics():
+    for message in (
+        "how to prep for the interview",
+        "how do I get ready for a technical round",
+        "what should I rehearse",
+        "any advice for being nervous",
+    ):
+        assert coach.detect_scope(message) == "interview_prep", message
+
+
+def test_detect_scope_ignores_unrelated_word_forms():
+    # "technically" must not match the "technical" interview keyword, and generic
+    # chatter must not be treated as in scope.
+    assert coach.detect_scope("technically speaking is the sky blue") is None
+    assert coach.detect_scope("what does the research say about coffee") is None
+    assert coach.detect_scope("tell me a joke") is None
+
+
+def test_prep_coach_answers_typo_question_instead_of_redirecting():
+    def fake_llm(prompt: str) -> str:
+        return "Cover IaC basics: Terraform modules, state, and plan/apply."
+
+    reply, _ = coach.prep_coach_reply(
+        "what I have to do for Infrastructure as Code preperation?",
+        "ctx",
+        llm=fake_llm,
+    )
+    assert "three things" not in reply
+
+
 def test_prep_coach_redirects_out_of_scope_without_calling_llm():
     def fail_llm(prompt: str) -> str:
         raise AssertionError("LLM must not be called for out-of-scope questions")

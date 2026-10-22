@@ -8,6 +8,8 @@ What it returns: a reply string, plus any guardrail warnings.
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 
 from careercrew import guardrails
 from careercrew.config import COACHING_GUIDELINES_PATH
@@ -95,16 +97,18 @@ def _history_text(history: list[dict] | None) -> str:
 SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "resume": (
         "resume", "cv", "bullet", "rewrite", "experience", "skill",
-        "background", "job title", "employment", "career",
+        "background", "job title", "employment", "internship", "career",
     ),
     "job_description": (
         "job description", "jd", "posting", "requirement", "role",
-        "responsibilities", "qualification", "what does", "what do they mean",
-        "mean by", "company",
+        "responsibilities", "qualification", "mean by", "company",
     ),
     "interview_prep": (
-        "interview", "prepare", "preparation", "practice", "mock",
-        "question", "nervous", "tips", "advice", "star",
+        "interview", "prep", "prepare", "preparation", "study", "readiness",
+        "practice", "mock", "question", "nervous", "tips", "advice", "star",
+        "behavioral", "tell me about", "walk through", "gap", "weakness",
+        "strength", "technical", "coding", "whiteboard", "rehearse",
+        "get ready", "brush up",
     ),
 }
 
@@ -112,6 +116,61 @@ SCOPE_REDIRECT = (
     "I can help with three things: your resume, the job description, "
     "or interview preparation. Could you ask about one of those?"
 )
+
+# Scope matching is deliberately tolerant: candidates type quickly and misspell
+# words ("preperation", "intreview"). Multi-word phrases match as normalized
+# substrings; single words match whole tokens, and words of 7+ characters also
+# tolerate a single typo (one substitution, insertion, deletion, or swap) so a
+# misspelling does not push an in-scope question into the redirect.
+_FUZZY_MIN_KEYWORD_CHARS = 7
+_WORD_RE = re.compile(r"[a-z0-9+#]+")
+
+
+def _normalize(message: str) -> str:
+    text = unicodedata.normalize("NFKD", (message or "").lower())
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return " ".join(text.split())
+
+
+def _within_one_typo(token: str, keyword: str) -> bool:
+    """True when ``token`` is ``keyword`` with at most one edit.
+
+    Counts a single substitution, insertion, deletion, or adjacent transposition,
+    which covers the common slips ("preperation", "intreview") without matching
+    words that merely share a stem ("technical" vs "technically").
+    """
+    if len(keyword) < _FUZZY_MIN_KEYWORD_CHARS or abs(len(token) - len(keyword)) > 1:
+        return False
+    if token == keyword:
+        return True
+    if len(token) == len(keyword):
+        diffs = [i for i in range(len(token)) if token[i] != keyword[i]]
+        if len(diffs) == 1:
+            return True
+        if len(diffs) == 2:
+            i, j = diffs
+            return j == i + 1 and token[i] == keyword[j] and token[j] == keyword[i]
+        return False
+    # One insertion or deletion: align the shorter token against the longer one.
+    short, long = (token, keyword) if len(token) < len(keyword) else (keyword, token)
+    i = 0
+    while i < len(short) and short[i] == long[i]:
+        i += 1
+    return short[i:] == long[i + 1 :]
+
+
+def _token_matches(token: str, keyword: str) -> bool:
+    """Exact token match, plural/stem variant, or a single typo."""
+    if token == keyword:
+        return True
+    for suffix in ("ing", "es", "ed", "s"):
+        if len(keyword) > len(suffix) + 3 and keyword.endswith(suffix):
+            if token == keyword[: -len(suffix)]:
+                return True
+        if len(token) > len(suffix) + 3 and token.endswith(suffix):
+            if token[: -len(suffix)] == keyword:
+                return True
+    return _within_one_typo(token, keyword)
 
 
 def detect_scope(message: str) -> str | None:
@@ -121,10 +180,17 @@ def detect_scope(message: str) -> str | None:
     or ``None`` when the question is outside all three scopes.
     Keyword-based and deterministic: no LLM call, cheap to test.
     """
-    lower = (message or "").lower()
+    text = _normalize(message)
+    if not text:
+        return None
+    tokens = _WORD_RE.findall(text)
     for scope, keywords in SCOPE_KEYWORDS.items():
-        if any(keyword in lower for keyword in keywords):
-            return scope
+        for keyword in keywords:
+            if " " in keyword:
+                if keyword in text:
+                    return scope
+            elif any(_token_matches(token, keyword) for token in tokens):
+                return scope
     return None
 
 
