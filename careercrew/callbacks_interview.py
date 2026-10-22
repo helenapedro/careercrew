@@ -53,7 +53,16 @@ def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
     return messages
 
 
-def _question_html(question: InterviewQuestion | None, *, done: bool = False) -> str:
+def _question_html(
+    question: InterviewQuestion | None, *, done: bool = False, blocked: bool = False
+) -> str:
+    if blocked:
+        return (
+            "<div class='cc-card'><h3>Interview not started</h3>"
+            "<div class='cc-empty'><strong>This bundle is still waiting for review</strong>"
+            "Approve the prep bundle in <strong>1 · Analyze match</strong> to unlock the "
+            "mock interview.</div></div>"
+        )
     if done or question is None:
         return (
             "<div class='cc-card'><h3>Interview complete</h3>"
@@ -138,7 +147,7 @@ def interview_start(ctx_state, count: int) -> tuple:
     if not context:
         return (
             _alert_html("Analyze a match first — the interview uses your resume and the role."),
-            _question_html(None, done=True),
+            _question_html(None, blocked=True),
             None,
             [],
             "",
@@ -148,17 +157,7 @@ def interview_start(ctx_state, count: int) -> tuple:
     if not _is_approved(ctx_state):
         return (
             _alert_html(_APPROVAL_REQUIRED),
-            _question_html(None, done=True),
-            None,
-            [],
-            "",
-            "",
-            None,
-        )
-    if not _is_approved(ctx_state):
-        return (
-            _alert_html(_APPROVAL_REQUIRED),
-            _question_html(None, done=True),
+            _question_html(None, blocked=True),
             None,
             [],
             "",
@@ -230,17 +229,7 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
     if not _is_approved(ctx_state):
         return (
             _alert_html(_APPROVAL_REQUIRED),
-            _question_html(None, done=True),
-            None,
-            [],
-            "",
-            "",
-            iv_state,
-        )
-    if not _is_approved(ctx_state):
-        return (
-            _alert_html(_APPROVAL_REQUIRED),
-            _question_html(None, done=True),
+            _question_html(None, blocked=True),
             None,
             _turns_to_messages(session),
             "",
@@ -378,8 +367,6 @@ def _render_post_chat(history, message: str, ctx_state, iv_state):
     context = _load_context(ctx_state)
     if not _is_approved(ctx_state):
         return history + [{"role": "assistant", "content": _APPROVAL_REQUIRED}], ""
-    if not _is_approved(ctx_state):
-        return history, _APPROVAL_REQUIRED
     session = _load_interview(iv_state) or _STORE.latest_interview()
     if context:
         models = _context_models(context)

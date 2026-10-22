@@ -45,15 +45,23 @@ def test_custom_theme_and_css_exist():
     assert app.theme() is not None
 
 
-def test_streaming_runs_hide_gradio_progress_chrome():
-    """Gradio's default progress border stacks a blue rule on every output."""
+def test_every_multi_output_listener_hides_progress_chrome():
+    """One progress banner is drawn per output, so no multi-output event may draw it.
+
+    The Mock interview start/submit handlers return 7 outputs each; without
+    ``show_progress="hidden"`` Gradio paints a spinner over the error box, the
+    question card, the audio player, the transcript, and the score panels at once.
+    Analyze, revise, approve, reject, and the two coach chats stack the same way.
+    """
     import app
 
     demo = app.build_app()
-    streaming = {
-        fn.show_progress for fn in demo.fns.values() if fn.fn in (app.analyze, app.request_revision)
-    }
-    assert streaming == {"hidden"}
+    offenders = [
+        (fn.fn.__name__, len(fn.outputs))
+        for fn in demo.fns.values()
+        if len(fn.outputs) > 1 and fn.show_progress != "hidden"
+    ]
+    assert offenders == []
 
 
 def test_app_is_light_only_even_when_os_prefers_dark():
