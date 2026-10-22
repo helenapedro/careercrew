@@ -31,7 +31,7 @@ Pasted text and an uploaded JD file also work:
 
 ```bash
 python main.py --resume-text "JANE DOE. Python, FastAPI, AWS." --jd "We need a Python engineer."
-python main.py --resume samples/sample_resume.txt --jd-file samples/sample_jd.pdf
+python main.py --resume samples/sample_resume.txt --jd-file samples/sample_jd.txt
 ```
 
 Run the web UI:

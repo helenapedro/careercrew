@@ -566,7 +566,7 @@ years-of-experience phrases in the posting. Used later by the prep plan.
         used_fallback = True
 ```
 
-`settings.has_llm` (`config.py:58`) is just `bool(self.openai_api_key)`. **No key
+`settings.has_llm` (`config.py:55`) is just `bool(self.openai_api_key)`. **No key
 → the crew is skipped entirely**, not attempted and failed.
 
 The `except` is deliberately broad (`noqa: BLE001`): a live API can fail in many
@@ -860,7 +860,7 @@ CLICK (app.py:396)
         ├─ stream_with_progress()                 :207 → runner.py:58
         │     ├─ ThreadPoolExecutor.submit        runner.py:91
         │     │    └─ run_analysis                pipeline.py:291
-        │     │          ├─ validate_request      :317  (→ guardrails.py:64)
+        │     │          ├─ validate_request      :317  (→ guardrails.py:65)
         │     │          ├─ _prepare_resume_text  :332  (fail fast)
         │     │          ├─ _prepare_jd_text      :343  (fail fast)
         │     │          ├─ infer_seniority_from_jd :358

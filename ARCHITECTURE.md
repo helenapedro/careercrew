@@ -58,7 +58,7 @@ flowchart TD
 | `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading and uploads-folder confinement. |
 | `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
-| `S8` | `careercrew/models.py` | Approved prep bundle: profile, requirements, gaps, rewrites, prep plan. Nothing is submitted. |
+| `S8` | `careercrew/models.py` | Approved prep bundle: `ApplicationPackage` carries the bundle id, role, company, summary, and the `do_not_claim` list. The detail lives beside it in `PipelineResult` (profile, requirements, gaps, feedback, prep plan). Nothing is submitted. |
 | `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
 | `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with transcript and scores in context). |
 | `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, review decisions, interview sessions and turns, and both chat channels. The UI reads back the current package and the latest interview; chat history is write-only. |
@@ -123,7 +123,7 @@ in `.env` on the host, never in the repo.
 
 ## 6. Architecture verification checklist
 
-Verified 2026-10-20 against `dev`.
+Verified 2026-10-21 against `dev`.
 
 - [x] Confirm the actual UI entry points and supported input methods.
 - [x] Confirm the exact agent/task sequence and data contracts.
