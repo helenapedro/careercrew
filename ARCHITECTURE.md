@@ -8,6 +8,7 @@
 > - Tests and release gates: `docs/engineering/testing-and-release.md`
 > - Agent and task details: `docs/engineering/agents-and-workflows.md`
 > - Use cases and user stories: `docs/engineering/use-cases-and-user-stories.md`
+> - Diagrams with short explanations: `docs/ARCHITECTURE_DIAGRAMS.md`
 
 
 ## 1. System overview
@@ -38,10 +39,9 @@ flowchart TD
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
 
-    S5 <--> MCP["MCP server — stdio<br/>read_resume · read_job_description"]
+    S5 <--> MCP["MCP server — stdio<br/>read_resume_tool · read_job_description_tool"]
     S4 -.-> K["knowledge/<br/>resume_guidelines.md<br/>interview_guidelines.md"]
-    S3 -.-> DB[("SQLite session store<br/>bundles · sessions · turns · chats")]
-    S7 -.-> DB
+    S7 -.-> DB[("SQLite session store<br/>bundles · decisions · sessions · turns · chats")]
     S9 -.-> DB
 ```
 
@@ -55,14 +55,16 @@ flowchart TD
 | `S5` | `careercrew/crew.py` | Turns `config/*.yaml` into a running sequential crew with MCP tools and knowledge sources. |
 | `1`–`5` | `config/agents.yaml`, `config/tasks.yaml` | The five sequential agents and their tasks (details in `docs/engineering/agents-and-workflows.md`). |
 | `MCP` | `mcp_server/server.py` | Exposes the shared tool logic over stdio as two MCP tools. |
-| `DT` | `careercrew/document_tools.py` | Single source of truth for tools: resume/JD reading and uploads-folder confinement. |
 | `S6` | `careercrew/guardrails.py` | Per-agent output checks: citations trace to real facts, and prep-plan focus areas cite real gaps. |
 | `S7` | `careercrew/review.py` | Human-in-the-loop state machine (see §3). |
-| `S8` | `careercrew/models.py` | Approved prep bundle: profile, requirements, gaps, rewrites, prep plan. Nothing is submitted. |
-| `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-question evaluation, overall score. |
-| `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with transcript and scores in context). |
+| `S8` | `careercrew/models.py` | Approved prep bundle: `ApplicationPackage` carries the bundle id, role, company, summary, and the `do_not_claim` list. The detail lives beside it in `PipelineResult` (profile, requirements, gaps, feedback, prep plan). Nothing is submitted. |
+| `S9a` | `careercrew/interview.py`, `careercrew/audio.py` | Voice mock interviewer: question generation, `whisper-1` STT / `tts-1` TTS, live transcript, per-answer evaluation. |
+| `S9b` | `careercrew/coach.py` | `prep_coach_reply` (resume and preparation chat) and `post_coach_reply` (post-interview performance chat with the transcript and per-answer evaluations in context). |
 | `DB` | `careercrew/session_store.py` | SQLite persistence: bundles, review decisions, interview sessions and turns, and both chat channels. The UI reads back the current package and the latest interview; chat history is write-only. |
 | `K` | `knowledge/` | `resume_guidelines.md` (writing + honesty) and `interview_guidelines.md` (prep, interviewer, and coaching conduct). |
+
+`careercrew/document_tools.py` is not a separate node: it is the shared implementation
+behind both the MCP server and the deterministic fallback.
 
 ## 3. HITL review loop
 
@@ -83,6 +85,12 @@ default 2). In the UI the three transitions are the **Approve prep bundle**,
 **Request changes**, and **Reject** buttons. Approval is reframed around the
 prep bundle: nothing is ever submitted to an employer.
 
+Approval also **gates downstream use**: the mock interview and both coaching
+chats call `_is_approved()` (`careercrew/callbacks_interview.py`), which reads the
+persisted `packages.status` and refuses to run unless it is `APPROVED`. The
+analysis results stay readable while pending, because the candidate needs them in
+order to decide.
+
 ## 4. Key design decisions
 
 1. **Sequential crew, not hierarchical.** The analysis pipeline is linear
@@ -95,33 +103,36 @@ prep bundle: nothing is ever submitted to an employer.
 3. **SQLite for memory.** Standard library only, survives restarts, no
    infrastructure. Each agent already receives the previous task's output,
    so the crew does not also store a separate short-term memory.
-4. **Gap-based fallback.** The app works without `OPENAI_API_KEY`
-   (a prep plan derived from the gaps); the UI banner says so.
+4. **Limited mode without a key.** The app runs without `OPENAI_API_KEY`, but
+   the crew is skipped: profile, requirements, and gaps stay empty, so the match
+   report is empty and the prep plan carries only the seniority band and themes
+   (no focus areas — there are no gaps to derive them from). The UI banner says so.
 5. **Evidence grounding.** Every factual claim traces to a supplied resume
    fact. Unsupported claims go to `do_not_claim` instead of being invented.
 
 ## 5. Deployment
 
-> **Deployment target decided:** Heroku (as used for the MarketMind project). This section still documents Hugging Face Spaces and will be updated with the Heroku deployment instructions.
+One container image, one port. Any Docker host works: a small cloud VM or a
+university machine.
 
 ```mermaid
 flowchart LR
     USER["Candidate<br/>(browser)"] --> APP["app.py — Gradio UI<br/>listens on 0.0.0.0:7860"]
-    subgraph SPACE["Hugging Face Space — Docker container"]
+    subgraph HOST["Docker host"]
         APP <--> MCPD["mcp_server<br/>stdio, in-process<br/>no second service"]
         APP --> DBD[("SQLite — /data<br/>careercrew.db + uploads")]
     end
-    SEC["Space Secrets<br/>OPENAI_API_KEY"] -.-> APP
+    SEC[".env on the host<br/>OPENAI_API_KEY"] -.-> APP
 ```
 
-`Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app,
-runs as non-root `appuser` with a writable `/data` volume, healthchecks the
-Gradio root, `CMD ["python", "app.py"]`. Secrets go in the Space settings, never
-in the repo. The Space URL is the demo link for the final presentation.
+`Dockerfile` (python:3.12-slim): installs `requirements.txt`, copies the app
+and `samples/`, runs as non-root `appuser` with a writable `/data` directory,
+healthchecks the Gradio root, `CMD ["python", "app.py"]`. The OpenAI key stays
+in `.env` on the host, never in the repo.
 
 ## 6. Architecture verification checklist
 
-Verified 2026-10-20 against `dev`.
+Verified 2026-10-21 against `dev`.
 
 - [x] Confirm the actual UI entry points and supported input methods.
 - [x] Confirm the exact agent/task sequence and data contracts.

@@ -2,7 +2,7 @@
 
 What it does: starts a practice interview, scores each answer, and replies in the coach chats.
 Who calls it: the Mock interview and coach buttons wired in app.py.
-What it returns: Gradio updates for the question, transcript, scores, and chat history.
+What it returns: Gradio updates for the question, transcript, and per-answer feedback.
 """
 
 from __future__ import annotations
@@ -14,10 +14,34 @@ from careercrew.models import (
     InterviewQuestion,
     InterviewTurnRole,
     MockInterviewSession,
+    ReviewStatus,
 )
 from careercrew.services import SETTINGS as _SETTINGS
 from careercrew.services import STORE as _STORE
 from careercrew.ui_html import _alert_html, _esc
+
+#: Shown when a downstream feature is used before the bundle is approved.
+_APPROVAL_REQUIRED = (
+    "Approve the prep bundle first. The mock interview and coaching chats use the "
+    "reviewed package, so open **1 · Analyze match** and press **Approve prep bundle**."
+)
+
+
+def _is_approved(ctx_state) -> bool:
+    """True when the analyzed package has been approved by a human.
+
+    The mock interview and both coaching chats are gated on approval: they consume
+    the reviewed bundle, so they must not run on an unreviewed draft. Returns
+    ``False`` when there is no context or no stored package.
+    """
+    context = _load_context(ctx_state)
+    if not context:
+        return False
+    package_id = context.get("package_id") or ""
+    if not package_id:
+        return False
+    stored = _STORE.get_package(package_id)
+    return bool(stored) and stored.get("status") == ReviewStatus.APPROVED.value
 
 
 def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
@@ -29,12 +53,21 @@ def _turns_to_messages(session: MockInterviewSession) -> list[dict]:
     return messages
 
 
-def _question_html(question: InterviewQuestion | None, *, done: bool = False) -> str:
+def _question_html(
+    question: InterviewQuestion | None, *, done: bool = False, blocked: bool = False
+) -> str:
+    if blocked:
+        return (
+            "<div class='cc-card'><h3>Interview not started</h3>"
+            "<div class='cc-empty'><strong>This bundle is still waiting for review</strong>"
+            "Approve the prep bundle in <strong>1 · Analyze match</strong> to unlock the "
+            "mock interview.</div></div>"
+        )
     if done or question is None:
         return (
             "<div class='cc-card'><h3>Interview complete</h3>"
             "<div class='cc-empty'><strong>You finished the mock interview</strong>"
-            "Review your score and the per-question feedback below, then ask the "
+            "Review the feedback on your last answer below, then ask the "
             "post-interview coach anything you like.</div></div>"
         )
     return (
@@ -64,24 +97,22 @@ def _evaluation_html(evaluation: AnswerEvaluation | None) -> str:
         "</div>"
         "<div class='cc-section-title'>What the interviewer was looking for</div>"
         f"<p style='color:var(--cc-ink-2);font-size:13.5px;line-height:1.55'>{_esc(evaluation.what_interviewer_wanted)}</p>"
-        + (f"<div class='cc-section-title'>What worked</div><ul class='cc-list'>{strengths}</ul>" if strengths else "")
-        + (f"<div class='cc-section-title'>What to improve</div><div class='cc-note'><ul class='cc-list'>{improvements}</ul></div>" if improvements else "")
-        + (f"<div class='cc-section-title'>A stronger answer would</div><ul class='cc-list'>{outline}</ul>" if outline else "")
+        + (
+            f"<div class='cc-section-title'>What worked</div><ul class='cc-list'>{strengths}</ul>"
+            if strengths
+            else ""
+        )
+        + (
+            f"<div class='cc-section-title'>What to improve</div><div class='cc-note'><ul class='cc-list'>{improvements}</ul></div>"
+            if improvements
+            else ""
+        )
+        + (
+            f"<div class='cc-section-title'>A stronger answer would</div><ul class='cc-list'>{outline}</ul>"
+            if outline
+            else ""
+        )
         + "</div>"
-    )
-
-
-def _overall_html(session: MockInterviewSession) -> str:
-    if not session.completed:
-        return ""
-    return (
-        "<div class='cc-card'><h3>Overall performance</h3>"
-        "<div class='cc-meter'><div class='cc-meter-top'>"
-        f"<div class='cc-score'>{int(session.overall_score)}<small>/100</small></div>"
-        "<div class='cc-meter-label'>Average across your answers</div></div>"
-        f"<div class='cc-bar'><span style='width:{int(session.overall_score)}%'></span></div></div>"
-        f"<p style='color:var(--cc-ink-2);font-size:14px;line-height:1.6'>{_esc(session.overall_summary)}</p>"
-        "</div>"
     )
 
 
@@ -102,10 +133,18 @@ def interview_start(ctx_state, count: int) -> tuple:
     if not context:
         return (
             _alert_html("Analyze a match first — the interview uses your resume and the role."),
-            _question_html(None, done=True),
+            _question_html(None, blocked=True),
             None,
             [],
             "",
+            None,
+        )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, blocked=True),
+            None,
+            [],
             "",
             None,
         )
@@ -124,7 +163,6 @@ def interview_start(ctx_state, count: int) -> tuple:
             _question_html(None, done=True),
             None,
             [],
-            "",
             "",
             None,
         )
@@ -152,7 +190,6 @@ def _ask_question(session: MockInterviewSession, index: int, *, error: str = "")
         audio_path or None,
         _turns_to_messages(session),
         "",
-        "",
         session.model_dump_json(),
     )
 
@@ -168,6 +205,14 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             None,
             [],
             "",
+            iv_state,
+        )
+    if not _is_approved(ctx_state):
+        return (
+            _alert_html(_APPROVAL_REQUIRED),
+            _question_html(None, blocked=True),
+            None,
+            _turns_to_messages(session),
             "",
             iv_state,
         )
@@ -179,8 +224,7 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             _question_html(None, done=True),
             None,
             _turns_to_messages(session),
-            "",
-            _overall_html(session),
+            _evaluation_html(session.evaluations[-1] if session.evaluations else None),
             session.model_dump_json(),
         )
 
@@ -198,7 +242,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             None,
             _turns_to_messages(session),
             _evaluation_html(session.evaluations[-1] if session.evaluations else None),
-            "",
             session.model_dump_json(),
         )
 
@@ -223,9 +266,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
 
     next_index = index + 1
     if next_index < len(session.questions):
-        session.overall_score = round(
-            sum(e.score for e in session.evaluations) / len(session.evaluations)
-        )
         _STORE.save_interview(session)
         question_out = _ask_question(session, next_index)
         # Splice the evaluation feedback into the returned tuple.
@@ -235,15 +275,10 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
             question_out[2],
             question_out[3],
             _evaluation_html(evaluation),
-            "",
-            question_out[6],
+            question_out[5],
         )
 
-    # Final answer: finish the session and score it.
-    score, summary = interview.overall_evaluation(session, llm=llm.callable_or_none())
-    session.overall_score = score
-    session.overall_summary = summary
-    session.completed = True
+    # Final answer: finish the session and keep the last answer's feedback.
     _STORE.save_interview(session)
     return (
         _alert_html("; ".join(eval_problems)) if eval_problems else _audio_status(),
@@ -251,7 +286,6 @@ def interview_submit(ctx_state, iv_state, answer_text, answer_audio) -> tuple:
         None,
         _turns_to_messages(session),
         _evaluation_html(evaluation),
-        _overall_html(session),
         session.model_dump_json(),
     )
 
@@ -269,6 +303,8 @@ def _render_prep_chat(history, message: str, ctx_state):
     """Prep coach: resume improvement + preparation chat."""
     history = history or []
     context = _load_context(ctx_state)
+    if not _is_approved(ctx_state):
+        return history + [{"role": "assistant", "content": _APPROVAL_REQUIRED}], ""
     context_text = coach.build_context() if context else "No analysis yet."
     if context:
         models = _context_models(context)
@@ -298,6 +334,8 @@ def _render_post_chat(history, message: str, ctx_state, iv_state):
     """Post-interview coach: everything about JD, resume, and interview results."""
     history = history or []
     context = _load_context(ctx_state)
+    if not _is_approved(ctx_state):
+        return history + [{"role": "assistant", "content": _APPROVAL_REQUIRED}], ""
     session = _load_interview(iv_state) or _STORE.latest_interview()
     if context:
         models = _context_models(context)

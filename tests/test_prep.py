@@ -46,9 +46,7 @@ def test_fallback_plan_prioritises_out_of_scope():
 
 
 def test_fallback_plan_shares_total_about_100():
-    plan = build_fallback_plan(
-        CandidateProfile(), JobRequirements(), _gaps(), "2-3 years"
-    )
+    plan = build_fallback_plan(CandidateProfile(), JobRequirements(), _gaps(), "2-3 years")
     total = sum(focus.suggested_share_pct for focus in plan.focus_areas)
     assert 80 <= total <= 120
 

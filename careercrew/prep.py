@@ -51,9 +51,7 @@ _BAND_EMPHASIS: dict[SeniorityBand, list[str]] = {
 }
 
 
-def _band_assessment(
-    requested: str, profile, requirements: JobRequirements
-) -> SeniorityAssessment:
+def _band_assessment(requested: str, profile, requirements: JobRequirements) -> SeniorityAssessment:
     band = seniority_band_from_label(requested or requirements.seniority)
     seen: set[str] = set()
     for role in profile.experience:
@@ -71,7 +69,11 @@ def _band_assessment(
         confidence=confidence,
         rationale=(
             f"Plan calibrated for the {band.label} experience band"
-            + (f"; the posting signals '{requirements.seniority}'." if requirements.seniority else ".")
+            + (
+                f"; the posting signals '{requirements.seniority}'."
+                if requirements.seniority
+                else "."
+            )
         ),
     )
 

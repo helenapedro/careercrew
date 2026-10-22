@@ -161,27 +161,39 @@ def test_validate_package_accepts_cited_bullets():
 # Prep-plan, interview, and coaching guardrails
 # --------------------------------------------------------------------------- #
 def test_validate_prep_plan_flags_ungrounded_evidence():
-    gaps = GapReport(verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")])
+    gaps = GapReport(
+        verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")]
+    )
     plan = InterviewPrepPlan(
-        focus_areas=[PrepFocus(area="Rust", priority="high", suggested_share_pct=100, evidence="Rust")]
+        focus_areas=[
+            PrepFocus(area="Rust", priority="high", suggested_share_pct=100, evidence="Rust")
+        ]
     )
     problems = validate_prep_plan(plan, gaps, JobRequirements(required_skills=["Python"]))
     assert any("not found in the requirements" in p for p in problems)
 
 
 def test_validate_prep_plan_flags_bad_priority():
-    gaps = GapReport(verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")])
+    gaps = GapReport(
+        verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")]
+    )
     plan = InterviewPrepPlan(
-        focus_areas=[PrepFocus(area="Python", priority="urgent", suggested_share_pct=100, evidence="Python")]
+        focus_areas=[
+            PrepFocus(area="Python", priority="urgent", suggested_share_pct=100, evidence="Python")
+        ]
     )
     problems = validate_prep_plan(plan, gaps, JobRequirements(required_skills=["Python"]))
     assert any("invalid priority" in p for p in problems)
 
 
 def test_validate_prep_plan_accepts_grounded_plan():
-    gaps = GapReport(verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")])
+    gaps = GapReport(
+        verdicts=[GapVerdict(requirement="Python", verdict="covered", supporting_fact="Python")]
+    )
     plan = InterviewPrepPlan(
-        focus_areas=[PrepFocus(area="Python", priority="high", suggested_share_pct=100, evidence="Python")]
+        focus_areas=[
+            PrepFocus(area="Python", priority="high", suggested_share_pct=100, evidence="Python")
+        ]
     )
     assert validate_prep_plan(plan, gaps, JobRequirements(required_skills=["Python"])) == []
 
@@ -204,8 +216,13 @@ def test_validate_evaluation_rules():
 
 
 def test_validate_transcript_turn_rules():
-    assert validate_transcript_turn(TranscriptTurn(role=InterviewTurnRole.INTERVIEWER, text="Hi")) == []
-    assert validate_transcript_turn(TranscriptTurn(role=InterviewTurnRole.CANDIDATE, text=""))  # no text
+    assert (
+        validate_transcript_turn(TranscriptTurn(role=InterviewTurnRole.INTERVIEWER, text="Hi"))
+        == []
+    )
+    assert validate_transcript_turn(
+        TranscriptTurn(role=InterviewTurnRole.CANDIDATE, text="")
+    )  # no text
 
 
 def test_validate_coaching_reply_rules():

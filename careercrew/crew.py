@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 import yaml
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 
 from careercrew.config import (
@@ -71,15 +71,28 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     agents_cfg = _load_yaml(AGENTS_YAML)
     tasks_cfg = _load_yaml(TASKS_YAML)
 
+    # Every agent shares one LLM built from config so OPENAI_MODEL governs the
+    # whole app. Without this CrewAI silently falls back to its own default
+    # model and the setting only affected the coach/interview helper.
+    #
+    # No temperature is passed on purpose: reasoning-style models (e.g.
+    # gpt-6-luna) reject an explicit temperature with a 400, and CrewAI leaves
+    # it unset by default, letting the endpoint apply its own default.
+    llm_kwargs: dict = {"model": settings.openai_model}
+    if settings.openai_api_key:
+        llm_kwargs["api_key"] = settings.openai_api_key
+    if settings.openai_base_url:
+        llm_kwargs["base_url"] = settings.openai_base_url
+    agent_llm = LLM(**llm_kwargs)
+
     mcp_server = crewai_mcp_server()
     knowledge = _guidelines_source(RESUME_GUIDELINES_PATH, "resume_guidelines")
-    interview_knowledge = _guidelines_source(
-        INTERVIEW_GUIDELINES_PATH, "interview_guidelines"
-    )
+    interview_knowledge = _guidelines_source(INTERVIEW_GUIDELINES_PATH, "interview_guidelines")
 
     def _agent(name: str, *, with_mcp: bool, max_iter: int) -> Agent:
         kwargs = {
             "config": agents_cfg[name],
+            "llm": agent_llm,
             "verbose": verbose,
             "allow_delegation": False,
             # A stuck tool call must not spin the default 25 times.
@@ -97,9 +110,7 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     jd_analyzer = _agent("jd_analyzer", with_mcp=True, max_iter=6)
     gap_analyst = _agent("gap_analyst", with_mcp=False, max_iter=4)
     feedback_writer = _agent("feedback_writer", with_mcp=False, max_iter=4)
-    interview_prep_advisor = _agent(
-        "interview_prep_advisor", with_mcp=False, max_iter=4
-    )
+    interview_prep_advisor = _agent("interview_prep_advisor", with_mcp=False, max_iter=4)
     extract_profile = Task(
         name="extract_profile",
         config=tasks_cfg["extract_profile"],
@@ -186,8 +197,5 @@ def crew_inputs(
         "jd_text": jd_text or "(none; use the read_job_description tool)",
         "seniority": seniority
         or "the seniority / years of experience signaled in the job description",
-        "revision_notes": revision_notes
-        or "(none — produce the initial package)",
+        "revision_notes": revision_notes or "(none — produce the initial package)",
     }
-
-

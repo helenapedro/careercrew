@@ -32,9 +32,6 @@ def _context() -> str:
                 improvements=["Add a concrete example"],
             )
         ],
-        overall_score=40,
-        overall_summary="Needs more specifics.",
-        completed=True,
     )
     return coach.build_context(
         profile=CandidateProfile(full_name="Alex", skills=["Python"]),
@@ -54,7 +51,7 @@ def test_build_context_includes_everything():
     assert "Job requirements" in context
     assert "gap report" in context
     assert "Mock interview transcript" in context
-    assert "Overall mock interview score" in context
+    assert "Mock interview evaluations" in context
     assert "Coaching guidelines" in context
 
 
@@ -90,10 +87,30 @@ def test_coach_flags_unsafe_reply():
 
     # "help" alone is out of scope (redirected); use an in-scope question so the
     # LLM reply path is exercised and its safety is still validated.
-    _, warnings = coach.prep_coach_reply(
-        "help me prepare for the interview", "ctx", llm=bad_llm
-    )
+    _, warnings = coach.prep_coach_reply("help me prepare for the interview", "ctx", llm=bad_llm)
     assert any("misrepresent" in w for w in warnings)
+
+
+def _analysis_context() -> str:
+    """The analysis on screen for a Kubernetes role (role-anchored scope)."""
+    return coach.build_context(
+        profile=CandidateProfile(full_name="Alex", skills=["Python", "SQL"]),
+        requirements=JobRequirements(
+            required_skills=["Kubernetes", "Terraform", "AWS"], seniority="Mid"
+        ),
+        gaps=GapReport(
+            coverage_score=40,
+            verdicts=[GapVerdict(requirement="Kubernetes", verdict="out_of_scope")],
+        ),
+    )
+
+
+def test_build_context_includes_analysis_topics():
+    context = _analysis_context()
+    assert "## Topics in this analysis" in context
+    topics = context.split("## Topics in this analysis\n", 1)[1].split("\n##", 1)[0]
+    assert "kubernetes" in topics
+    assert "terraform" in topics
 
 
 def test_detect_scope_resume():
@@ -109,8 +126,7 @@ def test_detect_scope_job_description():
 
 def test_detect_scope_interview_prep():
     assert (
-        coach.detect_scope("What questions should I prepare for the interview?")
-        == "interview_prep"
+        coach.detect_scope("What questions should I prepare for the interview?") == "interview_prep"
     )
 
 
@@ -118,12 +134,132 @@ def test_detect_scope_out_of_scope():
     assert coach.detect_scope("What is the capital of France?") is None
 
 
+def test_detect_scope_tolerates_misspelled_preparation():
+    # Regression: a one-letter typo ("preperation") used to fall through to the
+    # redirect because scope matching was strict substring matching.
+    assert (
+        coach.detect_scope("what I have to do for Infrastructure as Code preperation?")
+        == "interview_prep"
+    )
+
+
+def test_detect_scope_tolerates_misspelled_interview():
+    assert coach.detect_scope("my intreview is tomorrow") == "interview_prep"
+
+
+def test_detect_scope_accepts_prep_stem_and_domain_topics():
+    for message in (
+        "how to prep for the interview",
+        "how do I get ready for a technical round",
+        "what should I rehearse",
+        "any advice for being nervous",
+    ):
+        assert coach.detect_scope(message) == "interview_prep", message
+
+
+def test_detect_scope_ignores_unrelated_word_forms():
+    # "technically" must not be treated as the "technical" keyword.
+    assert not coach._token_matches("technically", "technical")
+    assert not coach._token_matches("classification", "qualification")
+
+
+def test_detect_scope_answers_questions_about_this_analysis():
+    # The reported question names a technology from *this* analysis (Kubernetes)
+    # but uses no prep keyword at all, so the old allowlist bounced it.
+    context = _analysis_context()
+    for message in (
+        "what I have to do in the first step for learn Kubernetes?",
+        "how do I learn Kubernetes",
+        "is Kubernetes hard to learn",
+        "teach me Terraform basics",
+        "how should I talk about my Kubernetes gap",
+    ):
+        assert coach.detect_scope(message, context) == "interview_prep", message
+
+
+def test_detect_scope_redirects_questions_unrelated_to_this_analysis():
+    # Nothing in these shares a topic with the resume/JD/prep analysis, so they
+    # are redirected even though they are not on a hardcoded blocklist.
+    context = _analysis_context()
+    for message in (
+        "how do I bake a cake",
+        "what is the best phone to buy",
+        "how tall is mount everest",
+        "what time is it in tokyo",
+        "give me a summary of hamlet",
+        "how do I fix a leaky faucet",
+        "tell me a joke",
+        "how do I cook pasta",
+    ):
+        assert coach.detect_scope(message, context) is None, message
+
+
+def test_detect_scope_redirects_recognized_off_topic_domains():
+    context = _analysis_context()
+    for message in (
+        "tell me a joke",
+        "what is the weather today",
+        "how do I cook pasta",
+        "recommend a good movie",
+        "how do I lose weight",
+        "write a poem about my cat",
+        "how do I learn guitar",
+        "what are the basics of chess",
+    ):
+        assert coach.detect_scope(message, context) is None, message
+
+
+def test_detect_scope_treats_focus_questions_as_preparation():
+    assert coach.detect_scope("what should I focus on first") == "interview_prep"
+
+
+def test_prep_coach_answers_typo_question_instead_of_redirecting():
+    def fake_llm(prompt: str) -> str:
+        return "Cover IaC basics: Terraform modules, state, and plan/apply."
+
+    reply, _ = coach.prep_coach_reply(
+        "what I have to do for Infrastructure as Code preperation?",
+        _analysis_context(),
+        llm=fake_llm,
+    )
+    assert "three things" not in reply
+
+
+def test_prep_coach_answers_kubernetes_question_instead_of_redirecting():
+    # Regression: the exact question from the reported screenshot. It contains no
+    # prep keyword at all ("first step", "learn", a technology name), so the old
+    # allowlist bounced it to the redirect.
+    def fake_llm(prompt: str) -> str:
+        return "Start with containers, then run a sample app in a local cluster."
+
+    reply, warnings = coach.prep_coach_reply(
+        "what I have to do in the first step for learn Kubernetes?",
+        _analysis_context(),
+        llm=fake_llm,
+    )
+    assert "three things" not in reply
+    assert reply
+    assert warnings == []
+
+
+def test_prep_coach_redirects_question_unrelated_to_this_analysis():
+    def fail_llm(prompt: str) -> str:
+        raise AssertionError("LLM must not be called for unrelated questions")
+
+    reply, warnings = coach.prep_coach_reply(
+        "how do I bake a cake", _analysis_context(), llm=fail_llm
+    )
+    assert "resume" in reply
+    assert "job description" in reply
+    assert warnings == []
+
+
 def test_prep_coach_redirects_out_of_scope_without_calling_llm():
     def fail_llm(prompt: str) -> str:
         raise AssertionError("LLM must not be called for out-of-scope questions")
 
     reply, warnings = coach.prep_coach_reply(
-        "What is the capital of France?", "ctx", llm=fail_llm
+        "What is the capital of France?", _analysis_context(), llm=fail_llm
     )
     assert "resume" in reply
     assert "job description" in reply
@@ -132,6 +268,6 @@ def test_prep_coach_redirects_out_of_scope_without_calling_llm():
 
 
 def test_prep_coach_answers_in_scope_question():
-    reply, _ = coach.prep_coach_reply("How do I prepare for the interview?", "ctx")
+    reply, _ = coach.prep_coach_reply("How do I prepare for the interview?", _analysis_context())
     assert reply
     assert "three things" not in reply  # not the redirect

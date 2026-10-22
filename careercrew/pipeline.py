@@ -162,7 +162,11 @@ def _apply_revision_experience(
     for verdict in gaps.verdicts:
         seen_reqs.add(verdict.requirement.lower())
         req_l = verdict.requirement.lower()
-        tokens = [t for t in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", req_l) if t not in {"and", "the", "with", "for"}]
+        tokens = [
+            t
+            for t in re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", req_l)
+            if t not in {"and", "the", "with", "for"}
+        ]
         if verdict.verdict == "out_of_scope" and any(tok in notes_l for tok in tokens):
             updated.append(
                 GapVerdict(
@@ -179,7 +183,9 @@ def _apply_revision_experience(
         # Offline path often has no structured JD yet — pull tokens that appear
         # in both the posting and the candidate's attested notes.
         jd_l = request.jd_text.lower()
-        for tok in sorted(set(re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", notes_l)), key=len, reverse=True):
+        for tok in sorted(
+            set(re.findall(r"[a-zA-Z][a-zA-Z0-9+.#]{2,}", notes_l)), key=len, reverse=True
+        ):
             if len(tok) < 4 or tok in {"have", "years", "year", "with", "experience", "building"}:
                 continue
             if tok in jd_l:
@@ -456,9 +462,7 @@ def run_analysis(
 
     plan_problems = guardrails.validate_prep_plan(prep_plan, gaps or GapReport(), requirements)
     if plan_problems:
-        trace.add(
-            "guardrail.prep", "guardrails", "; ".join(plan_problems), status="warning"
-        )
+        trace.add("guardrail.prep", "guardrails", "; ".join(plan_problems), status="warning")
         warnings.extend(plan_problems)
     else:
         trace.add("guardrail.prep", "guardrails", "prep plan validated")

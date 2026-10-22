@@ -1,10 +1,14 @@
 # Code path: Prep coach and Post-interview coach
 
 Two full-memory chat windows. Same context builder; post-interview channel
-adds the mock interview transcript, evaluations, and score.
+adds the mock interview transcript and the per-answer evaluations. There is no
+session-wide score — each answer carries its own evaluated score.
 
-**Prerequisite:** Analyze (`ctx_state`). Post-interview coach is most useful
-after a completed mock interview (`iv_state`).  
+**Prerequisite:** Analyze (`ctx_state`) **and** an approved prep bundle. Both
+channels call `_is_approved(ctx_state)`, which reads the persisted
+`packages.status`, and reply with the "approve the prep bundle first" message
+until the bundle is `APPROVED`. Post-interview coach is most useful after a
+completed mock interview (`iv_state`).  
 **UI tabs:** **Prep coach**, **Post-interview coach**.
 
 ---
@@ -30,7 +34,7 @@ after a completed mock interview (`iv_state`).
 | Job requirements JSON | If present | Analyze |
 | Gap report JSON | If present | Analyze |
 | Interview prep plan JSON | If present | Analyze / fallback |
-| Mock transcript + evals + overall score | Only if `include_interview=True` | Mock session |
+| Mock transcript + evals | Only if `include_interview=True` | Mock session |
 | Coaching guidelines markdown | If file readable | `knowledge/interview_guidelines.md` |
 
 Bounded to **`MAX_CONTEXT_CHARS` (12_000)** — trims from the front, keeps the tail (recent material).
@@ -67,7 +71,7 @@ Same shape, plus:
 | Entry | `post_coach_reply(...)` |
 | Channel | `channel="post"` in SQLite |
 
-Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcript**, per-question evals, overall score.
+Persona: answer any follow-up using JD, resume, gaps, prep plan, **full transcript**, and per-question evals.
 
 ---
 
@@ -99,7 +103,7 @@ in Gradio `history` state for the current session only.
 
 ---
 
-## 7. Talking points
+## Design notes
 
 - Two windows on purpose: prep vs post-interview have different context scopes  
 - Full memory ≠ unbounded: character cap + history turn cap  

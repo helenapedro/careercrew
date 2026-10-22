@@ -32,6 +32,9 @@ def _client():
     return OpenAI(**kwargs)
 
 
+# --------------------------------------------------
+# Transcribe
+# --------------------------------------------------
 def transcribe(audio_path: str | None) -> str:
     """Transcribe a recorded answer with ``whisper-1``.
 
@@ -56,6 +59,9 @@ def transcribe(audio_path: str | None) -> str:
         return ""
 
 
+# --------------------------------------------------
+# Speak
+# --------------------------------------------------
 def speak(text: str) -> str | None:
     """Synthesize the interviewer's question with ``tts-1``.
 
@@ -87,6 +93,9 @@ def speak(text: str) -> str | None:
         return None
 
 
+# --------------------------------------------------
+# Cleanup
+# --------------------------------------------------
 def cleanup(path: str | None) -> None:
     """Best-effort removal of a temporary audio file."""
     if not path:

@@ -16,7 +16,6 @@ from careercrew.models import (
     ApplicationPackage,
     ReviewDecision,
     ReviewStatus,
-    TrackerEntry,
 )
 
 SCHEMA = """
@@ -47,8 +46,6 @@ CREATE TABLE IF NOT EXISTS interview_sessions (
     package_id      TEXT,
     role_title      TEXT NOT NULL DEFAULT '',
     session_json    TEXT NOT NULL,
-    overall_score   INTEGER NOT NULL DEFAULT 0,
-    completed       INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -208,36 +205,6 @@ class SessionStore:
             data["inputs"] = {}
         return data
 
-    def list_packages(self, limit: int = 50) -> list[TrackerEntry]:
-        """Return recent packages (most recently updated first) for the tracker."""
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT package_id, role_title, company, status, revision_count, "
-                "created_at, updated_at FROM packages ORDER BY updated_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [
-            TrackerEntry(
-                package_id=row["package_id"],
-                role_title=row["role_title"],
-                company=row["company"],
-                status=ReviewStatus(row["status"]),
-                revision_count=row["revision_count"],
-                prepared_at=datetime.fromisoformat(row["created_at"]),
-                updated_at=datetime.fromisoformat(row["updated_at"]),
-            )
-            for row in rows
-        ]
-
-    def count_revisions(self, package_id: str) -> int:
-        """Count how many REVISE decisions have been recorded."""
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS n FROM decisions WHERE package_id = ? AND decision = 'REVISE'",
-                (package_id,),
-            ).fetchone()
-        return int(row["n"]) if row else 0
-
     # -- interview sessions ----------------------------------------------------
     def save_interview(self, session, package_id: str | None = None) -> None:
         """Insert or update a mock interview session (with its transcript turns)."""
@@ -247,12 +214,10 @@ class SessionStore:
                 """
                 INSERT INTO interview_sessions
                     (session_id, package_id, role_title, session_json,
-                     overall_score, completed, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     session_json = excluded.session_json,
-                    overall_score = excluded.overall_score,
-                    completed = excluded.completed,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -260,8 +225,6 @@ class SessionStore:
                     package_id,
                     session.role_title,
                     session.model_dump_json(),
-                    int(session.overall_score),
-                    1 if session.completed else 0,
                     now,
                     now,
                 ),
@@ -294,9 +257,7 @@ class SessionStore:
         return MockInterviewSession.model_validate_json(row["session_json"])
 
     # -- coaching chats --------------------------------------------------------
-    def add_chat_message(
-        self, session_id: str, channel: str, role: str, content: str
-    ) -> None:
+    def add_chat_message(self, session_id: str, channel: str, role: str, content: str) -> None:
         """Append one chat turn for a channel ('prep' or 'post')."""
         with self._connect() as conn:
             conn.execute(

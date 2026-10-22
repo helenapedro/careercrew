@@ -71,6 +71,7 @@ _bind_runtime()
 
 _SAMPLES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
 
+
 def _read_sample(name: str) -> str:
     try:
         with open(os.path.join(_SAMPLES_DIR, name), encoding="utf-8") as handle:
@@ -326,7 +327,6 @@ def build_app() -> gr.Blocks:
                             elem_id="cc-iv-transcript",
                         )
                 iv_feedback_html = gr.HTML("")
-                iv_overall_html = gr.HTML("")
 
             # ------------------------------------------------------------------ #
             # Tab 4 — Post-interview coach
@@ -409,14 +409,19 @@ def build_app() -> gr.Blocks:
                 *_empty_outputs(),
             ),
             outputs=[
-                resume_file, resume_text, jd_file, jd_text,
+                resume_file,
+                resume_text,
+                jd_file,
+                jd_text,
                 *analyze_outputs,
             ],
+            show_progress="hidden",
         )
 
         sample_resume_btn.click(
             lambda: (gr.update(value=None), gr.update(value=_read_sample("sample_resume.txt"))),
             outputs=[resume_file, resume_text],
+            show_progress="hidden",
         )
         sample_jd_btn.click(
             lambda: (
@@ -424,24 +429,38 @@ def build_app() -> gr.Blocks:
                 gr.update(value=_read_sample("sample_jd.txt")),
             ),
             outputs=[jd_file, jd_text],
+            show_progress="hidden",
         )
 
         # --- mock interview wiring ------------------------------------------ #
+        # show_progress="hidden" for the same reason as Analyze: these handlers
+        # return 6 outputs, and Gradio's default progress mode would draw one
+        # banner per output component, stacking into a wall of spinners.
         iv_start_btn.click(
             interview_start,
             inputs=[ctx_state, iv_questions],
             outputs=[
-                iv_error, iv_question_html, iv_audio, iv_chatbot,
-                iv_feedback_html, iv_overall_html, iv_state,
+                iv_error,
+                iv_question_html,
+                iv_audio,
+                iv_chatbot,
+                iv_feedback_html,
+                iv_state,
             ],
+            show_progress="hidden",
         )
         iv_submit_btn.click(
             interview_submit,
             inputs=[ctx_state, iv_state, iv_answer_text, iv_answer_audio],
             outputs=[
-                iv_error, iv_question_html, iv_audio, iv_chatbot,
-                iv_feedback_html, iv_overall_html, iv_state,
+                iv_error,
+                iv_question_html,
+                iv_audio,
+                iv_chatbot,
+                iv_feedback_html,
+                iv_state,
             ],
+            show_progress="hidden",
         )
 
         # --- coaching chat wiring (Enter or Send) --------------------------- #
@@ -449,32 +468,38 @@ def build_app() -> gr.Blocks:
             _render_prep_chat,
             inputs=[prep_chat, prep_msg, ctx_state],
             outputs=[prep_chat, prep_msg],
+            show_progress="hidden",
         )
         prep_send_btn.click(
             _render_prep_chat,
             inputs=[prep_chat, prep_msg, ctx_state],
             outputs=[prep_chat, prep_msg],
+            show_progress="hidden",
         )
         post_msg.submit(
             _render_post_chat,
             inputs=[post_chat, post_msg, ctx_state, iv_state],
             outputs=[post_chat, post_msg],
+            show_progress="hidden",
         )
         post_send_btn.click(
             _render_post_chat,
             inputs=[post_chat, post_msg, ctx_state, iv_state],
             outputs=[post_chat, post_msg],
+            show_progress="hidden",
         )
 
         approve_btn.click(
             approve,
             inputs=[state, feedback],
             outputs=decision_outputs,
+            show_progress="hidden",
         )
         reject_btn.click(
             reject,
             inputs=[state, feedback],
             outputs=decision_outputs,
+            show_progress="hidden",
         )
         revise_btn.click(
             request_revision,

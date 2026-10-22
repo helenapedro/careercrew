@@ -22,6 +22,10 @@ Both must:
 - Keep `suggested_share_pct` totaling ~100  
 - Never advise claiming experience absent from the resume  
 
+Note: the fallback builds its focus areas by looping `gaps.verdicts`. When the
+crew never ran (no key), the gap report is empty, so the offline plan contains
+the inferred seniority band and `_BAND_EMPHASIS` themes but **zero focus areas**.
+
 ---
 
 ## 2. Crew path (agent 5)
@@ -30,7 +34,7 @@ Both must:
 |-------|----------|
 | Role / backstory | `config/agents.yaml` → `interview_prep_advisor` |
 | Task text | `config/tasks.yaml` → `build_prep_plan` (uses `{seniority}`) |
-| Assembly | `crew.py` — MCP **off**; extra knowledge `interview_guidelines.md` |
+| Assembly | `crew.py` — MCP **off** (crew-level knowledge includes `interview_guidelines.md`) |
 | Context tasks | `extract_profile`, `analyze_jd`, `analyze_gaps` |
 | Output type | `InterviewPrepPlan` (Pydantic) |
 | Kickoff input | `seniority` inferred from the JD (optional CLI `--seniority` override) |

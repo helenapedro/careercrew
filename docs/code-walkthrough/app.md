@@ -13,8 +13,8 @@ holds layout and wiring only — no agent logic and no HTML strings.
 | Settings, database, review service | `careercrew/services.py` |
 | CSS | `careercrew/ui_css.py` |
 
-**Moved in the explainability split.** Do not look for `analyze()` inside this
-file. Start at `docs/CODE_TOUR.md` if the line numbers below look stale.
+**Note:** the handlers themselves are not in this file. See `docs/CODE_TOUR.md`
+for the one-page map of where each lives.
 
 **Flow docs:** [CODE_PATH_ANALYZE](../CODE_PATH_ANALYZE.md) · [HITL](../CODE_PATH_HITL.md) · [MOCK](../CODE_PATH_MOCK_INTERVIEW.md) · [COACH](../CODE_PATH_COACH.md)
 
@@ -31,7 +31,7 @@ file. Start at `docs/CODE_TOUR.md` if the line numbers below look stale.
 
 ---
 
-## Layout (open this while talking)
+## Layout
 
 Four tabs, in the order the user works:
 
@@ -39,11 +39,8 @@ Four tabs, in the order the user works:
 |-----|----------|
 | `1 · Analyze match` | Resume input, job input, **Analyze match**, **Clear**, stage tracker, Match report / Interview prep plan sub-tabs, decision dock (Approve / Apply updates / Reject) |
 | `2 · Prep coach` | Chatbot + question box |
-| `3 · Mock interview` | Start, question slider, audio player, mic or typed answer, live transcript, feedback, overall score |
+| `3 · Mock interview` | Start, question slider, audio player, mic or typed answer, live transcript, per-answer feedback |
 | `4 · Post-interview coach` | Chatbot + question box |
-
-**Say this:** “`build_app` is layout and wiring only. Every handler lives in a
-callback module, so this file reads top to bottom as a page description.”
 
 ---
 

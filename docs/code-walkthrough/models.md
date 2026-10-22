@@ -29,22 +29,17 @@
 | `FeedbackDraft` | rewritten_bullets, talking_points, do_not_claim | Match report rewrites |
 | `ApplicationPackage` | package_id, role/company, summary, do_not_claim | Prep bundle / HITL entity |
 
-**Say this:** “Typed outputs are the honesty backbone.”
-
 ---
 
-## Review / tracker
+## Review state machine
 
 | Model / enum | Meaning |
 |--------------|---------|
 | `ReviewStatus` | DRAFT → PENDING_REVIEW → APPROVED / REJECTED |
 | `ReviewAction` | APPROVE / REJECT / REVISE |
 | `ReviewDecision` | package_id, decision, feedback, decided_at |
-| `TrackerEntry` | Row shape returned by `SessionStore.list_packages()` (no History tab in the UI anymore) |
 | `TraceEvent` | step, actor, detail, status, duration_ms |
 | `ExecutionTrace` | list of events; `.add(...)` appends one |
-
-**Say this:** “Trace is the audit trail of one run.”
 
 ---
 
@@ -58,8 +53,6 @@
 | `PrepFocus` | area, priority, suggested_share_pct, why, evidence (must cite gap) |
 | `InterviewPrepPlan` | seniority + focus_areas + themes + strengths + risk_areas |
 
-**Say this:** “Prep advice is structured so we can validate shares and evidence.”
-
 ---
 
 ## Mock interview + chat
@@ -70,8 +63,7 @@
 | `InterviewTurnRole` | interviewer / candidate |
 | `TranscriptTurn` | one live transcript line |
 | `AnswerEvaluation` | score 0–100 + critique fields |
-| `MockInterviewSession` | questions, turns, evaluations, overall_score/summary, completed |
-| `ChatMessage` | role + content for coaches |
+| `MockInterviewSession` | questions, turns, evaluations |
 
 ---
 

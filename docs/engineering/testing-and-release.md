@@ -1,3 +1,5 @@
+# Testing and Release
+
 ## 1. Test Plan
 
 Run from the repository root:
@@ -6,34 +8,62 @@ Run from the repository root:
 python -m pytest tests/ -q
 ```
 
+### Documentation citations
+
+The walkthrough quotes code with exact file and line ranges. Check every citation
+against the working tree:
+
+```
+python tools/verify_doc_refs.py
+```
+
+It verifies each `` ``startLine:endLine:path`` `` block (range and quoted content)
+and every `path:line` mention, and exits non-zero on a stale citation. Run it
+after any refactor that moves code.
+
+Two companion checks cover what that tool cannot see — line ranges written in a
+**table cell** rather than as a quoted block:
+
+```
+python tools/audit_table_refs.py     # every table range is within its file
+python tools/audit_table_symbols.py  # a row naming `symbol` cites a span that
+                                     # still covers that symbol's definition
+```
+
+`audit_table_symbols.py` is the one that catches drift: a table row can keep a
+plausible-looking `302-330` long after the function moved, and only comparing
+the range with the parsed `AST` span reveals it.
+
 ### Last recorded run
 
-- **Date:** 2026-10-20; **branch:** `dev`; **Python:** 3.12.3
-- **Result: 108 passed, 0 failed**
+- **Date:** 2026-10-22; **branch:** `dev`; **Python:** 3.12.3
+- **Result: 132 passed, 0 failed**
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `test_app_smoke.py` | 17 | Page builds, callbacks run offline, progress chrome, context round-trip |
+| `test_app_smoke.py` | 18 | Page builds, callbacks run offline, progress chrome, context round-trip |
 | `test_audio.py` | 5 | Voice input/output paths (speech-to-text, text-to-speech) |
-| `test_coach.py` | 6 | Preparation and post-interview coaching replies |
-| `test_document_tools.py` | 13 | Resume/JD reading and upload confinement |
+| `test_coach.py` | 24 | Preparation and post-interview coaching replies, analysis-anchored scope detection, typo tolerance |
+| `test_document_tools.py` | 15 | Resume/JD reading, PII redaction, upload confinement |
 | `test_guardrails.py` | 23 | Input, tool, and output guardrails, including citation validation |
-| `test_interview.py` | 6 | Mock-interview question generation and answer evaluation |
+| `test_interview.py` | 7 | Mock-interview question generation and per-answer evaluation |
+| `test_llm.py` | 6 | Chat helper: retries, timeouts, models that reject `temperature` |
 | `test_mcp_integration.py` | 3 | Real MCP round-trips for both document tools |
-| `test_models.py` | 11 | Pydantic contracts for agent outputs and the prep bundle |
+| `test_models.py` | 9 | Pydantic contracts for agent outputs and the prep bundle |
 | `test_pipeline.py` | 8 | End-to-end analysis pipeline, including fallbacks |
 | `test_prep.py` | 7 | Interview-prep plan generation |
-| `test_review_workflow.py` | 9 | HITL state machine (`DRAFT` to `PENDING_REVIEW` to `APPROVED`/`REJECTED`, bounded `REVISE`) |
+| `test_review_workflow.py` | 7 | HITL state machine (`DRAFT` to `PENDING_REVIEW` to `APPROVED`/`REJECTED`, bounded `REVISE`) |
 
 Environment note: in sandboxes that set proxy variables, `httpx` can fail at import while collecting `test_app_smoke.py` (it chokes on bracketed IPv6 entries in `no_proxy`). The suite is offline, so running with proxy variables unset avoids it; this is an environment quirk, not a repo failure.
 
 ## 2. Release Gates
 
-From `careercrew-product-draft-v0.1.md`. All gates must pass before merging `dev` into `main`:
+These gates must all pass before merging `dev` into `main`:
 
-1. The automated test suite is green (`tests/`). — Last run 2026-10-20: 108 passed, 0 failed.
-2. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn where voice is claimed. — Not yet run.
-3. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — `.env.example` documents the pattern; not yet audited.
-4. `README.md` and `ARCHITECTURE.md` describe the released behavior. — Not yet confirmed.
-5. The merge PR is reviewed and approved. — Pending.
-6. After merge: smoke-test `main` and record the release commit. — Pending.
+1. The automated test suite is green (`tests/`). — Last run 2026-10-22: 132 passed, 0 failed.
+2. Documentation citations resolve (`python tools/verify_doc_refs.py`). — Verified 2026-10-22: all 116 code citations across every doc match their files and line ranges (`ARCHITECTURE.md` 0, `ANALYZE_BUTTON_WALKTHROUGH.md` 41, `ARCHITECTURE_DIAGRAMS.md` 3, `MOCK_INTERVIEW_WALKTHROUGH.md` 20, `POST_INTERVIEW_COACH_WALKTHROUGH.md` 15, `PREP_COACH_WALKTHROUGH.md` 19, `REVISION_BUTTON_WALKTHROUGH.md` 18).
+3. The demo path is verified end to end on `dev`: resume + JD in, approved package out; plus one mock-interview turn. — Verified 2026-10-21 via `tests/test_app_smoke.py` (analyze → approve → interview start/submit) and the coach gating test.
+4. No secrets or credentials in the repo; API keys only via environment variables or platform Secrets. — Audited 2026-10-21: **passes**. `.env` is git-ignored and untracked; only `.env.example` (placeholder values) is committed, and no key-shaped string appears in tracked files.
+5. `README.md` and `ARCHITECTURE.md` describe the released behavior. — **Confirmed** 2026-10-21: both documents were re-checked against the code, and their diagrams, line references, and limited-mode wording were corrected.
+6. The merge PR is reviewed and approved. — Pending.
+7. After merge: smoke-test `main` and record the release commit. — Pending.

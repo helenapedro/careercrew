@@ -99,9 +99,7 @@ def validate_request(
             "text, not both."
         )
     elif not jd_file and not jd_pasted:
-        errors.append(
-            "Provide a job description: upload a file (PDF/DOCX/TXT) or paste the text."
-        )
+        errors.append("Provide a job description: upload a file (PDF/DOCX/TXT) or paste the text.")
     elif jd_file:
         ext = os.path.splitext((jd_path or "").lower())[1]
         if ext not in ALLOWED_EXTENSIONS:
@@ -178,13 +176,13 @@ def validate_prep_plan(plan, gaps, requirements=None) -> list[str]:
     for index, focus in enumerate(plan.focus_areas):
         if (focus.priority or "").lower() not in {"high", "medium", "low"}:
             problems.append(f"prep focus {index} has an invalid priority '{focus.priority}'")
-        tokens = [tok for tok in re.findall(r"[a-z0-9]+", (focus.evidence or "").lower()) if len(tok) > 3]
+        tokens = [
+            tok for tok in re.findall(r"[a-z0-9]+", (focus.evidence or "").lower()) if len(tok) > 3
+        ]
         if not tokens:
             problems.append(f"prep focus {index} has no grounded evidence")
         elif requirement_text and not any(tok in requirement_text for tok in tokens):
-            problems.append(
-                f"prep focus {index} cites evidence not found in the requirements"
-            )
+            problems.append(f"prep focus {index} cites evidence not found in the requirements")
 
     if len(plan.focus_areas) > 1:
         total = sum(focus.suggested_share_pct for focus in plan.focus_areas)
@@ -268,7 +266,6 @@ def validate_coaching_reply(reply: str, *, context_text: str = "") -> list[str]:
     ):
         problems.append("the coaching reply may suggest misrepresenting experience")
     return problems
-
 
 
 def validate_package(

@@ -31,7 +31,7 @@ Pasted text and an uploaded JD file also work:
 
 ```bash
 python main.py --resume-text "JANE DOE. Python, FastAPI, AWS." --jd "We need a Python engineer."
-python main.py --resume samples/sample_resume.txt --jd-file samples/sample_jd.pdf
+python main.py --resume samples/sample_resume.txt --jd-file samples/sample_jd.txt
 ```
 
 Run the web UI:
@@ -46,9 +46,11 @@ Run the MCP server standalone (for a manual smoke test):
 python -m mcp_server.server
 ```
 
-The app runs without an `OPENAI_API_KEY`: the crew is skipped, the match report
-stays empty, and a deterministic gap-based prep plan is produced. The UI banner
-says so. Add a key for the full crew and the voice interview.
+The app runs without an `OPENAI_API_KEY`, in **limited mode**: the page, the review
+dock, and the persistence all work, but the crew is skipped, so the match report
+stays empty and the prep plan has seniority band + themes only (no focus areas,
+because there are no gap verdicts to derive them from). The UI banner says so.
+Add a key for the full crew and the voice interview.
 
 ## Input rules
 
@@ -73,7 +75,8 @@ says so. Add a key for the full crew and the voice interview.
   text-only interview.
 - **Prep coach chat** — iterate on resume improvements and preparation.
 - **Post-interview coach chat** — ask anything about performance; the coach has
-  the resume, JD, gap report, prep plan, full transcript, evaluations, and score.
+  the resume, JD, gap report, prep plan, the full transcript, and the per-answer
+  evaluations (each with its own 0-100 score).
 - **Guardrails everywhere** — input validation, PII redaction, grounded prep
   advice, bounded scoring, safe coaching replies.
 
@@ -81,6 +84,10 @@ says so. Add a key for the full crew and the voice interview.
 
 - `ARCHITECTURE.md` — system architecture: numbered end-to-end flow, component
   legend, HITL state diagram, design decisions, deployment.
+- [`docs/ARCHITECTURE_DIAGRAMS.md`](docs/ARCHITECTURE_DIAGRAMS.md) — the same
+  system as eleven diagrams (context, layers, request lifecycle, agent
+  handoffs, review state machine, guardrails, persistence), each with a short
+  "what to notice".
 - `docs/engineering/` — product and engineering docs:
   - `product-overview.md` — scope, users, goals
   - `agents-and-workflows.md` — agent roster, responsibilities, workflow
@@ -89,7 +96,24 @@ says so. Add a key for the full crew and the voice interview.
   - `setup.md` — install, configuration, run instructions
   - `testing-and-release.md` — test plan, last results, release gates
   - `use-cases-and-user-stories.md` — use cases and acceptance criteria
-  - `careercrew-product-draft-v0.1.md` — product draft with verification notes
+- **Code reference** — [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md)
+  (per-file guide for every module) and [`docs/CODE_TOUR.md`](docs/CODE_TOUR.md)
+  (one-page map).
+- **Flow narratives** — [`docs/ANALYZE_BUTTON_WALKTHROUGH.md`](docs/ANALYZE_BUTTON_WALKTHROUGH.md)
+  (step-by-step Analyze trace: full code per step with file and line range, checked
+  by `python tools/verify_doc_refs.py`), then
+  [`REVISION_BUTTON_WALKTHROUGH`](docs/REVISION_BUTTON_WALKTHROUGH.md) (the
+  "Apply updates & re-analyze" click),
+  [`MOCK_INTERVIEW_WALKTHROUGH`](docs/MOCK_INTERVIEW_WALKTHROUGH.md),
+  [`PREP_COACH_WALKTHROUGH`](docs/PREP_COACH_WALKTHROUGH.md), and
+  [`POST_INTERVIEW_COACH_WALKTHROUGH`](docs/POST_INTERVIEW_COACH_WALKTHROUGH.md) —
+  the same treatment for the other three tabs. Diagram-first companions:
+  [`CODE_PATH_ANALYZE`](docs/CODE_PATH_ANALYZE.md),
+  [`CODE_PATH_PREP`](docs/CODE_PATH_PREP.md),
+  [`CODE_PATH_HITL`](docs/CODE_PATH_HITL.md),
+  [`CODE_PATH_MOCK_INTERVIEW`](docs/CODE_PATH_MOCK_INTERVIEW.md), and
+  [`CODE_PATH_COACH`](docs/CODE_PATH_COACH.md).
+- [`GLOSSARY.md`](GLOSSARY.md) — terms used across the docs.
 
 ## Layout
 
@@ -105,7 +129,7 @@ says so. Add a key for the full crew and the voice interview.
 - `careercrew/coach.py` - full-memory prep and post-interview coaching chats
 - `careercrew/audio.py` - whisper-1 transcription and tts-1 speech (graceful)
 - `careercrew/llm.py` - small OpenAI chat helper used by the interactive agents
-- `careercrew/session_store.py` - SQLite session tracker, interviews, and chats
+- `careercrew/session_store.py` - SQLite store for packages, interviews, and chats
 - `careercrew/review.py` - HITL state machine (approve / reject / revise)
 - `careercrew/guardrails.py` - input, tool, and per-agent output checks
 - `mcp_server/server.py` - FastMCP server exposing read_resume / read_job_description
@@ -117,33 +141,10 @@ says so. Add a key for the full crew and the voice interview.
 - `careercrew/ui_html.py` - HTML renderers; `careercrew/ui_state.py` - named UI outputs
 - `careercrew/services.py` - settings, database, and review service shared by the UI
 - `careercrew/ui_css.py` - Gradio CSS; `main.py` - CLI entrypoint
-- `Dockerfile` - production image (also used by Hugging Face Spaces, Docker SDK)
+- `Dockerfile` - production container image
 - `tests/` - pytest suite (offline; the MCP fallback needs no key)
 
 See `ARCHITECTURE.md` for the full walkthrough.
-
-## Technical presentation
-
-**Presentation notebooks (big-screen explanations + offline demos):**
-
-- [`notebooks/README.md`](notebooks/README.md) — talk order
-- `notebooks/00_overview.ipynb` → `01_voice_and_transcript.ipynb` → `02_mock_interview_flow.ipynb` → `03_analyze_pipeline.ipynb` → `04_hitl_and_coaches.ipynb`
-
-**Professor walkthrough (open `.py` + guide side-by-side):**
-
-- [`docs/code-walkthrough/INDEX.md`](docs/code-walkthrough/INDEX.md) — index of per-file annotated guides
-- [`docs/SPEAKER_CHEATSHEET.md`](docs/SPEAKER_CHEATSHEET.md) — talk minute order
-
-**Flow narrative (what happens after each button):**
-
-- [`docs/CODE_PATH_ANALYZE.md`](docs/CODE_PATH_ANALYZE.md) — Analyze button end-to-end
-- [`docs/CODE_PATH_PREP.md`](docs/CODE_PATH_PREP.md) — Interview Prep Advisor + fallback
-- [`docs/CODE_PATH_HITL.md`](docs/CODE_PATH_HITL.md) — approve / revise / reject + package `pkg-…`
-- [`docs/CODE_PATH_MOCK_INTERVIEW.md`](docs/CODE_PATH_MOCK_INTERVIEW.md) — voice/text mock interviewer
-- [`docs/CODE_PATH_COACH.md`](docs/CODE_PATH_COACH.md) — Prep coach + Post-interview coach
-
-Engineering product docs (scope, requirements, setup) live under
-`docs/engineering/`.
 
 ## Deployment
 
@@ -152,9 +153,8 @@ docker build -t careercrew .
 docker run --rm -p 7860:7860 --env-file .env careercrew
 ```
 
-The same image runs on Hugging Face Spaces (Docker SDK) with secrets in the
-Space settings. The MCP server runs over stdio inside the container, so no
-second service is needed.
+The MCP server runs over stdio inside the container, so no second service is
+needed.
 
 ## Tests
 

@@ -1,10 +1,13 @@
 # Code path: Virtual mock interviewer
 
 Voice (or text) practice interview grounded in the Analyze result: questions,
-live transcript, per-question feedback, overall score. **Practice only — nothing
+live transcript, and per-answer feedback. **Practice only — nothing
 is submitted.**
 
-**Prerequisite:** Analyze must have run (`ctx_state` populated).  
+**Prerequisite:** Analyze must have run (`ctx_state` populated) **and** the prep
+bundle must be approved. `_is_approved(ctx_state)` reads the persisted
+`packages.status`; while it is not `APPROVED`, Start and Submit return the
+"approve the prep bundle first" alert instead of running.  
 **UI tab:** **Mock interview**.
 
 ---
@@ -14,7 +17,7 @@ is submitted.**
 | Module | Role |
 |--------|------|
 | [`careercrew/callbacks_interview.py`](../careercrew/callbacks_interview.py) `interview_start`, `interview_submit`, `_ask_question` | Gradio handlers |
-| [`careercrew/interview.py`](../careercrew/interview.py) | Questions, evaluate, overall score, turns |
+| [`careercrew/interview.py`](../careercrew/interview.py) | Questions, evaluate, turns |
 | [`careercrew/audio.py`](../careercrew/audio.py) | `whisper-1` STT, `tts-1` TTS |
 | [`careercrew/llm.py`](../careercrew/llm.py) | Chat completions for Q/eval (optional) |
 | [`careercrew/guardrails.py`](../careercrew/guardrails.py) | `validate_interview_answer`, `validate_evaluation`, `validate_transcript_turn` |
@@ -69,11 +72,12 @@ UI: mic recorder and/or typed text → **Submit answer**.
 | 5 | Eval guardrail | `validate_evaluation(evaluation)` | Warnings; score 0–100 |
 | 6 | Append candidate turn | `append_turn(..., CANDIDATE, answer, audio_ref=...)` | Session |
 | 7a | More questions? | `_ask_question(session, next_index)` + show `_evaluation_html` | TTS + DB |
-| 7b | Last answer? | `overall_evaluation(session)` → `completed=True` | Optional LLM summary |
+| 7b | Last answer? | `_evaluation_html(evaluation)` stays on screen | No aggregate score |
 
 **Evaluation fields** (`AnswerEvaluation`): `score`, `what_interviewer_wanted`, `strengths`, `improvements`, `model_answer_outline`.
 
-**Overall:** average of per-question scores + summary text.
+**Overall:** there is **no** aggregate session score. The tab keeps per-answer
+feedback only; the post-interview coach discusses the whole transcript.
 
 ---
 
@@ -81,7 +85,7 @@ UI: mic recorder and/or typed text → **Submit answer**.
 
 | Table | Purpose |
 |-------|---------|
-| `interview_sessions` | `session_id`, optional `package_id`, `session_json`, `overall_score`, `completed`, timestamps |
+| `interview_sessions` | `session_id`, optional `package_id`, `session_json`, timestamps |
 | `interview_turns` | Per turn: `session_id`, `question_index`, `role` (interviewer/candidate), `text` |
 
 Gradio also keeps `iv_state` as `session.model_dump_json()` for the live round-trip.
@@ -107,10 +111,11 @@ Updated after every ask/submit so the transcript stays synchronized with voice.
 | TTS fails | Question text only; interview continues |
 | STT fails / empty | Use typed answer if present |
 | No Analyze context | Start button shows alert: analyze first |
+| Bundle not approved yet | Start / Submit / both coach chats return the `_APPROVAL_REQUIRED` alert until **Approve prep bundle** is pressed |
 
 ---
 
-## 8. Talking points
+## Design notes
 
 - Interviewer is **agentic practice**, not an authenticated human interviewer  
 - Questions are grounded in JD / resume / gaps / **prep plan**  

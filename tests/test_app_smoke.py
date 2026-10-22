@@ -45,17 +45,23 @@ def test_custom_theme_and_css_exist():
     assert app.theme() is not None
 
 
-def test_streaming_runs_hide_gradio_progress_chrome():
-    """Gradio's default progress border stacks a blue rule on every output."""
+def test_every_multi_output_listener_hides_progress_chrome():
+    """One progress banner is drawn per output, so no multi-output event may draw it.
+
+    The Mock interview start/submit handlers return 6 outputs each; without
+    ``show_progress="hidden"`` Gradio paints a spinner over the error box, the
+    question card, the audio player, the transcript, and the feedback panel at once.
+    Analyze, revise, approve, reject, and the two coach chats stack the same way.
+    """
     import app
 
     demo = app.build_app()
-    streaming = {
-        fn.show_progress
+    offenders = [
+        (fn.fn.__name__, len(fn.outputs))
         for fn in demo.fns.values()
-        if fn.fn in (app.analyze, app.request_revision)
-    }
-    assert streaming == {"hidden"}
+        if len(fn.outputs) > 1 and fn.show_progress != "hidden"
+    ]
+    assert offenders == []
 
 
 def test_app_is_light_only_even_when_os_prefers_dark():
@@ -103,7 +109,9 @@ def test_analyze_disables_run_button_while_working(monkeypatch, tmp_path):
     last = first
     for last in gen:  # noqa: B007 - keep the final yielded update
         pass
-    assert _out(last, "run_button")["interactive"] is True, "run button must come back after a failure"
+    assert _out(last, "run_button")["interactive"] is True, (
+        "run button must come back after a failure"
+    )
     assert _out(last, "clear_button")["interactive"] is True
 
     # The reset state used by Clear also leaves both buttons usable.
@@ -202,9 +210,10 @@ def test_analyze_pasted_resume_end_to_end(monkeypatch, tmp_path):
     )
     # stages · match · prep · … · ctx
     assert "RUNNING" not in _out(outputs, "stages")
-    assert "Interview prep plan" in _out(outputs, "prep_plan") or "prep" in _out(
-        outputs, "prep_plan"
-    ).lower()
+    assert (
+        "Interview prep plan" in _out(outputs, "prep_plan")
+        or "prep" in _out(outputs, "prep_plan").lower()
+    )
     assert "prep_plan" in str(_out(outputs, "context"))
 
 
@@ -368,7 +377,62 @@ def test_context_round_trip_and_interview_start_work_offline(monkeypatch, tmp_pa
     assert isinstance(models["gaps"], GapReport)
     assert isinstance(models["prep_plan"], InterviewPrepPlan)
 
-    # Starting the interview produces grounded questions without any API key.
+    # The mock interview is gated on human approval of the prep bundle.
+    blocked = app.interview_start(context, 3)
+    assert blocked[1], "a message must render"
+    assert blocked[5] is None, "an unapproved bundle must not start an interview"
+
+    # Approve the bundle, then the interview produces grounded questions offline.
+    from careercrew.models import ReviewStatus
+
+    package_id = _context_models(__import__("json").loads(context))["package_id"]
+    app._STORE.update_status(package_id, ReviewStatus.APPROVED)
+
     started = app.interview_start(context, 3)
     assert started[1], "an interviewer question must render"
-    assert started[6], "the session must be serialized for the next turn"
+    assert started[5], "the session must be serialized for the next turn"
+
+
+def test_coach_chats_are_gated_on_approval(monkeypatch, tmp_path):
+    """Both coaching chats refuse to answer until the bundle is approved."""
+    monkeypatch.setenv("CAREERCREW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("CAREERCREW_DB_PATH", ":memory:")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    from careercrew import config
+
+    config.reset_settings_cache()
+    import importlib
+
+    import app
+
+    importlib.reload(app)
+
+    outputs = _drain(
+        app.analyze(
+            None,
+            "ALEX RIVERA Backend Engineer. Skills: Python, FastAPI, AWS. Built APIs at scale.",
+            None,
+            "We need a Python backend engineer with FastAPI and AWS.",
+        )
+    )
+    context = _out(outputs, "context")
+    assert context is not None
+
+    history, box = app._render_prep_chat([], "How do I improve my resume?", context)
+    assert box == ""
+    assert history and "pprove" in history[-1]["content"]
+
+    history, box = app._render_post_chat([], "How did I do?", context, None)
+    assert box == ""
+    assert history and "pprove" in history[-1]["content"]
+
+    # After approval the prep coach answers normally.
+    from careercrew.callbacks_analyze import _context_models as _cm
+    from careercrew.models import ReviewStatus
+
+    app._STORE.update_status(
+        _cm(__import__("json").loads(context))["package_id"], ReviewStatus.APPROVED
+    )
+    history, box = app._render_prep_chat([], "How do I improve my resume?", context)
+    assert history and history[-1]["content"]
+    assert "pprove the prep bundle" not in history[-1]["content"]

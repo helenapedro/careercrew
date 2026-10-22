@@ -1,10 +1,10 @@
 # Code path: Analyze button
 
-Live talk aid. Open the cited file/function while explaining. Nothing here
-changes product behavior — it only documents it.
+How one Analyze click travels through the system, from the Gradio event to the
+persisted prep bundle.
 
 **Related:** [CODE_PATH_PREP.md](CODE_PATH_PREP.md) (Interview Prep Advisor detail) ·
-[CODE_PATH_HITL.md](CODE_PATH_HITL.md) · [SPEAKER_CHEATSHEET.md](SPEAKER_CHEATSHEET.md)
+[CODE_PATH_HITL.md](CODE_PATH_HITL.md)
 
 ---
 
@@ -58,7 +58,7 @@ sequenceDiagram
 
 ---
 
-## 3. Step table (open these while talking)
+## 3. Step table
 
 | # | What happens | File / symbol | I/O / API | Why |
 |---|--------------|--------------|-----------|-----|
@@ -71,9 +71,9 @@ sequenceDiagram
 | 7 | Input guardrails | `guardrails.validate_request` | Fail → `ValueError` | Exactly one resume source + one JD source; injection/size checks |
 | 8 | Fail-fast file/text read | `_prepare_resume_text` / `_prepare_jd_text` → `document_tools` | **Read** PDF/DOCX/TXT under uploads confinement | Bad files fail before the expensive crew |
 | 9a | If `settings.has_llm` | `pipeline._run_crew` → `crew.build_crew` → `crew.kickoff` | CrewAI sequential + OpenAI HTTPS | Full five-agent path |
-| 9b | MCP tools during crew | `mcp_client` + `mcp_server/server.py` | stdio subprocess to FastMCP | Real MCP (course requirement) |
+| 9b | MCP tools during crew | `mcp_client` + `mcp_server/server.py` | stdio subprocess to FastMCP | Tools are reached over MCP rather than called directly |
 | 9c | Parse task JSON → models | `extract_json`, `_coerce_model`, `_parse_crew_outputs` | In-memory | Typed contracts for tabs/guardrails |
-| 10 | Fallback if no key / crew fail | `prep.build_fallback_plan` | Gap math | Demo works offline; never invents experience |
+| 10 | Fallback if no key / crew fail | `prep.build_fallback_plan` | Deterministic plan from gap verdicts | Page stays usable offline; with no gaps it yields band + themes only, and never invents experience |
 | 11 | Output guardrails | `validate_package`, `validate_prep_plan` | Fail closed on package; prep → warnings | Honesty story |
 | 12 | Return `PipelineResult` | `pipeline.run_analysis` | In-memory | Bundle for UI |
 | 13 | HITL submit | `review.submit_for_review` → `SessionStore.save_package` | **Write** SQLite `packages`; status `PENDING_REVIEW` | Survives a refresh |
@@ -86,13 +86,18 @@ sequenceDiagram
 Config: [`config/agents.yaml`](../config/agents.yaml), [`config/tasks.yaml`](../config/tasks.yaml).  
 Wiring: [`careercrew/crew.py`](../careercrew/crew.py) `build_crew()`.
 
-| Order | Agent key | Task name | Typed output | MCP? | Knowledge |
-|------:|-----------|-----------|--------------|------|-----------|
-| 1 | `profile_extractor` | `extract_profile` | `CandidateProfile` | Yes (`read_resume`) | `resume_guidelines.md` |
-| 2 | `jd_analyzer` | `analyze_jd` | `JobRequirements` | Yes (`read_job_description`) | resume guidelines |
-| 3 | `gap_analyst` | `analyze_gaps` | `GapReport` | No | resume guidelines |
-| 4 | `feedback_writer` | `write_feedback` | `FeedbackDraft` | No | resume guidelines |
-| 5 | `interview_prep_advisor` | `build_prep_plan` | `InterviewPrepPlan` | No | + `interview_guidelines.md` |
+| Order | Agent key | Task name | Typed output | MCP? |
+|------:|-----------|-----------|--------------|------|
+| 1 | `profile_extractor` | `extract_profile` | `CandidateProfile` | Yes (`read_resume`) |
+| 2 | `jd_analyzer` | `analyze_jd` | `JobRequirements` | Yes (`read_job_description`) |
+| 3 | `gap_analyst` | `analyze_gaps` | `GapReport` | No |
+| 4 | `feedback_writer` | `write_feedback` | `FeedbackDraft` | No |
+| 5 | `interview_prep_advisor` | `build_prep_plan` | `InterviewPrepPlan` | No |
+
+**Knowledge:** both guideline files (`resume_guidelines.md`,
+`interview_guidelines.md`) are attached to the crew as a whole
+(`knowledge_sources=[...]`), not to individual agents. Only the two readers get
+an MCP server.
 
 **Context edges** (why order matters):
 
@@ -174,7 +179,7 @@ Defined in [`careercrew/models.py`](../careercrew/models.py):
 
 ## 9. UI stage mapping
 
-`careercrew/runner.py` owns the stepper: a `Stage` enum (`CHECK_INPUTS`, `RESUME`,
+`careercrew/runner.py` owns the stepper: a `Stage` enum (`CHECK`, `RESUME`,
 `ROLE`, `MATCH`, `REWRITES`, `PREP`), `STAGES`, and the `AGENT_STAGE` /
 `TASK_STAGE` maps from CrewAI names onto those steps. `on_task` advances the
 stepper after each of the five tasks; the first yield marks stage 1 before the

@@ -11,7 +11,7 @@
 | Import | Why |
 |--------|-----|
 | `yaml` | Load `config/agents.yaml` and `tasks.yaml` |
-| `Agent`, `Crew`, `Process`, `Task` | CrewAI primitives |
+| `Agent`, `Crew`, `LLM`, `Process`, `Task` | CrewAI primitives |
 | `StringKnowledgeSource` | Inject guideline markdown as agent knowledge |
 | `crewai_mcp_server` | Attach real MCP stdio server to tool-using agents |
 | Output models | `output_pydantic=` so each task returns a typed object |
@@ -45,23 +45,27 @@
 1. Push `OPENAI_API_KEY` / `OPENAI_BASE_URL` into env if set in settings  
 2. Load YAML configs  
 3. Create one MCP server config + resume knowledge + interview knowledge  
-4. Nested `_agent(name, with_mcp, extra_knowledge)`:
-   - Always resume guidelines; optional interview guidelines  
+4. Nested `_agent(name, *, with_mcp, max_iter)`:
    - `allow_delegation=False` (no peer handoff)  
    - If `with_mcp`: attach MCP server  
+   - Knowledge is **not** passed per agent (see below)  
 5. Instantiate five agents (MCP on: profile and JD; off: gap, feedback, prep)  
 6. Instantiate five tasks with `output_pydantic` and `context=[...]` dependencies  
-7. Return `Crew(..., process=Process.sequential, memory=False, task_callback=on_task)`
+7. Return `Crew(..., process=Process.sequential, memory=False, knowledge_sources=[resume, interview], task_callback=on_task)`
 
 **Agent ↔ MCP map:**
 
-| Agent | MCP? | Extra knowledge |
-|-------|------|-----------------|
-| Profile Extractor | Yes | resume |
-| JD Analyzer | Yes | resume |
-| Gap Analyst | No | resume |
-| Feedback Writer | No | resume |
-| Interview Prep Advisor | No | resume + interview |
+| Agent | MCP? |
+|-------|------|
+| Profile Extractor | Yes |
+| JD Analyzer | Yes |
+| Gap Analyst | No |
+| Feedback Writer | No |
+| Interview Prep Advisor | No |
+
+**Knowledge** is attached to the **crew**, not to agents: both
+`resume_guidelines.md` and `interview_guidelines.md` are passed once via
+`knowledge_sources=[...]`, so every agent can retrieve from both.
 
 **Task context edges:**
 
@@ -71,14 +75,13 @@
 
 **Why sequential / no manager:** Pipeline is linear; a manager adds latency/cost with no branching decision.  
 **Why memory=False:** Each task already receives the previous task's output through `context`. CrewAI memory would add another model call after every agent.  
+**Why an explicit `llm=` on every agent:** Without it CrewAI silently uses its own built-in default model, and `OPENAI_MODEL` only affected the coach/interview helper. Building one `LLM(model=settings.openai_model, ...)` and passing it to all five agents makes the configured model govern the whole app.  
 **I/O:** YAML + knowledge files; later kickoff hits OpenAI + MCP.  
-**Say this:** “YAML is personality and prompts; this file is the wiring diagram.”
 
 ### `crew_inputs(...)`
 
 **What:** Require at least one resume source and one JD source; fill kickoff dict with placeholders like `"(none; use the read_resume tool)"` when a side is unused.  
 **Why:** Task templates always see `{resume_path}` / `{resume_text}` etc.; agents know which tool or paste to use.  
-**Say this:** “Kickoff inputs are the variables interpolated into task descriptions.”
 
 ---
 

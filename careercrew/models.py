@@ -102,18 +102,6 @@ class ReviewDecision(BaseModel):
     decided_at: datetime = Field(default_factory=_utcnow)
 
 
-class TrackerEntry(BaseModel):
-    """A row in the session tracker: what was prepared, and its status."""
-
-    package_id: str
-    role_title: str = ""
-    company: str = ""
-    status: ReviewStatus = ReviewStatus.DRAFT
-    revision_count: int = 0
-    prepared_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
-
-
 class TraceEvent(BaseModel):
     step: str
     actor: str = "pipeline"
@@ -317,14 +305,3 @@ class MockInterviewSession(BaseModel):
     questions: list[InterviewQuestion] = Field(default_factory=list)
     turns: list[TranscriptTurn] = Field(default_factory=list)
     evaluations: list[AnswerEvaluation] = Field(default_factory=list)
-    overall_score: int = Field(ge=0, le=100, default=0)
-    overall_summary: str = ""
-    completed: bool = False
-
-
-class ChatMessage(BaseModel):
-    """A persisted chat turn for either coaching channel."""
-
-    role: str = "user"  # user | assistant
-    content: str = ""
-    created_at: datetime = Field(default_factory=_utcnow)

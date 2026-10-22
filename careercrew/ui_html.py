@@ -86,8 +86,7 @@ def _stages_html(current: int = -1, detail: str = "") -> str:
     live = ""
     if detail:
         live = (
-            "<div class='cc-live'><span class='cc-blink'>●</span>"
-            f"<span>{_esc(detail)}</span></div>"
+            f"<div class='cc-live'><span class='cc-blink'>●</span><span>{_esc(detail)}</span></div>"
         )
     shown = 0 if current < 0 else min(current, _TOTAL_STAGES)
     if current >= _FINAL:
@@ -160,13 +159,17 @@ def _insight_html(result) -> str:
     if profile.full_name or profile.skills or profile.experience:
         parts.append("<div class='cc-section-title'>From your resume</div>")
         if profile.full_name:
-            parts.append(f"<div style='font-weight:700;font-size:15px'>{_esc(profile.full_name)}</div>")
+            parts.append(
+                f"<div style='font-weight:700;font-size:15px'>{_esc(profile.full_name)}</div>"
+            )
         if profile.summary:
             parts.append(
                 f"<p style='color:var(--cc-ink-2);font-size:13.5px;margin:6px 0;line-height:1.55'>{_esc(profile.summary)}</p>"
             )
         if profile.skills:
-            chips = "".join(f"<span class='cc-chip'>{_esc(skill)}</span>" for skill in profile.skills)
+            chips = "".join(
+                f"<span class='cc-chip'>{_esc(skill)}</span>" for skill in profile.skills
+            )
             parts.append(f"<div class='cc-stats'>{chips}</div>")
         for role in profile.experience:
             line = " · ".join(x for x in [role.title, role.company, role.dates] if x)
@@ -292,9 +295,7 @@ def _prep_html(plan: InterviewPrepPlan | None) -> str:
         "</div>"
     )
     if seniority.rationale:
-        parts.append(
-            f"<p class='cc-hint' style='margin-top:10px'>{_esc(seniority.rationale)}</p>"
-        )
+        parts.append(f"<p class='cc-hint' style='margin-top:10px'>{_esc(seniority.rationale)}</p>")
 
     if plan.focus_areas:
         parts.append("<div class='cc-section-title'>Where to spend your time</div>")
@@ -334,9 +335,7 @@ def _prep_html(plan: InterviewPrepPlan | None) -> str:
     return "".join(parts)
 
 
-def _review_guide_html(
-    phase: str = "idle", *, package_id: str = "", detail: str = ""
-) -> str:
+def _review_guide_html(phase: str = "idle", *, package_id: str = "", detail: str = "") -> str:
     """Step-by-step guide for the HITL decision dock.
 
     ``phase``: idle | ready | working | approved | rejected
@@ -349,14 +348,11 @@ def _review_guide_html(
     if phase == "idle":
         active = 1
         blurb = (
-            "Unlocks after Analyze finishes in this tab. "
-            "Nothing here is submitted to an employer."
+            "Unlocks after Analyze finishes in this tab. Nothing here is submitted to an employer."
         )
     elif phase == "working":
         active = 3
-        blurb = detail or (
-            "Applying your experience updates and re-running Analyze automatically…"
-        )
+        blurb = detail or ("Applying your experience updates and re-running Analyze automatically…")
     elif phase == "approved":
         active = 3
         blurb = (
@@ -395,4 +391,3 @@ def _review_guide_html(
         f"<p class='cc-hint'>{blurb}</p></div>"
         f"<div class='cc-review-steps'>{''.join(rows)}</div>"
     )
-

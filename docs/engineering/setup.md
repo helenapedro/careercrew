@@ -1,3 +1,5 @@
+# Setup and Reproduction
+
 ## 1. Setup and Reproduction
 
 Verified against the `dev` branch. Prerequisites: Python 3.11 to 3.12, git.
@@ -29,9 +31,9 @@ Key variables (see `.env.example` for the full list):
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | No | Full agent crew and voice interview. Without it the crew is skipped and a deterministic gap-based prep plan is used; the UI banner says so |
+| `OPENAI_API_KEY` | No | Full agent crew and voice interview. Without it the crew is skipped: limited mode with an empty match report and a prep plan carrying only the seniority band and themes; the UI banner says so |
 | `CAREERCREW_UPLOAD_DIR` | No | Folder for resume/JD uploads (created automatically) |
-| `CAREERCREW_DB_PATH` | No | SQLite database for the session tracker, review history, interviews, and chats |
+| `CAREERCREW_DB_PATH` | No | SQLite database for review history, interviews, and chats |
 | `CAREERCREW_MAX_REVISIONS` | No | Bounded revision limit for the HITL review loop (default 2) |
 | `CAREERCREW_STT_MODEL` / `CAREERCREW_TTS_MODEL` | No | Mock-interview audio models (defaults: whisper-1 / tts-1) |
 

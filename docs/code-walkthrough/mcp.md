@@ -21,8 +21,6 @@
 
 `if __name__ == "__main__": mcp.run()` — standalone smoke: `python -m mcp_server.server`.
 
-**Say this:** “The server is intentionally thin; logic lives in document_tools.”
-
 ---
 
 ## Client: `careercrew/mcp_client.py`
@@ -49,7 +47,6 @@
 
 **Why sync helpers:** Tests and sync callers use them.  
 **I/O:** Spawns MCP server subprocess over stdio.  
-**Say this:** “CrewAI agents and the client hit the same server.”
 
 ### One-shot helpers
 

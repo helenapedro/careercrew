@@ -1,18 +1,26 @@
+# Agents and Workflows
+
 ## 1. Agent Roles and Tasks
 
-The roles below represent the proposed analysis workflow. Their exact prompts, contracts, ordering, and execution behavior must be confirmed against the current code.
+The roles below are the five agents the crew actually runs. Their prompts live in
+`config/agents.yaml`; their task text and expected output live in `config/tasks.yaml`.
+`careercrew/crew.py` wires the two files together.
 
 | Agent / role | Inputs | Responsibilities | Expected output | Guardrails |
 |---|---|---|---|---|
-| 1. Profile Extractor | Resume or professional-experience source | Extract skills, roles, dates, accomplishments, and other candidate facts | `CandidateProfile` or equivalent structured profile | Do not invent employers, titles, dates, skills, or achievements |
-| 2. Job Description Analyzer | Job description | Extract responsibilities, required/preferred skills, keywords, and seniority expectations | `JobRequirements` or equivalent structure | Keep requirements grounded in the supplied description |
-| 3. Gap Analyst | Candidate profile and job requirements | Assess coverage, strengths, gaps, and honest reframing opportunities | `GapReport` or equivalent | Distinguish demonstrated experience from missing or uncertain experience |
-| 4. Feedback Writer | Candidate profile, job description, gap report | Draft tailored resume feedback, bullet suggestions, and talking points | `FeedbackDraft` or equivalent | Tie factual suggestions to candidate evidence |
-| 5. Interview Prep Advisor | Candidate profile, role requirements, gaps, target experience level | Prioritize topics and create a preparation plan | `InterviewPrepPlan` or equivalent | Focus on role-specific gaps; do not imply unverified experience |
+| 1. Profile Extractor | Resume file or pasted resume text, read through the MCP `read_resume_tool` | Extract skills, roles, dates, accomplishments, and other candidate facts | `CandidateProfile` | Do not invent employers, titles, dates, skills, or achievements |
+| 2. Job Description Analyzer | Job description text, read through the MCP `read_job_description_tool` | Extract responsibilities, required/preferred skills, keywords, and seniority expectations | `JobRequirements` | Keep requirements grounded in the supplied description |
+| 3. Gap Analyst | Candidate profile and job requirements (`context=[extract_profile, analyze_jd]`) | Assess coverage, strengths, gaps, and honest reframing opportunities | `GapReport` | Distinguish demonstrated experience from missing or uncertain experience |
+| 4. Feedback Writer | Gap report (`context=[analyze_gaps]`) | Draft tailored resume feedback, bullet suggestions, and talking points | `FeedbackDraft` | Tie factual suggestions to candidate evidence |
+| 5. Interview Prep Advisor | Profile, requirements, and gaps (`context=[extract_profile, analyze_jd, analyze_gaps]`) | Prioritize topics and create a preparation plan | `InterviewPrepPlan` | Focus on role-specific gaps; do not imply unverified experience |
 
-### Supporting workflows (not necessarily separate CrewAI agents)
+The agents run sequentially (`Process.sequential`, `allow_delegation: false`,
+`memory: false`). Each task receives the earlier results through CrewAI's task
+`context`, so there is no manager agent and no sixth task.
 
-- **Mock-interview workflow:** asks questions, accepts text and/or voice answers, maintains a transcript, and produces per-answer feedback or an overall evaluation where implemented.
-- **Preparation coach:** answers follow-up questions using relevant resume and preparation context where implemented.
-- **Post-interview coach:** supports reflection using available preparation context, transcript, and evaluation results where implemented.
-- **Shared guardrails and persistence:** may be used across workflows; exact behavior must be verified in code.
+### Supporting workflows (not part of the crew)
+
+- **Mock-interview workflow:** `careercrew/interview.py` asks questions, accepts text and/or voice answers, keeps a transcript, and produces per-answer evaluation.
+- **Preparation coach:** `careercrew/coach.py` answers follow-up questions using the resume and preparation context.
+- **Post-interview coach:** `careercrew/coach.py` supports reflection using the preparation context, transcript, and evaluation results.
+- **Shared guardrails and persistence:** `careercrew/guardrails.py` validates inputs and outputs; `careercrew/session_store.py` persists packages, interviews, and chats on the UI path.
