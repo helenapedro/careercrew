@@ -4,6 +4,9 @@
 > followed by a short "what to notice" paragraph so the picture is usable
 > without reading the code first.
 >
+> **New here? Start with "Start here — the workflow in one picture" below**: it
+> shows the five agents and the whole flow on one page.
+>
 > Deeper material:
 > - `ARCHITECTURE.md` — the prose architecture with the design decisions
 > - `docs/ANALYZE_BUTTON_WALKTHROUGH.md` — one continuous trace with full code
@@ -11,6 +14,83 @@
 
 All line numbers in this document were checked against the working tree with
 `python tools/verify_doc_refs.py docs/ARCHITECTURE_DIAGRAMS.md`.
+
+---
+
+## Start here — the workflow in one picture
+
+If you only read one diagram, read this one. It shows what the candidate does,
+which five agents run, and what happens to the result.
+
+```mermaid
+flowchart TD
+    A["1 · Candidate adds two things<br/>a resume and a job description<br/>(upload a file or paste text)"]
+
+    B["2 · Press <b>Analyze match</b><br/>one button starts the run"]
+
+    subgraph CREW["3 · Five agents run in a fixed order"]
+        direction TB
+        D["Agent 1 · Profile Extractor<br/><i>resume to structured profile</i>"]
+        E["Agent 2 · JD Analyzer<br/><i>posting to required skills</i>"]
+        F["Agent 3 · Gap Analyst<br/><i>0-100 score, each gap labelled</i>"]
+        G["Agent 4 · Feedback Writer<br/><i>cited bullet rewrites</i>"]
+        H["Agent 5 · Prep Advisor<br/><i>where to spend prep time</i>"]
+        D --> E --> F --> G --> H
+    end
+
+    I["4 · Candidate reviews<br/>match report + prep plan"]
+
+    J{"5 · Human decision<br/>nothing is automatic"}
+
+    K["Approve<br/>practice opens:<br/>mock interview<br/>and both coaches"]
+    L["Request changes<br/>notes merged into<br/>the resume, then<br/>all five run again"]
+    M["Reject<br/>stop here<br/>nothing is submitted"]
+
+    A --> B --> D
+    H --> I --> J
+    J --> K
+    J --> L
+    J --> M
+    L -.-> D
+```
+
+**Reading the flow**
+
+1. **Input** — the candidate supplies a resume and a job description, each either
+   as a file or as pasted text.
+2. **Analyze match** — one button starts the run.
+3. **Five agents** — always the same order, always the same five. Each one hands
+   its result to the next.
+4. **Review** — the candidate reads a match report and an interview prep plan.
+5. **Human decision** — approve to unlock practice, request changes to re-run
+   with their notes, or reject to stop.
+
+**What to notice**
+
+- **Two inputs, five agents, one decision.** The candidate supplies a resume and
+  a job description; five agents turn them into a reviewable bundle; a person
+  then approves, revises, or rejects it.
+- **The agents are strict readers then writers.** Agents 1 and 2 only read
+  (they are the two that get the file-reading tool); agents 3-5 only reason over
+  what the earlier agents produced.
+- **Nothing leaves the app.** There is no "submit application" step by design —
+  the last box is the candidate applying themselves.
+- **Practice is gated on approval.** Approve unlocks the mock interview and both
+  coaching chats (§5).
+
+### The five agents at a glance
+
+| Step | Agent | Reads | Produces | Hands to the next agent |
+|---|---|---|---|---|
+| 1 | Profile Extractor | The resume | `CandidateProfile`: summary, skills, experience, education | The profile |
+| 2 | JD Analyzer | The job description | `JobRequirements`: required skills, keywords, seniority, nice-to-haves | The requirements |
+| 3 | Gap Analyst | Profile + requirements | `GapReport`: coverage score 0-100, and covered / reframeable / out_of_scope per requirement | The gap report |
+| 4 | Feedback Writer | The gap report | `FeedbackDraft`: rewritten bullets with a cited fact each, talking points, `do_not_claim` | The feedback |
+| 5 | Prep Advisor | Profile + requirements + gaps | `InterviewPrepPlan`: seniority band, focus areas with priorities and time shares, question themes | The bundle the candidate reviews |
+
+Each arrow above is real code, not narration: it is the `context=[...]` list on
+each task in `careercrew/crew.py` (§4 shows the exact lines). The typed models
+live in `careercrew/models.py`.
 
 ---
 
