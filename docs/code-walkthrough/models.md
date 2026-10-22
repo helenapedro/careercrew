@@ -70,7 +70,6 @@
 | `TranscriptTurn` | one live transcript line |
 | `AnswerEvaluation` | score 0–100 + critique fields |
 | `MockInterviewSession` | questions, turns, evaluations, overall_score/summary, completed |
-| `ChatMessage` | role + content for coaches |
 
 ---
 

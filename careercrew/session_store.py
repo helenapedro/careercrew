@@ -207,15 +207,6 @@ class SessionStore:
             data["inputs"] = {}
         return data
 
-    def count_revisions(self, package_id: str) -> int:
-        """Count how many REVISE decisions have been recorded."""
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS n FROM decisions WHERE package_id = ? AND decision = 'REVISE'",
-                (package_id,),
-            ).fetchone()
-        return int(row["n"]) if row else 0
-
     # -- interview sessions ----------------------------------------------------
     def save_interview(self, session, package_id: str | None = None) -> None:
         """Insert or update a mock interview session (with its transcript turns)."""

@@ -308,11 +308,3 @@ class MockInterviewSession(BaseModel):
     overall_score: int = Field(ge=0, le=100, default=0)
     overall_summary: str = ""
     completed: bool = False
-
-
-class ChatMessage(BaseModel):
-    """A persisted chat turn for either coaching channel."""
-
-    role: str = "user"  # user | assistant
-    content: str = ""
-    created_at: datetime = Field(default_factory=_utcnow)

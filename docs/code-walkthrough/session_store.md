@@ -34,7 +34,6 @@ Commit on success; shared vs per-call connection.
 | `record_decision` | INSERT decision |
 | `update_status` | UPDATE status (± revision_count) |
 | `get_package` | Row + parsed `ApplicationPackage` |
-| `count_revisions` | Count REVISE rows |
 
 ### Interview APIs
 

@@ -98,13 +98,3 @@ def test_decision_package_mismatch_is_rejected():
             _package("pkg-a"),
             ReviewDecision(package_id="pkg-b", decision=ReviewAction.APPROVE),
         )
-
-
-def test_count_revisions():
-    store, service = _service()
-    service.submit_for_review({"jd_source": "x"}, _package())
-    service.apply_decision(
-        _package(),
-        ReviewDecision(package_id="pkg-1", decision=ReviewAction.REVISE, reviewer_feedback="x"),
-    )
-    assert store.count_revisions("pkg-1") == 1

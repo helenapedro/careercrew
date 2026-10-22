@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from pathlib import Path
 
 from careercrew.config import get_settings
 
@@ -85,13 +84,3 @@ def speak(text: str) -> str | None:
     except Exception as exc:  # noqa: BLE001 - degrade to text, never crash
         logger.warning("speech synthesis failed: %s", exc)
         return None
-
-
-def cleanup(path: str | None) -> None:
-    """Best-effort removal of a temporary audio file."""
-    if not path:
-        return
-    try:
-        Path(path).unlink(missing_ok=True)
-    except OSError:
-        pass

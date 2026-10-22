@@ -30,12 +30,6 @@ Build `OpenAI` client with key + optional base URL.
 
 ---
 
-## `cleanup(path)`
-
-Best-effort delete of temp audio.
-
----
-
 ## How it connects
 
 Called from `callbacks_interview._ask_question` (speak) and `callbacks_interview.interview_submit` (transcribe).

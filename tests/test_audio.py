@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from careercrew import audio, config
 
 
@@ -49,7 +51,7 @@ def test_speak_with_mocked_client(monkeypatch):
     monkeypatch.setattr(audio, "_client", lambda: _FakeClient())
     path = audio.speak("Tell me about yourself.")
     assert path is not None
-    audio.cleanup(path)
+    os.unlink(path)
 
 
 def test_speak_returns_none_on_client_error(monkeypatch):

@@ -6,7 +6,6 @@ from careercrew.models import (
     AnswerEvaluation,
     ApplicationPackage,
     CandidateProfile,
-    ChatMessage,
     FeedbackDraft,
     GapReport,
     InterviewPrepPlan,
@@ -103,9 +102,3 @@ def test_mock_interview_session_roundtrip():
     assert restored.session_id == "int-1"
     assert restored.turns[0].role is InterviewTurnRole.INTERVIEWER
     assert restored.evaluations[0].score == 70
-
-
-def test_chat_message_defaults():
-    message = ChatMessage()
-    assert message.role == "user"
-    assert message.content == ""
