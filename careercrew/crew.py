@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 import yaml
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, LLM, Process, Task
 from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 
 from careercrew.config import (
@@ -71,6 +71,20 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     agents_cfg = _load_yaml(AGENTS_YAML)
     tasks_cfg = _load_yaml(TASKS_YAML)
 
+    # Every agent shares one LLM built from config so OPENAI_MODEL governs the
+    # whole app. Without this CrewAI silently falls back to its own default
+    # model and the setting only affected the coach/interview helper.
+    #
+    # No temperature is passed on purpose: reasoning-style models (e.g.
+    # gpt-6-luna) reject an explicit temperature with a 400, and CrewAI leaves
+    # it unset by default, letting the endpoint apply its own default.
+    llm_kwargs: dict = {"model": settings.openai_model}
+    if settings.openai_api_key:
+        llm_kwargs["api_key"] = settings.openai_api_key
+    if settings.openai_base_url:
+        llm_kwargs["base_url"] = settings.openai_base_url
+    agent_llm = LLM(**llm_kwargs)
+
     mcp_server = crewai_mcp_server()
     knowledge = _guidelines_source(RESUME_GUIDELINES_PATH, "resume_guidelines")
     interview_knowledge = _guidelines_source(
@@ -80,6 +94,7 @@ def build_crew(*, verbose: bool = False, on_task=None, on_step=None) -> Crew:
     def _agent(name: str, *, with_mcp: bool, max_iter: int) -> Agent:
         kwargs = {
             "config": agents_cfg[name],
+            "llm": agent_llm,
             "verbose": verbose,
             "allow_delegation": False,
             # A stuck tool call must not spin the default 25 times.

@@ -11,7 +11,7 @@
 | Import | Why |
 |--------|-----|
 | `yaml` | Load `config/agents.yaml` and `tasks.yaml` |
-| `Agent`, `Crew`, `Process`, `Task` | CrewAI primitives |
+| `Agent`, `Crew`, `LLM`, `Process`, `Task` | CrewAI primitives |
 | `StringKnowledgeSource` | Inject guideline markdown as agent knowledge |
 | `crewai_mcp_server` | Attach real MCP stdio server to tool-using agents |
 | Output models | `output_pydantic=` so each task returns a typed object |
@@ -71,6 +71,7 @@
 
 **Why sequential / no manager:** Pipeline is linear; a manager adds latency/cost with no branching decision.  
 **Why memory=False:** Each task already receives the previous task's output through `context`. CrewAI memory would add another model call after every agent.  
+**Why an explicit `llm=` on every agent:** Without it CrewAI silently uses its own built-in default model, and `OPENAI_MODEL` only affected the coach/interview helper. Building one `LLM(model=settings.openai_model, ...)` and passing it to all five agents makes the configured model govern the whole app.  
 **I/O:** YAML + knowledge files; later kickoff hits OpenAI + MCP.  
 **Say this:** “YAML is personality and prompts; this file is the wiring diagram.”
 
