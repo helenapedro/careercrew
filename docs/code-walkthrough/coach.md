@@ -38,22 +38,30 @@ Thin wrappers around `_reply` with different **persona** strings (prep vs perfor
 
 `SCOPE_KEYWORDS` maps the three allowed topics to keyword tuples: `resume`,
 `job_description`, `interview_prep`. `detect_scope(message)` normalizes the text
-(lowercase, accent stripping, whitespace collapse) and returns the first matching
-scope or `None`.
+(lowercase, accent stripping, whitespace collapse), rejects a small set of
+recognized off-topic domains (`OFF_TOPIC_WORDS`: weather, recipes, sport, ...),
+then classifies the rest.
 
-**Why it is tolerant:** candidates type quickly. Matching is token-based, not raw
-substring, so `"technical"` does not match inside `"technically"`. Words of 7+
-characters also accept **one edit** (substitution, insertion, deletion, or adjacent
-transposition) plus simple plural/gerund variants — so a slip like `"preperation"`
-or `"intreview"` still lands in `interview_prep` instead of being redirected.
-Multi-word phrases such as `"walk through"` match as normalized substrings.
+**Why it is fail-open:** an allowlist of preparation phrasing cannot anticipate how
+a candidate words a question. "what I have to do in the first step for learn
+Kubernetes?" contains no prep keyword yet is plainly a preparation question, so
+rejecting the unknown bounces real questions. Instead, a message that is *not
+recognizably off-topic* is passed to the persona, which is itself instructed to
+redirect unrelated requests in one short sentence. Bouncing a real question costs
+the candidate far more than gracefully declining a stray one.
 
-**Say this:** “Scope is a cheap deterministic gate — no LLM call — and it forgives
-typos so a real question never gets bounced to the redirect.”
+**Why it is typo-tolerant:** matching is token-based, not raw substring, so
+`"technical"` does not match inside `"technically"`. Words of 7+ characters accept
+one edit (substitution, insertion, deletion, or adjacent transposition) plus simple
+plural/gerund variants, so `"preperation"` and `"intreview"` still land in
+`interview_prep`.
 
-When the message is out of scope, `_reply` returns `SCOPE_REDIRECT` without calling
-the LLM. The post-interview coach passes no `scope_redirect`, so it answers any
-performance question.
+**Say this:** “Scope is a cheap deterministic gate — no LLM call — that screens out
+clearly unrelated domains and lets the persona handle the grey area.”
+
+When a message is recognized as off-topic, `_reply` returns `SCOPE_REDIRECT`
+without calling the LLM. The post-interview coach passes no `scope_redirect`, so
+it answers any performance question.
 
 ---
 

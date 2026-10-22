@@ -139,11 +139,39 @@ def test_detect_scope_accepts_prep_stem_and_domain_topics():
 
 
 def test_detect_scope_ignores_unrelated_word_forms():
-    # "technically" must not match the "technical" interview keyword, and generic
-    # chatter must not be treated as in scope.
-    assert coach.detect_scope("technically speaking is the sky blue") is None
-    assert coach.detect_scope("what does the research say about coffee") is None
-    assert coach.detect_scope("tell me a joke") is None
+    # "technically" must not be treated as the "technical" keyword. detect_scope
+    # is fail-open now, so assert on the token matcher directly; the off-topic
+    # gate below covers the redirect path.
+    assert not coach._token_matches("technically", "technical")
+    assert not coach._token_matches("classification", "qualification")
+    assert coach.detect_scope("technically speaking is the sky blue") == "interview_prep"
+
+
+def test_detect_scope_redirects_recognized_off_topic_domains():
+    for message in (
+        "tell me a joke",
+        "what is the weather today",
+        "how do I cook pasta",
+        "recommend a good movie",
+        "how do I lose weight",
+        "write a poem about my cat",
+        "how do I learn guitar",
+        "what are the basics of chess",
+    ):
+        assert coach.detect_scope(message) is None, message
+
+
+def test_detect_scope_fails_open_for_unrecognized_questions():
+    # A preparation question that uses none of the keywords ("learn Kubernetes",
+    # "first step", no "interview") must not be bounced to the redirect. The
+    # allowlist cannot anticipate this phrasing, so unknown input is passed to
+    # the persona instead of being rejected.
+    assert (
+        coach.detect_scope("what I have to do in the first step for learn Kubernetes?")
+        == "interview_prep"
+    )
+    assert coach.detect_scope("what should I focus on first") == "interview_prep"
+    assert coach.detect_scope("I have a call with the recruiter next week") == "interview_prep"
 
 
 def test_prep_coach_answers_typo_question_instead_of_redirecting():
@@ -156,6 +184,23 @@ def test_prep_coach_answers_typo_question_instead_of_redirecting():
         llm=fake_llm,
     )
     assert "three things" not in reply
+
+
+def test_prep_coach_answers_kubernetes_question_instead_of_redirecting():
+    # Regression: the exact question from the reported screenshot. It contains no
+    # prep keyword at all ("first step", "learn", a proper noun), so the old
+    # allowlist bounced it to the redirect.
+    def fake_llm(prompt: str) -> str:
+        return "Start with containers, then run a sample app in a local cluster."
+
+    reply, warnings = coach.prep_coach_reply(
+        "what I have to do in the first step for learn Kubernetes?",
+        "ctx",
+        llm=fake_llm,
+    )
+    assert "three things" not in reply
+    assert reply
+    assert warnings == []
 
 
 def test_prep_coach_redirects_out_of_scope_without_calling_llm():

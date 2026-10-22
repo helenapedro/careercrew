@@ -150,6 +150,60 @@ SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# Clearly unrelated domains. Only these are redirected outright. Unknown or
+# ambiguous phrasing is allowed through to the persona, which is itself
+# instructed to redirect off-topic questions. This is deliberately fail-open:
+# bouncing a real preparation question costs the candidate far more than
+# answering a stray one gracefully.
+OFF_TOPIC_WORDS: tuple[str, ...] = (
+    "weather",
+    "joke",
+    "poem",
+    "recipe",
+    "cook",
+    "pasta",
+    "restaurant",
+    "movie",
+    "film",
+    "song",
+    "lyrics",
+    "football",
+    "soccer",
+    "basketball",
+    "match",
+    "game",
+    "lottery",
+    "stock",
+    "crypto",
+    "bitcoin",
+    "flight",
+    "hotel",
+    "vacation",
+    "weight",
+    "diet",
+    "workout",
+    "doctor",
+    "medical",
+    "symptom",
+    "diagnosis",
+    "translate",
+    "translation",
+    "capital",
+    "president",
+    "election",
+    "politics",
+    "quantum",
+    "planet",
+    "universe",
+    "cat",
+    "dog",
+    "gardening",
+    "guitar",
+    "piano",
+    "chess",
+    "pasta",
+)
+
 SCOPE_REDIRECT = (
     "I can help with three things: your resume, the job description, "
     "or interview preparation. Could you ask about one of those?"
@@ -211,17 +265,35 @@ def _token_matches(token: str, keyword: str) -> bool:
     return _within_one_typo(token, keyword)
 
 
+def _is_off_topic(tokens: list[str]) -> bool:
+    """True only for a recognized off-topic domain (weather, recipes, ...)."""
+    for word in OFF_TOPIC_WORDS:
+        if any(_token_matches(token, word) for token in tokens):
+            return True
+    return False
+
+
 def detect_scope(message: str) -> str | None:
     """Classify a prep-chat question into one of the three supported scopes.
 
-    Returns ``"resume"``, ``"job_description"``, ``"interview_prep"``,
-    or ``None`` when the question is outside all three scopes.
-    Keyword-based and deterministic: no LLM call, cheap to test.
+    Returns ``"resume"``, ``"job_description"``, ``"interview_prep"``, or
+    ``None`` when the question is recognized as outside all three scopes.
+
+    The check is intentionally **fail-open**: a message is only rejected when it
+    matches a known off-topic domain (weather, recipes, sport, ...). Everything
+    else is passed to the persona, which is instructed to redirect anything
+    unrelated. An allowlist of preparation phrasing cannot anticipate how a
+    candidate words a question — "what I have to do in the first step for learn
+    Kubernetes?" contains no prep keyword yet is plainly a preparation question —
+    so rejecting the unknown would bounce real questions. Deterministic: no LLM
+    call, cheap to test.
     """
     text = _normalize(message)
     if not text:
         return None
     tokens = _WORD_RE.findall(text)
+    if _is_off_topic(tokens):
+        return None
     for scope, keywords in SCOPE_KEYWORDS.items():
         for keyword in keywords:
             if " " in keyword:
@@ -229,7 +301,9 @@ def detect_scope(message: str) -> str | None:
                     return scope
             elif any(_token_matches(token, keyword) for token in tokens):
                 return scope
-    return None
+    # Not recognized as a known scope, but not recognizable as off-topic either:
+    # let the persona decide rather than bouncing a plausible prep question.
+    return "interview_prep"
 
 
 def prep_coach_reply(
@@ -254,8 +328,12 @@ def prep_coach_reply(
         persona=(
             "You are the CareerCrew preparation coach. You help with exactly three "
             "topics: (1) improving the candidate's resume, (2) clarifying the job "
-            "description, and (3) preparing for the interview. If the candidate asks "
-            "about anything else, politely redirect them to these three topics. "
+            "description, and (3) preparing for the interview — including learning "
+            "the technologies and skills the role requires. If the candidate asks "
+            "about anything else (weather, recipes, sport, general chit-chat, or "
+            "unrelated trivia), politely redirect them to these three topics in one "
+            "short sentence. When a request plausibly relates to preparing for this "
+            "role, answer it helpfully instead of asking them to rephrase. "
             "Use only the context provided. Be specific and honest; "
             "never invent experience."
         ),
