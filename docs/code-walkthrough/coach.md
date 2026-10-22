@@ -36,32 +36,41 @@ Thin wrappers around `_reply` with different **persona** strings (prep vs perfor
 
 ## Scope guardrail (prep channel only)
 
-`SCOPE_KEYWORDS` maps the three allowed topics to keyword tuples: `resume`,
-`job_description`, `interview_prep`. `detect_scope(message)` normalizes the text
-(lowercase, accent stripping, whitespace collapse), rejects a small set of
-recognized off-topic domains (`OFF_TOPIC_WORDS`: weather, recipes, sport, ...),
-then classifies the rest.
+The coach answers about **this analysis**: the candidate's resume, this job
+description, and preparation for this role. Two layers:
 
-**Why it is fail-open:** an allowlist of preparation phrasing cannot anticipate how
-a candidate words a question. "what I have to do in the first step for learn
-Kubernetes?" contains no prep keyword yet is plainly a preparation question, so
-rejecting the unknown bounces real questions. Instead, a message that is *not
-recognizably off-topic* is passed to the persona, which is itself instructed to
-redirect unrelated requests in one short sentence. Bouncing a real question costs
-the candidate far more than gracefully declining a stray one.
+1. **Analysis anchors.** `context_anchors(profile=..., requirements=..., gaps=...,
+   prep_plan=...)` collects the role-specific vocabulary from the structured
+   models — required skills, keywords, seniority, gap requirements, focus areas —
+   and `build_context` embeds it as `## Topics in this analysis`. Generic coaching
+   prose is deliberately excluded, so words like "give" or "time" cannot make an
+   unrelated question look relevant.
+2. **Keyword scopes.** `SCOPE_KEYWORDS` maps `resume`, `job_description`,
+   `interview_prep` to keyword tuples, matched with token/typo tolerance.
 
-**Why it is typo-tolerant:** matching is token-based, not raw substring, so
-`"technical"` does not match inside `"technically"`. Words of 7+ characters accept
-one edit (substitution, insertion, deletion, or adjacent transposition) plus simple
-plural/gerund variants, so `"preperation"` and `"intreview"` still land in
-`interview_prep`.
+`detect_scope(message, context)` returns a scope only when the question is about
+this analysis:
 
-**Say this:** “Scope is a cheap deterministic gate — no LLM call — that screens out
-clearly unrelated domains and lets the persona handle the grey area.”
+- a recognized off-topic domain (`OFF_TOPIC_WORDS`) is always redirected;
+- an explicit prep keyword is enough on its own;
+- generic learning phrasing (`GENERIC_PREP_WORDS`: "learn", "first step", ...)
+  requires an anchor — the named technology must appear in this analysis;
+- otherwise the question must share an anchor with the analysis.
 
-When a message is recognized as off-topic, `_reply` returns `SCOPE_REDIRECT`
-without calling the LLM. The post-interview coach passes no `scope_redirect`, so
-it answers any performance question.
+**Why this shape:** an allowlist of preparation phrasing cannot anticipate how a
+candidate words a question. "what I have to do in the first step for learn
+Kubernetes?" has no prep keyword at all, yet Kubernetes *is* a requirement in this
+job description — so anchoring on the analysis answers it, while "how do I bake a
+cake" shares nothing and is redirected. `detect_scope` stays deterministic: no LLM
+call, cheap to test.
+
+**Say this:** “Scope is anchored to the analysis on screen, not to a fixed keyword
+list, so real preparation questions in the candidate's own words get answered and
+unrelated topics do not.”
+
+When a message is rejected, `_reply` returns `SCOPE_REDIRECT` without calling the
+LLM. The post-interview coach passes no `scope_redirect`, so it answers any
+performance question.
 
 ---
 

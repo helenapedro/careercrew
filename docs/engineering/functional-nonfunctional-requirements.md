@@ -42,4 +42,4 @@ column names the source and the tests that cover it.
 
 **Note:** These are proposed quality requirements. Privacy retention/deletion behavior, latency targets, production security, accessibility, and reliability are not established merely by an architecture description; they require implementation evidence and tests.
 
-**Note:** Assessed against `dev` on 2026-10-21. Test suite: 126 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). E2E demo path not yet run.
+**Note:** Assessed against `dev` on 2026-10-21. Test suite: 130 passed, 0 failed. FR-10, FR-12, and FR-16 additionally verified in the callback modules (review handlers, voice text fallback, `fail()` error paths). E2E demo path not yet run.

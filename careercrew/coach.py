@@ -44,6 +44,15 @@ def build_context(
     """
     parts: list[str] = ["# CareerCrew coaching context"]
 
+    anchors = context_anchors(
+        profile=profile,
+        requirements=requirements,
+        gaps=gaps,
+        prep_plan=prep_plan,
+    )
+    if anchors:
+        parts.append("## Topics in this analysis\n" + ", ".join(sorted(anchors)))
+
     if profile is not None:
         parts.append("## Candidate profile (from the resume)\n" + profile.model_dump_json())
     if requirements is not None:
@@ -147,6 +156,10 @@ SCOPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "rehearse",
         "get ready",
         "brush up",
+        "focus",
+        "prioritize",
+        "priority",
+        "spend my time",
     ),
 }
 
@@ -209,6 +222,139 @@ SCOPE_REDIRECT = (
     "or interview preparation. Could you ask about one of those?"
 )
 
+# Generic "how do I learn this" phrasing. On its own it says nothing about the
+# role, so it only counts when the question also names something from *this*
+# analysis (a skill, technology, or requirement) or a prep topic.
+GENERIC_PREP_WORDS: tuple[str, ...] = (
+    "learn",
+    "learning",
+    "first step",
+    "get started",
+    "where do i start",
+    "roadmap",
+    "fundamentals",
+    "basics",
+    "course",
+    "tutorial",
+    "study",
+    "guide",
+    "resources",
+)
+
+# Structural / boilerplate words that appear in the assembled context but say
+# nothing about the role. Excluded so they cannot act as relevance anchors.
+_ANCHOR_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "from",
+        "that",
+        "this",
+        "with",
+        "have",
+        "your",
+        "what",
+        "when",
+        "which",
+        "will",
+        "were",
+        "been",
+        "they",
+        "them",
+        "then",
+        "than",
+        "there",
+        "their",
+        "about",
+        "into",
+        "over",
+        "under",
+        "also",
+        "more",
+        "most",
+        "some",
+        "such",
+        "only",
+        "just",
+        "like",
+        "make",
+        "made",
+        "used",
+        "use",
+        "using",
+        "each",
+        "every",
+        "other",
+        "same",
+        "does",
+        "doing",
+        "done",
+        "would",
+        "could",
+        "should",
+        "must",
+        "may",
+        "might",
+        "can",
+        "cannot",
+        "and",
+        "for",
+        "the",
+        "but",
+        "not",
+        "you",
+        "are",
+        "was",
+        "has",
+        "had",
+        "its",
+        "his",
+        "her",
+        "our",
+        "out",
+        "any",
+        "all",
+        "one",
+        "two",
+        "how",
+        "why",
+        "who",
+        "where",
+        "context",
+        "candidate",
+        "profile",
+        "report",
+        "plan",
+        "requirements",
+        "coaching",
+        "guidelines",
+        "json",
+        "full_name",
+        "skills",
+        "required_skills",
+        "seniority",
+        "role",
+        "title",
+        "text",
+        "name",
+        "coverage_score",
+        "verdicts",
+        "verdict",
+        "requirement",
+        "evidence",
+        "quote",
+        "section",
+        "prep",
+        "interview",
+        "resume",
+        "job",
+        "description",
+        "gap",
+        "gaps",
+        "answer",
+        "question",
+        "questions",
+    }
+)
+
 # Scope matching is deliberately tolerant: candidates type quickly and misspell
 # words ("preperation", "intreview"). Multi-word phrases match as normalized
 # substrings; single words match whole tokens, and words of 7+ characters also
@@ -265,6 +411,86 @@ def _token_matches(token: str, keyword: str) -> bool:
     return _within_one_typo(token, keyword)
 
 
+def context_anchors(*, profile=None, requirements=None, gaps=None, prep_plan=None) -> set[str]:
+    """Terms that identify *this* analysis: skills, requirements, gaps, titles.
+
+    Built from the structured models rather than the rendered prompt, so generic
+    coaching prose ("give concrete examples", "take time") can never act as a
+    relevance anchor.
+    """
+
+    def _collect(*values) -> set[str]:
+        out: set[str] = set()
+        for value in values:
+            if not value:
+                continue
+            items = value if isinstance(value, (list, tuple, set)) else [value]
+            for item in items:
+                for token in _WORD_RE.findall(_normalize(str(item))):
+                    if len(token) < 3 or token.isdigit() or token in _ANCHOR_STOPWORDS:
+                        continue
+                    out.add(token)
+        return out
+
+    anchors: set[str] = set()
+    if profile is not None:
+        anchors |= _collect(
+            getattr(profile, "full_name", None),
+            getattr(profile, "summary", None),
+            getattr(profile, "skills", None),
+            getattr(profile, "education", None),
+            [f"{w.title} {w.company}" for w in getattr(profile, "experience", [])],
+        )
+    if requirements is not None:
+        anchors |= _collect(
+            getattr(requirements, "required_skills", None),
+            getattr(requirements, "keywords", None),
+            getattr(requirements, "nice_to_have", None),
+            getattr(requirements, "seniority", None),
+        )
+    if gaps is not None:
+        anchors |= _collect(
+            [getattr(v, "requirement", None) for v in getattr(gaps, "verdicts", [])]
+        )
+    if prep_plan is not None:
+        anchors |= _collect(
+            [getattr(f, "area", None) for f in getattr(prep_plan, "focus_areas", [])],
+            getattr(prep_plan, "question_themes", None),
+            getattr(prep_plan, "risk_areas", None),
+            getattr(prep_plan, "strengths", None),
+        )
+    return anchors
+
+
+def _context_anchors(context: str) -> set[str]:
+    """Anchors embedded in an already-built context (the "Topics" section).
+
+    Falls back to scanning the analysis sections (not the coaching guidelines)
+    so a context assembled elsewhere still works.
+    """
+    body = (context or "").split("## Coaching guidelines")[0]
+    marker = "## Topics in this analysis\n"
+    if marker in body:
+        body = body.split(marker, 1)[1].split("\n##", 1)[0]
+    anchors: set[str] = set()
+    for token in _WORD_RE.findall(_normalize(body)):
+        if len(token) < 3 or token in _ANCHOR_STOPWORDS or token.isdigit():
+            continue
+        anchors.add(token)
+    return anchors
+
+
+def _anchored_to_context(message: str, anchors: set[str]) -> bool:
+    """True when the question actually refers to something from this analysis."""
+    tokens = _WORD_RE.findall(_normalize(message))
+    for token in tokens:
+        if len(token) < 3 or token in _ANCHOR_STOPWORDS:
+            continue
+        if any(_token_matches(token, anchor) for anchor in anchors):
+            return True
+    return False
+
+
 def _is_off_topic(tokens: list[str]) -> bool:
     """True only for a recognized off-topic domain (weather, recipes, ...)."""
     for word in OFF_TOPIC_WORDS:
@@ -273,20 +499,22 @@ def _is_off_topic(tokens: list[str]) -> bool:
     return False
 
 
-def detect_scope(message: str) -> str | None:
+def detect_scope(message: str, context: str | None = None) -> str | None:
     """Classify a prep-chat question into one of the three supported scopes.
 
     Returns ``"resume"``, ``"job_description"``, ``"interview_prep"``, or
-    ``None`` when the question is recognized as outside all three scopes.
+    ``None`` when the question is not about this analysis.
 
-    The check is intentionally **fail-open**: a message is only rejected when it
-    matches a known off-topic domain (weather, recipes, sport, ...). Everything
-    else is passed to the persona, which is instructed to redirect anything
-    unrelated. An allowlist of preparation phrasing cannot anticipate how a
-    candidate words a question — "what I have to do in the first step for learn
-    Kubernetes?" contains no prep keyword yet is plainly a preparation question —
-    so rejecting the unknown would bounce real questions. Deterministic: no LLM
-    call, cheap to test.
+    Relevance is anchored to **the analysis on screen**: when ``context`` is
+    given, a question must reference something from it (a required skill, a
+    technology, a role title, or a gap) to be in scope. This keeps the coach on
+    the candidate's resume, this job description, and preparation for this role,
+    while still answering phrasing that uses no preparation keyword such as
+    "what I have to do in the first step for learn Kubernetes?" — because
+    Kubernetes is named in this analysis.
+
+    A recognized off-topic topic is always rejected, and so is a question that
+    shares nothing with this analysis. Deterministic: no LLM call.
     """
     text = _normalize(message)
     if not text:
@@ -294,6 +522,7 @@ def detect_scope(message: str) -> str | None:
     tokens = _WORD_RE.findall(text)
     if _is_off_topic(tokens):
         return None
+
     for scope, keywords in SCOPE_KEYWORDS.items():
         for keyword in keywords:
             if " " in keyword:
@@ -301,9 +530,26 @@ def detect_scope(message: str) -> str | None:
                     return scope
             elif any(_token_matches(token, keyword) for token in tokens):
                 return scope
-    # Not recognized as a known scope, but not recognizable as off-topic either:
-    # let the persona decide rather than bouncing a plausible prep question.
-    return "interview_prep"
+
+    # No explicit prep keyword. Accept generic "how do I learn X" phrasing only
+    # when X is something this analysis actually talks about.
+    anchors = _context_anchors(context) if context else set()
+    mentions_generic = any(
+        (keyword in text) if " " in keyword else any(_token_matches(t, keyword) for t in tokens)
+        for keyword in GENERIC_PREP_WORDS
+    )
+    if mentions_generic:
+        if not anchors or _anchored_to_context(message, anchors):
+            return "interview_prep"
+        return None
+
+    # A question that names this role's skills/technologies is about preparation
+    # for it, even when worded without any prep keyword.
+    if anchors and _anchored_to_context(message, anchors):
+        return "interview_prep"
+
+    # Otherwise the question shares nothing with this analysis: redirect it.
+    return None
 
 
 def prep_coach_reply(
@@ -327,11 +573,12 @@ def prep_coach_reply(
         history,
         persona=(
             "You are the CareerCrew preparation coach. You help with exactly three "
-            "topics: (1) improving the candidate's resume, (2) clarifying the job "
-            "description, and (3) preparing for the interview — including learning "
-            "the technologies and skills the role requires. If the candidate asks "
-            "about anything else (weather, recipes, sport, general chit-chat, or "
-            "unrelated trivia), politely redirect them to these three topics in one "
+            "topics: (1) improving the candidate's resume, (2) clarifying this job "
+            "description, and (3) preparing for this interview — including learning "
+            "the technologies and skills this role requires. Stay on this analysis: "
+            "the candidate's resume, this job description, and preparation for this "
+            "role. If a question has nothing to do with them (weather, recipes, sport, "
+            "shopping, general trivia), politely redirect to those three topics in one "
             "short sentence. When a request plausibly relates to preparing for this "
             "role, answer it helpfully instead of asking them to rephrase. "
             "Use only the context provided. Be specific and honest; "
@@ -388,8 +635,8 @@ def _reply(
         )
 
     # Scope guardrail (prep channel only): stay on the resume, the job
-    # description, or interview preparation; redirect anything else.
-    if scope_redirect is not None and detect_scope(message) is None:
+    # description, or interview preparation for this role; redirect anything else.
+    if scope_redirect is not None and detect_scope(message, context) is None:
         return scope_redirect, []
 
     answer = ""
