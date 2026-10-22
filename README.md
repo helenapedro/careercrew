@@ -83,6 +83,10 @@ Add a key for the full crew and the voice interview.
 
 - `ARCHITECTURE.md` — system architecture: numbered end-to-end flow, component
   legend, HITL state diagram, design decisions, deployment.
+- [`docs/ARCHITECTURE_DIAGRAMS.md`](docs/ARCHITECTURE_DIAGRAMS.md) — the same
+  system as eleven diagrams (context, layers, request lifecycle, agent
+  handoffs, review state machine, guardrails, persistence), each with a short
+  "what to notice".
 - `docs/engineering/` — product and engineering docs:
   - `product-overview.md` — scope, users, goals
   - `agents-and-workflows.md` — agent roster, responsibilities, workflow

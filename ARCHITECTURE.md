@@ -8,6 +8,7 @@
 > - Tests and release gates: `docs/engineering/testing-and-release.md`
 > - Agent and task details: `docs/engineering/agents-and-workflows.md`
 > - Use cases and user stories: `docs/engineering/use-cases-and-user-stories.md`
+> - Diagrams with short explanations: `docs/ARCHITECTURE_DIAGRAMS.md`
 
 
 ## 1. System overview

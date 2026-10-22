@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from pathlib import Path
 
 from careercrew.config import get_settings
 
@@ -31,6 +32,9 @@ def _client():
     return OpenAI(**kwargs)
 
 
+# --------------------------------------------------
+# Transcribe
+# --------------------------------------------------
 def transcribe(audio_path: str | None) -> str:
     """Transcribe a recorded answer with ``whisper-1``.
 
@@ -55,6 +59,9 @@ def transcribe(audio_path: str | None) -> str:
         return ""
 
 
+# --------------------------------------------------
+# Speak
+# --------------------------------------------------
 def speak(text: str) -> str | None:
     """Synthesize the interviewer's question with ``tts-1``.
 
@@ -84,3 +91,16 @@ def speak(text: str) -> str | None:
     except Exception as exc:  # noqa: BLE001 - degrade to text, never crash
         logger.warning("speech synthesis failed: %s", exc)
         return None
+
+
+# --------------------------------------------------
+# Cleanup
+# --------------------------------------------------
+def cleanup(path: str | None) -> None:
+    """Best-effort removal of a temporary audio file."""
+    if not path:
+        return
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass

@@ -9,6 +9,11 @@ the Analyze path where every step shows its full code with the file and line
 range (verified by `python tools/verify_doc_refs.py`), see
 [`../ANALYZE_BUTTON_WALKTHROUGH.md`](../ANALYZE_BUTTON_WALKTHROUGH.md).
 
+For the system picture first — context, layers, request lifecycle, agent
+handoffs, review state machine, guardrails, and persistence, each as a diagram
+with a short explanation — start with
+[`../ARCHITECTURE_DIAGRAMS.md`](../ARCHITECTURE_DIAGRAMS.md).
+
 ## Reading order
 
 The order below follows the data: an input arrives, the crew runs, the result is
