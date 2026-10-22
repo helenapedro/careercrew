@@ -286,14 +286,26 @@ button.cc-clear:hover {
 .cc-bullets .cc-bullet-body { min-width: 0; }
 .cc-bullets li p { margin: 0 0 8px; color: var(--cc-ink); font-size: 13.5px; line-height: 1.5; font-weight: 600; }
 .cc-cite {
-  display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   font-size: 12.5px; line-height: 1.45; color: var(--cc-ink-2);
   padding: 7px 9px; border-radius: 6px;
   background: var(--cc-soft); border: 1px solid var(--cc-line);
 }
+/* The label is smaller than the fact it introduces, so align by baseline
+   rather than flex-start: with flex-start the two sizes sit at different
+   baselines and the label reads as clipped. */
 .cc-cite .cc-cite-label {
-  flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--cc-muted); padding-top: 1px;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 11px;
+  /* 600 is a real face in the theme; 700 was synthesized and smeared the
+     thin strokes of the uppercase label at this size. */
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--cc-muted);
 }
 .cc-cite .cc-cite-fact { color: var(--cc-ink-2); }
 .cc-cite b { color: var(--cc-ink); font-weight: 650; }
